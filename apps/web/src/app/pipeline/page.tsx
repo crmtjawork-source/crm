@@ -45,11 +45,11 @@ export default function PipelinePage() {
     downloadCsv(`${pipeline!.name}.csv`, ["כותרת", "ליד", "שלב", "שווי"], rows);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!contactId || !pipeline) return;
     const contactName = contacts.find((c) => c.id === contactId)?.name ?? "";
-    addOpportunity({
+    await addOpportunity({
       contactId,
       pipelineId: pipeline.id,
       stageId: pipeline.stages[0].id,
@@ -62,10 +62,10 @@ export default function PipelinePage() {
     setShowForm(false);
   }
 
-  function handleNewPipeline(e: React.FormEvent) {
+  async function handleNewPipeline(e: React.FormEvent) {
     e.preventDefault();
     if (!newPipelineName.trim()) return;
-    const created = addPipeline(newPipelineName.trim());
+    const created = await addPipeline(newPipelineName.trim());
     setPipelineId(created.id);
     setNewPipelineName("");
     setShowNewPipeline(false);

@@ -11,16 +11,16 @@ const ROLE_LABELS: Record<MemberRole, string> = {
 };
 
 export default function TeamPage() {
-  const { members, currentMemberId, addMember, updateMemberRole, removeMember, setCurrentMember } = useStore();
+  const { members, currentMemberId, addMember, updateMemberRole, removeMember } = useStore();
   const [showInvite, setShowInvite] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<MemberRole>("agent");
 
-  function handleInvite(e: React.FormEvent) {
+  async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !email.trim()) return;
-    addMember(name.trim(), email.trim(), role);
+    await addMember(name.trim(), email.trim(), role);
     setName("");
     setEmail("");
     setRole("agent");
@@ -39,8 +39,9 @@ export default function TeamPage() {
         </button>
       </div>
       <p className="text-sm text-neutral-500 mb-6">
-        אין עדיין התחברות אמיתית — "מציג כ" למטה מדמה עם איזה משתמש אתה גולש, כדי לבדוק שהרשאות
-        התפקידים אכן מגבילות פעולות (למשל נציג לא יכול למחוק לידים או הזדמנויות).
+        הזמנה יוצרת רשומה ממתינה — האדם שהוזמן יקבל גישה בפועל רק לאחר שיירשם למערכת ויחובר לארגון (זרימת
+        קבלת הזמנה עוד לא מומשה). תפקיד נציג מגביל פעולות מסוימות (כמו מחיקת לידים או הזדמנויות) גם ברמת
+        מסד הנתונים, לא רק בממשק.
       </p>
 
       {showInvite && (
@@ -118,14 +119,6 @@ export default function TeamPage() {
                 <option value="admin">מנהל</option>
                 <option value="agent">נציג</option>
               </select>
-              {m.id !== currentMemberId && (
-                <button
-                  onClick={() => setCurrentMember(m.id)}
-                  className="text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:underline"
-                >
-                  הצג כ{ROLE_LABELS[m.role]} הזה
-                </button>
-              )}
               {m.role !== "owner" && m.id !== currentMemberId && (
                 <button onClick={() => removeMember(m.id)} className="text-xs text-neutral-400 hover:text-red-500">
                   הסרה

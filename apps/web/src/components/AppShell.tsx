@@ -5,6 +5,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { NotificationsBell } from "./NotificationsBell";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
+
+const ROLE_LABELS = { owner: "בעלים", admin: "מנהל", agent: "נציג" } as const;
 
 const NAV = [
   { href: "/dashboard", label: "לוח בקרה" },
@@ -44,7 +47,8 @@ function SearchBox() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { members, currentMemberId } = useStore();
+  const { members, currentMemberId, loading } = useStore();
+  const { session, signOut } = useAuth();
   const currentMember = members.find((m) => m.id === currentMemberId);
 
   return (
@@ -78,14 +82,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="mt-auto px-2 pb-3 pt-2 border-t border-neutral-200 dark:border-neutral-800 space-y-1">
           <NotificationsBell />
-          {currentMember && (
-            <Link href="/team" className="block px-3 py-1 text-xs text-neutral-400 hover:underline">
-              מציג כ{currentMember.name} ({currentMember.role === "owner" ? "בעלים" : currentMember.role === "admin" ? "מנהל" : "נציג"})
-            </Link>
-          )}
+          <div className="flex items-center justify-between px-3 py-1">
+            <span className="text-xs text-neutral-400 truncate">
+              {currentMember ? `${currentMember.name} · ${ROLE_LABELS[currentMember.role]}` : session?.user.email}
+            </span>
+            <button onClick={signOut} className="text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:underline shrink-0">
+              יציאה
+            </button>
+          </div>
         </div>
       </aside>
-      <div className="flex-1 min-w-0">{children}</div>
+      <div className="flex-1 min-w-0">{loading ? <div className="p-6 text-sm text-neutral-400">טוען…</div> : children}</div>
     </div>
   );
 }

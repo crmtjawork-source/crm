@@ -122,9 +122,9 @@ function StageColumn({
     if (draft.trim() && draft.trim() !== name) renameStage(pipelineId, stageId, draft.trim());
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     setError(null);
-    const res = deleteStage(pipelineId, stageId);
+    const res = await deleteStage(pipelineId, stageId);
     if (!res.ok) setError(res.reason ?? "לא ניתן למחוק.");
   }
 

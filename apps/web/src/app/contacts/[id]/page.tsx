@@ -51,10 +51,10 @@ export default function ContactDetailPage() {
     setEditingInfo(true);
   }
 
-  function saveInfo(e: React.FormEvent) {
+  async function saveInfo(e: React.FormEvent) {
     e.preventDefault();
     if (!contact || !name.trim()) return;
-    updateContact(contact.id, {
+    await updateContact(contact.id, {
       name: name.trim(),
       phone: phone.trim() || undefined,
       email: email.trim() || undefined,
@@ -63,32 +63,32 @@ export default function ContactDetailPage() {
     setEditingInfo(false);
   }
 
-  function handleDeleteContact() {
+  async function handleDeleteContact() {
     if (!contact) return;
     if (!confirm(`למחוק את ${contact.name}? הפעולה מוחקת גם את ההזדמנויות והפעילות שלו.`)) return;
-    deleteContact(contact.id);
+    await deleteContact(contact.id);
     router.push("/contacts");
   }
 
-  function handleAddTag(e: React.FormEvent) {
+  async function handleAddTag(e: React.FormEvent) {
     e.preventDefault();
     if (!newTag.trim() || !contact) return;
-    addTag(contact.id, newTag.trim());
+    await addTag(contact.id, newTag.trim());
     setNewTag("");
   }
 
-  function handleAddField(e: React.FormEvent) {
+  async function handleAddField(e: React.FormEvent) {
     e.preventDefault();
     if (!fieldKey.trim() || !contact) return;
-    updateContactFields(contact.id, { [fieldKey.trim()]: fieldValue.trim() });
+    await updateContactFields(contact.id, { [fieldKey.trim()]: fieldValue.trim() });
     setFieldKey("");
     setFieldValue("");
   }
 
-  function handleAddNote(e: React.FormEvent) {
+  async function handleAddNote(e: React.FormEvent) {
     e.preventDefault();
     if (!noteText.trim() || !contact) return;
-    addNote(contact.id, noteText.trim());
+    await addNote(contact.id, noteText.trim());
     setNoteText("");
   }
 

@@ -29,7 +29,7 @@ export default function AutomationsPage() {
 
   const selectedPipeline = pipelines.find((p) => p.id === pipelineId);
 
-  function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
     const trigger: Automation["trigger"] =
@@ -38,7 +38,7 @@ export default function AutomationsPage() {
         : triggerType === "tag_added"
         ? { type: "tag_added", tag: tag.trim() || undefined }
         : { type: "new_contact" };
-    const automation = addAutomation({ name: name.trim(), trigger });
+    const automation = await addAutomation({ name: name.trim(), trigger });
     setName("");
     setCreating(false);
     setExpandedId(automation.id);

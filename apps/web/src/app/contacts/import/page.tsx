@@ -56,7 +56,7 @@ export default function ImportContactsPage() {
     });
   }
 
-  function handleImport() {
+  async function handleImport() {
     const nameCol = findColumn(headers, NAME_ALIASES)!;
     const phoneCol = findColumn(headers, PHONE_ALIASES);
     const emailCol = findColumn(headers, EMAIL_ALIASES);
@@ -80,7 +80,7 @@ export default function ImportContactsPage() {
         };
       });
 
-    const count = importContacts(imported);
+    const count = await importContacts(imported);
     setImportedCount(count);
     setRows([]);
     setHeaders([]);

@@ -12,10 +12,10 @@ export default function NewContactPage() {
   const [email, setEmail] = useState("");
   const [source, setSource] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    const contact = addContact({
+    const contact = await addContact({
       name: name.trim(),
       phone: phone.trim() || undefined,
       email: email.trim() || undefined,

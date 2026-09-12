@@ -162,9 +162,9 @@ function FormPreview({ formId }: { formId: string }) {
 
   if (!form) return null;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const contact = submitForm(formId, values);
+    const contact = await submitForm(formId, values);
     if (contact) {
       setSubmittedName(contact.name);
       setValues({});

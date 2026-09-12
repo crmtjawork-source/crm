@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Heebo } from "next/font/google";
-import { StoreProvider } from "@/lib/store";
-import { AppShell } from "@/components/AppShell";
+import { AuthGate } from "@/components/AuthGate";
 import "./globals.css";
 
 const heebo = Heebo({
@@ -18,9 +17,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="he" dir="rtl" className={`${heebo.variable} h-full antialiased`}>
       <body className="min-h-full font-sans">
-        <StoreProvider>
-          <AppShell>{children}</AppShell>
-        </StoreProvider>
+        <AuthGate>{children}</AuthGate>
       </body>
     </html>
   );
