@@ -1,0 +1,17 @@
+{
+  "name": "@crm/db",
+  "private": true,
+  "version": "0.0.1",
+  "main": "src/schema.ts",
+  "types": "src/schema.ts",
+  "scripts": {
+    "generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.36.0"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.28.0",
+    "typescript": "^5"
+  }
+}
