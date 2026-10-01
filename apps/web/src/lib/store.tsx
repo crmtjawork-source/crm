@@ -1,8 +1,11 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "./supabaseClient";
+import { apiPost } from "./api";
 import type {
+  Channel,
+  LeadAdPage,
   Contact,
   Pipeline,
   Stage,
@@ -50,6 +53,8 @@ type State = {
   automations: Automation[];
   automationRuns: AutomationRun[];
   notifications: Notification[];
+  channels: Channel[];
+  leadAdPages: LeadAdPage[];
 };
 
 const emptyState: State = {
@@ -68,6 +73,8 @@ const emptyState: State = {
   automations: [],
   automationRuns: [],
   notifications: [],
+  channels: [],
+  leadAdPages: [],
 };
 
 type ContactPatch = Partial<Pick<Contact, "name" | "phone" | "email" | "source">>;
@@ -121,13 +128,15 @@ type Store = State & {
   removeMember: (id: string) => Promise<void>;
 
   addAutomation: (a: { name: string; trigger: Automation["trigger"] }) => Promise<Automation>;
-  updateAutomation: (id: string, patch: Partial<Pick<Automation, "name" | "trigger" | "active">>) => Promise<void>;
+  updateAutomation: (id: string, patch: Partial<Pick<Automation, "name" | "trigger" | "active" | "stopOnReply">>) => Promise<void>;
   deleteAutomation: (id: string) => Promise<void>;
   addAutomationStep: (automationId: string, step: Omit<AutomationStep, "id">) => Promise<void>;
   removeAutomationStep: (automationId: string, stepId: string) => Promise<void>;
 
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
+
+  reloadIntegrations: () => Promise<void>;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -235,6 +244,11 @@ function mapAutomationStep(r: Row): AutomationStep {
     id: r.id,
     type: r.type,
     message: r.message ?? undefined,
+    channelId: r.channel_id ?? undefined,
+    templateName: r.template_name ?? undefined,
+    templateLanguage: r.template_language ?? undefined,
+    templateParams: r.template_params ?? [],
+    templateButtonParam: r.template_button_param ?? undefined,
     waitMinutes: r.wait_minutes ?? undefined,
     tag: r.tag ?? undefined,
     notifyText: r.notify_text ?? undefined,
@@ -246,6 +260,7 @@ function mapAutomation(r: Row, stepRows: Row[]): Automation {
     id: r.id,
     name: r.name,
     active: r.active,
+    stopOnReply: r.stop_on_reply ?? true,
     trigger: {
       type: r.trigger_type,
       pipelineId: r.trigger_pipeline_id ?? undefined,
@@ -261,25 +276,56 @@ function mapAutomation(r: Row, stepRows: Row[]): Automation {
 }
 
 function mapAutomationRun(r: Row): AutomationRun {
-  return { id: r.id, automationId: r.automation_id, contactId: r.contact_id, ranAt: r.ran_at, stepsLog: r.steps_log ?? [] };
+  return {
+    id: r.id,
+    automationId: r.automation_id,
+    contactId: r.contact_id,
+    ranAt: r.ran_at,
+    status: r.status ?? "completed",
+    resumeAt: r.resume_at ?? undefined,
+    stepsLog: r.steps_log ?? [],
+  };
 }
 
 function mapNotification(r: Row): Notification {
   return { id: r.id, text: r.text, contactId: r.contact_id ?? undefined, createdAt: r.created_at, read: r.read };
 }
 
-function describeAutomationStep(step: AutomationStep): string {
-  switch (step.type) {
-    case "send_message":
-      return `נשלחה הודעה (מדומה): "${step.message ?? ""}"`;
-    case "wait":
-      return `המתנה מדומה של ${step.waitMinutes ?? 0} דקות`;
-    case "add_tag":
-      return `הוספת תגית "${step.tag ?? ""}"`;
-    case "notify":
-      return `התראה: "${step.notifyText ?? ""}"`;
-  }
+function mapChannel(r: Row): Channel {
+  return {
+    id: r.id,
+    name: r.name,
+    provider: r.provider,
+    externalId: r.external_id,
+    wabaId: r.waba_id ?? undefined,
+    displayPhone: r.display_phone ?? undefined,
+    ownerMembershipId: r.owner_membership_id ?? undefined,
+    isDefault: r.is_default,
+    active: r.active,
+    onboarding: r.onboarding ?? "manual",
+    onboardedAt: r.onboarded_at ?? undefined,
+    historySyncRequestedAt: r.history_sync_requested_at ?? undefined,
+    createdAt: r.created_at,
+  };
 }
+
+function mapLeadAdPage(r: Row): LeadAdPage {
+  return { id: r.id, pageId: r.page_id, pageName: r.page_name ?? undefined, createdAt: r.created_at };
+}
+
+function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
+  const i = list.findIndex((x) => x.id === item.id);
+  if (i === -1) return [...list, item];
+  const next = list.slice();
+  next[i] = item;
+  return next;
+}
+
+function mergeById<T extends { id: string }>(list: T[], items: T[]): T[] {
+  return items.reduce(upsertById, list);
+}
+
+type TriggerResult = { contact: Row | null; activities: Row[]; notifications: Row[]; runs: Row[] };
 
 export function StoreProvider({
   orgId,
@@ -317,6 +363,8 @@ export function StoreProvider({
         automationStepsRes,
         automationRunsRes,
         notificationsRes,
+        channelsRes,
+        leadAdPagesRes,
       ] = await Promise.all([
         supabase.from("contacts").select("*").order("created_at"),
         supabase.from("pipelines").select("*").order("created_at"),
@@ -336,6 +384,8 @@ export function StoreProvider({
         supabase.from("automation_steps").select("*"),
         supabase.from("automation_runs").select("*"),
         supabase.from("notifications").select("*").order("created_at", { ascending: false }),
+        supabase.from("channels").select("*").order("created_at"),
+        supabase.from("lead_ad_pages").select("*").order("created_at"),
       ]);
 
       if (cancelled) return;
@@ -384,6 +434,8 @@ export function StoreProvider({
         automations: (automationsRes.data ?? []).map((a: Row) => mapAutomation(a, automationStepRows)),
         automationRuns: (automationRunsRes.data ?? []).map(mapAutomationRun),
         notifications: (notificationsRes.data ?? []).map(mapNotification),
+        channels: (channelsRes.data ?? []).map(mapChannel),
+        leadAdPages: (leadAdPagesRes.data ?? []).map(mapLeadAdPage),
       });
       setLoading(false);
     }
@@ -394,66 +446,74 @@ export function StoreProvider({
     };
   }, [orgId, userId]);
 
-  // Automations: no real messaging connection yet, so send_message/wait are
-  // logged-only; add_tag and notify perform their real effect. Runs against
-  // the already-loaded `automations` list (avoids a re-query per trigger).
+  // Leads arriving from webhooks (Lead Ads, WhatsApp) and effects of
+  // automations resumed by the cron job happen outside this tab — stream
+  // them in so nobody has to refresh to see a new lead.
+  useEffect(() => {
+    const filter = `org_id=eq.${orgId}`;
+    const channel = supabase
+      .channel(`org-${orgId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "contacts", filter }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          const id = (payload.old as Row).id;
+          setState((s) => ({ ...s, contacts: s.contacts.filter((c) => c.id !== id) }));
+        } else {
+          const contact = mapContact(payload.new as Row);
+          setState((s) => ({ ...s, contacts: upsertById(s.contacts, contact) }));
+        }
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activities", filter }, (payload) => {
+        const activity = mapActivity(payload.new as Row);
+        setState((s) => ({ ...s, activities: upsertById(s.activities, activity) }));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter }, (payload) => {
+        if (payload.eventType === "DELETE") return;
+        const notification = mapNotification(payload.new as Row);
+        setState((s) => ({ ...s, notifications: upsertById(s.notifications, notification) }));
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orgId]);
+
+  const reloadIntegrations = useCallback(async () => {
+    const [channelsRes, pagesRes] = await Promise.all([
+      supabase.from("channels").select("*").order("created_at"),
+      supabase.from("lead_ad_pages").select("*").order("created_at"),
+    ]);
+    setState((s) => ({
+      ...s,
+      channels: (channelsRes.data ?? []).map(mapChannel),
+      leadAdPages: (pagesRes.data ?? []).map(mapLeadAdPage),
+    }));
+  }, []);
+
+  // Automations execute on the server (real WhatsApp sends, durable waits).
+  // The response carries whatever the immediate steps changed so the UI
+  // updates without waiting for realtime; merges are by id, so realtime
+  // delivering the same rows again is harmless.
   async function runAutomations(
-    automations: Automation[],
     type: AutomationTriggerType,
     contactId: string,
-    ctx: { pipelineId?: string; stageId?: string; tag?: string }
-  ): Promise<{ extraTags: string[]; activities: Activity[]; notifications: Notification[]; runs: AutomationRun[] }> {
-    const matched = automations.filter((a) => {
-      if (!a.active || a.trigger.type !== type) return false;
-      if (a.trigger.pipelineId && a.trigger.pipelineId !== ctx.pipelineId) return false;
-      if (a.trigger.stageId && a.trigger.stageId !== ctx.stageId) return false;
-      if (a.trigger.tag && a.trigger.tag !== ctx.tag) return false;
-      return true;
-    });
-    if (matched.length === 0) return { extraTags: [], activities: [], notifications: [], runs: [] };
-
-    const extraTags: string[] = [];
-    const activities: Activity[] = [];
-    const notifications: Notification[] = [];
-    const runs: AutomationRun[] = [];
-
-    for (const automation of matched) {
-      const stepsLog = automation.steps.map(describeAutomationStep);
-      automation.steps.forEach((step) => {
-        if (step.type === "add_tag" && step.tag) extraTags.push(step.tag);
-      });
-
-      const { data: activityRow } = await supabase
-        .from("activities")
-        .insert({
-          org_id: orgId,
-          contact_id: contactId,
-          type: "note",
-          text: `🤖 אוטומציה "${automation.name}" הופעלה: ${stepsLog.join(" ← ")}`,
-        })
-        .select()
-        .single();
-      if (activityRow) activities.push(mapActivity(activityRow));
-
-      const { data: runRow } = await supabase
-        .from("automation_runs")
-        .insert({ org_id: orgId, automation_id: automation.id, contact_id: contactId, steps_log: stepsLog })
-        .select()
-        .single();
-      if (runRow) runs.push(mapAutomationRun(runRow));
-
-      for (const step of automation.steps) {
-        if (step.type !== "notify") continue;
-        const { data: notifRow } = await supabase
-          .from("notifications")
-          .insert({ org_id: orgId, contact_id: contactId, text: step.notifyText || `אוטומציה "${automation.name}" רצה` })
-          .select()
-          .single();
-        if (notifRow) notifications.push(mapNotification(notifRow));
-      }
+    ctx: { pipelineId?: string; stageId?: string; tag?: string } = {}
+  ): Promise<void> {
+    const hasCandidate = state.automations.some((a) => a.active && a.trigger.type === type);
+    if (!hasCandidate) return;
+    try {
+      const result = await apiPost<TriggerResult>("/api/automations/trigger", { type, contactId, ctx });
+      setState((s) => ({
+        ...s,
+        contacts: result.contact ? upsertById(s.contacts, mapContact(result.contact)) : s.contacts,
+        activities: mergeById(s.activities, result.activities.map(mapActivity)),
+        notifications: mergeById(s.notifications, result.notifications.map(mapNotification)),
+        automationRuns: mergeById(s.automationRuns, result.runs.map(mapAutomationRun)),
+      }));
+    } catch (err) {
+      // The lead/tag/stage change itself already succeeded — don't fail it
+      // because an automation couldn't run.
+      console.error("automation trigger failed", err);
     }
-
-    return { extraTags, activities, notifications, runs };
   }
 
   const getContact: Store["getContact"] = (id) => state.contacts.find((c) => c.id === id);
@@ -468,26 +528,9 @@ export function StoreProvider({
       .select()
       .single();
     if (error || !data) throw error;
-    let contact = mapContact(data);
-
-    const { extraTags, activities, notifications, runs } = await runAutomations(state.automations, "new_contact", contact.id, {});
-    if (extraTags.length) {
-      const { data: updated } = await supabase
-        .from("contacts")
-        .update({ tags: extraTags })
-        .eq("id", contact.id)
-        .select()
-        .single();
-      if (updated) contact = mapContact(updated);
-    }
-
-    setState((s) => ({
-      ...s,
-      contacts: [...s.contacts, contact],
-      activities: [...s.activities, ...activities],
-      notifications: [...notifications, ...s.notifications],
-      automationRuns: [...s.automationRuns, ...runs],
-    }));
+    const contact = mapContact(data);
+    setState((s) => ({ ...s, contacts: upsertById(s.contacts, contact) }));
+    await runAutomations("new_contact", contact.id);
     return contact;
   };
 
@@ -533,17 +576,14 @@ export function StoreProvider({
     const contact = state.contacts.find((c) => c.id === contactId);
     if (!contact || contact.tags.includes(tag)) return;
 
-    const { extraTags, activities, notifications, runs } = await runAutomations(state.automations, "tag_added", contactId, { tag });
-    const newTags = Array.from(new Set([...contact.tags, tag, ...extraTags]));
-    const { data } = await supabase.from("contacts").update({ tags: newTags }).eq("id", contactId).select().single();
-
-    setState((s) => ({
-      ...s,
-      contacts: data ? s.contacts.map((c) => (c.id === contactId ? mapContact(data) : c)) : s.contacts,
-      activities: [...s.activities, ...activities],
-      notifications: [...notifications, ...s.notifications],
-      automationRuns: [...s.automationRuns, ...runs],
-    }));
+    const { data } = await supabase
+      .from("contacts")
+      .update({ tags: [...contact.tags, tag] })
+      .eq("id", contactId)
+      .select()
+      .single();
+    if (data) setState((s) => ({ ...s, contacts: upsertById(s.contacts, mapContact(data)) }));
+    await runAutomations("tag_added", contactId, { tag });
   };
 
   const removeTag: Store["removeTag"] = async (contactId, tag) => {
@@ -623,29 +663,12 @@ export function StoreProvider({
       .select()
       .single();
 
-    const { extraTags, activities, notifications, runs } = await runAutomations(state.automations, "stage_change", opp.contactId, {
-      pipelineId: opp.pipelineId,
-      stageId,
-    });
-
-    let updatedContact: Contact | null = null;
-    if (extraTags.length) {
-      const contact = state.contacts.find((c) => c.id === opp.contactId);
-      if (contact) {
-        const newTags = Array.from(new Set([...contact.tags, ...extraTags]));
-        const { data: cData } = await supabase.from("contacts").update({ tags: newTags }).eq("id", contact.id).select().single();
-        if (cData) updatedContact = mapContact(cData);
-      }
-    }
-
     setState((s) => ({
       ...s,
       opportunities: data ? s.opportunities.map((o) => (o.id === opportunityId ? mapOpportunity(data) : o)) : s.opportunities,
-      contacts: updatedContact ? s.contacts.map((c) => (c.id === updatedContact!.id ? updatedContact! : c)) : s.contacts,
-      activities: [...s.activities, ...(activityRow ? [mapActivity(activityRow)] : []), ...activities],
-      notifications: [...notifications, ...s.notifications],
-      automationRuns: [...s.automationRuns, ...runs],
+      activities: activityRow ? upsertById(s.activities, mapActivity(activityRow)) : s.activities,
     }));
+    await runAutomations("stage_change", opp.contactId, { pipelineId: opp.pipelineId, stageId });
   };
 
   const addNote: Store["addNote"] = async (contactId, text) => {
@@ -896,6 +919,7 @@ export function StoreProvider({
     const payload: Row = {};
     if (patch.name !== undefined) payload.name = patch.name;
     if (patch.active !== undefined) payload.active = patch.active;
+    if (patch.stopOnReply !== undefined) payload.stop_on_reply = patch.stopOnReply;
     if (patch.trigger !== undefined) {
       payload.trigger_type = patch.trigger.type;
       payload.trigger_pipeline_id = patch.trigger.pipelineId ?? null;
@@ -920,6 +944,11 @@ export function StoreProvider({
         automation_id: automationId,
         type: step.type,
         message: step.message,
+        channel_id: step.channelId || null,
+        template_name: step.templateName || null,
+        template_language: step.templateLanguage || null,
+        template_params: step.templateParams ?? [],
+        template_button_param: step.templateButtonParam || null,
         wait_minutes: step.waitMinutes,
         tag: step.tag,
         notify_text: step.notifyText,
@@ -1004,6 +1033,7 @@ export function StoreProvider({
         removeAutomationStep,
         markNotificationRead,
         markAllNotificationsRead,
+        reloadIntegrations,
       }}
     >
       {children}

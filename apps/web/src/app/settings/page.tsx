@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
+import { IntegrationsSettings } from "@/components/settings/IntegrationsSettings";
 
 export default function SettingsPage() {
   const { fieldDefs, addFieldDef, removeFieldDef } = useStore();
@@ -16,8 +17,11 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-md">
-      <h1 className="text-xl font-bold mb-1">הגדרות</h1>
+    <div className="p-6 max-w-2xl">
+      <h1 className="text-xl font-bold mb-6">הגדרות</h1>
+      <IntegrationsSettings />
+
+      <h2 className="text-base font-semibold mb-1">שדות מותאמים אישית</h2>
       <p className="text-sm text-neutral-500 mb-6">
         שמות שדות מותאמים אישית. הגדרה כאן גורמת לשם להופיע כהצעה כשמוסיפים שדה לליד, כדי שלא ייווצרו כפילויות כמו &quot;תקציב&quot; ו&quot;Budget&quot;.
       </p>

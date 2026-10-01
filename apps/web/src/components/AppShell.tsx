@@ -12,6 +12,7 @@ const ROLE_LABELS = { owner: "בעלים", admin: "מנהל", agent: "נציג" 
 const NAV = [
   { href: "/dashboard", label: "לוח בקרה" },
   { href: "/contacts", label: "לידים" },
+  { href: "/inbox", label: "שיחות" },
   { href: "/pipeline", label: "פייפליין" },
   { href: "/calendar", label: "יומן" },
   { href: "/automations", label: "אוטומציות" },
@@ -20,8 +21,6 @@ const NAV = [
   { href: "/team", label: "צוות" },
   { href: "/settings", label: "הגדרות" },
 ];
-
-const NAV_SOON = ["שיחות"];
 
 function SearchBox() {
   const router = useRouter();
@@ -73,12 +72,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
-          <div className="mt-4 px-3 text-xs text-neutral-400">בקרוב</div>
-          {NAV_SOON.map((label) => (
-            <div key={label} className="rounded-md px-3 py-2 text-sm text-neutral-400 cursor-not-allowed">
-              {label}
-            </div>
-          ))}
         </nav>
         <div className="mt-auto px-2 pb-3 pt-2 border-t border-neutral-200 dark:border-neutral-800 space-y-1">
           <NotificationsBell />

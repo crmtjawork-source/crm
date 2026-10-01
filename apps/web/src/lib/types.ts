@@ -120,7 +120,12 @@ export type AutomationStepType = "send_message" | "wait" | "add_tag" | "notify";
 export type AutomationStep = {
   id: string;
   type: AutomationStepType;
-  message?: string; // send_message
+  message?: string; // send_message (free text, only inside the 24h window)
+  channelId?: string; // send_message: which number sends it; empty = org default
+  templateName?: string; // send_message: approved WhatsApp template
+  templateLanguage?: string;
+  templateParams?: string[]; // body {{1}}, {{2}}… — may use {{name}}, {{first_name}}, {{field:X}}
+  templateButtonParam?: string; // suffix for the template's first (dynamic URL) button, e.g. {{booking_token}}
   waitMinutes?: number; // wait
   tag?: string; // add_tag
   notifyText?: string; // notify
@@ -130,17 +135,71 @@ export type Automation = {
   id: string;
   name: string;
   active: boolean;
+  stopOnReply: boolean;
   trigger: AutomationTrigger;
   steps: AutomationStep[];
   createdAt: string;
 };
+
+export type AutomationRunStatus = "running" | "waiting" | "completed" | "failed" | "cancelled";
 
 export type AutomationRun = {
   id: string;
   automationId: string;
   contactId: string;
   ranAt: string;
+  status: AutomationRunStatus;
+  resumeAt?: string;
   stepsLog: string[];
+};
+
+export type Channel = {
+  id: string;
+  name: string;
+  provider: "whatsapp_cloud";
+  externalId: string; // phone_number_id
+  wabaId?: string;
+  displayPhone?: string;
+  ownerMembershipId?: string;
+  isDefault: boolean;
+  active: boolean;
+  // coexistence = also live in the WhatsApp Business app on the phone
+  onboarding: "manual" | "embedded_signup" | "coexistence";
+  onboardedAt?: string;
+  historySyncRequestedAt?: string;
+  createdAt: string;
+};
+
+export type LeadAdPage = {
+  id: string;
+  pageId: string;
+  pageName?: string;
+  createdAt: string;
+};
+
+export type Conversation = {
+  id: string;
+  channelId: string;
+  contactId: string;
+  lastMessageAt?: string;
+  lastMessagePreview?: string;
+  lastInboundAt?: string;
+  unreadCount: number;
+  createdAt: string;
+};
+
+export type MessageStatus = "pending" | "sent" | "delivered" | "read" | "failed" | "received";
+
+export type Message = {
+  id: string;
+  conversationId: string;
+  direction: "inbound" | "outbound";
+  origin?: "crm" | "automation" | "phone_app" | "history";
+  type: string;
+  body?: string;
+  status: MessageStatus;
+  error?: string;
+  createdAt: string;
 };
 
 export type Notification = {

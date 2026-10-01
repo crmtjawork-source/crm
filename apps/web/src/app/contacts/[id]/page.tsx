@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 
@@ -148,6 +149,11 @@ export default function ContactDetailPage() {
 
       {!editingInfo && (
         <div className="flex gap-3 mb-4 text-xs">
+          {contact.phone && (
+            <Link href={`/inbox?contact=${contact.id}`} className="text-emerald-600 hover:underline">
+              שיחה בוואטסאפ
+            </Link>
+          )}
           <button onClick={startEdit} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:underline">
             עריכת פרטים
           </button>

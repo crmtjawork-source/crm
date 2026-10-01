@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import type { Automation, AutomationStepType, AutomationTriggerType } from "@/lib/types";
+import type { Automation, AutomationStep, AutomationStepType, AutomationTriggerType, Channel } from "@/lib/types";
 
 const TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
   new_contact: "ליד חדש נוצר",
@@ -11,11 +11,13 @@ const TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
 };
 
 const STEP_LABELS: Record<AutomationStepType, string> = {
-  send_message: "שליחת הודעה (מדומה)",
+  send_message: "שליחת הודעת וואטסאפ",
   wait: "המתנה",
   add_tag: "הוספת תגית",
   notify: "התראה פנימית",
 };
+
+const inputClass = "px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 export default function AutomationsPage() {
   const { automations, pipelines, addAutomation, updateAutomation, deleteAutomation } = useStore();
@@ -56,8 +58,10 @@ export default function AutomationsPage() {
         </button>
       </div>
       <p className="text-sm text-neutral-500 mb-6">
-        רצפים לינאריים: טריגר ואז שרשרת צעדים. אין עדיין חיבור לוואטסאפ אמיתי — צעדי &quot;שליחת הודעה&quot; ו&quot;המתנה&quot;
-        רק נרשמים בציר הזמן של הלקוח כדי לבדוק את הזרימה; &quot;הוספת תגית&quot; ו&quot;התראה&quot; פועלים במלואם.
+        רצפים לינאריים: טריגר ואז שרשרת צעדים שרצים בשרת. הודעה ראשונה לליד (או אחרי 24 שעות בלי תגובה ממנו) חייבת להיות
+        תבנית מאושרת של וואטסאפ; טקסט חופשי עובד רק בתוך 24 שעות מההודעה האחרונה שלו. אפשר לבחור מאיזה מספר כל הודעה יוצאת.
+        אפשר להשתמש ב-{"{{first_name}}"}, {"{{name}}"}, {"{{field:שם שדה}}"} בתוכן ובפרמטרים, וב-{"{{booking_token}}"} כסיומת לכפתור
+        קישור אישי לקביעת שיחה.
       </p>
 
       {creating && (
@@ -151,6 +155,7 @@ export default function AutomationsPage() {
             expanded={expandedId === a.id}
             onToggle={() => setExpandedId(expandedId === a.id ? null : a.id)}
             onToggleActive={() => updateAutomation(a.id, { active: !a.active })}
+            onToggleStopOnReply={() => updateAutomation(a.id, { stopOnReply: !a.stopOnReply })}
             onDelete={() => deleteAutomation(a.id)}
           />
         ))}
@@ -171,32 +176,81 @@ function triggerSummary(automation: Automation, pipelines: ReturnType<typeof use
   return `${TRIGGER_LABELS.tag_added}${t.tag ? ` — "${t.tag}"` : ""}`;
 }
 
+function stepSummary(step: AutomationStep, channels: Channel[]): string {
+  switch (step.type) {
+    case "send_message": {
+      const channel = channels.find((c) => c.id === step.channelId);
+      const from = ` · מ${channel ? channel.name : "מספר ברירת המחדל"}`;
+      if (step.templateName) {
+        const params = step.templateParams?.length ? ` (${step.templateParams.join(", ")})` : "";
+        const button = step.templateButtonParam ? ` · קישור: ${step.templateButtonParam}` : "";
+        return `: תבנית "${step.templateName}"${params}${button}${from}`;
+      }
+      return `: "${step.message ?? ""}"${from}`;
+    }
+    case "wait":
+      return `: ${step.waitMinutes} דק'`;
+    case "add_tag":
+      return `: "${step.tag}"`;
+    case "notify":
+      return `: "${step.notifyText}"`;
+  }
+}
+
 function AutomationRow({
   automation,
   expanded,
   onToggle,
   onToggleActive,
+  onToggleStopOnReply,
   onDelete,
 }: {
   automation: Automation;
   expanded: boolean;
   onToggle: () => void;
   onToggleActive: () => void;
+  onToggleStopOnReply: () => void;
   onDelete: () => void;
 }) {
-  const { pipelines, automationRuns, addAutomationStep, removeAutomationStep } = useStore();
+  const { pipelines, channels, automationRuns, addAutomationStep, removeAutomationStep } = useStore();
   const [stepType, setStepType] = useState<AutomationStepType>("send_message");
   const [stepValue, setStepValue] = useState("");
   const [waitMinutes, setWaitMinutes] = useState("60");
-  const runCount = automationRuns.filter((r) => r.automationId === automation.id).length;
+  const [channelId, setChannelId] = useState("");
+  const [messageMode, setMessageMode] = useState<"template" | "text">("template");
+  const [templateName, setTemplateName] = useState("");
+  const [templateLanguage, setTemplateLanguage] = useState("he");
+  const [templateParams, setTemplateParams] = useState("");
+  const [templateButtonParam, setTemplateButtonParam] = useState("");
+  const runs = automationRuns.filter((r) => r.automationId === automation.id);
+  const waitingCount = runs.filter((r) => r.status === "waiting").length;
+  const activeChannels = channels.filter((c) => c.active);
 
   function handleAddStep(e: React.FormEvent) {
     e.preventDefault();
     if (stepType === "wait") {
       addAutomationStep(automation.id, { type: "wait", waitMinutes: Number(waitMinutes) || 0 });
     } else if (stepType === "send_message") {
-      if (!stepValue.trim()) return;
-      addAutomationStep(automation.id, { type: "send_message", message: stepValue.trim() });
+      if (messageMode === "template") {
+        if (!templateName.trim()) return;
+        addAutomationStep(automation.id, {
+          type: "send_message",
+          channelId: channelId || undefined,
+          templateName: templateName.trim(),
+          templateLanguage: templateLanguage.trim() || "he",
+          templateParams: templateParams
+            .split("|")
+            .map((p) => p.trim())
+            .filter(Boolean),
+          templateButtonParam: templateButtonParam.trim() || undefined,
+        });
+        setTemplateName("");
+        setTemplateParams("");
+        setTemplateButtonParam("");
+      } else {
+        if (!stepValue.trim()) return;
+        addAutomationStep(automation.id, { type: "send_message", channelId: channelId || undefined, message: stepValue.trim() });
+      }
     } else if (stepType === "add_tag") {
       if (!stepValue.trim()) return;
       addAutomationStep(automation.id, { type: "add_tag", tag: stepValue.trim() });
@@ -213,10 +267,15 @@ function AutomationRow({
         <button onClick={onToggle} className="text-start flex-1">
           <p className="font-medium text-sm">{automation.name}</p>
           <p className="text-xs text-neutral-500">
-            {triggerSummary(automation, pipelines)} · {automation.steps.length} צעדים · {runCount} הפעלות
+            {triggerSummary(automation, pipelines)} · {automation.steps.length} צעדים · {runs.length} הפעלות
+            {waitingCount > 0 && ` · ${waitingCount} ממתינות להמשך`}
           </p>
         </button>
         <div className="flex items-center gap-3 text-xs shrink-0">
+          <label className="flex items-center gap-1" title="ליד שעונה בוואטסאפ יוצא מהרצף ולא יקבל את ההודעות הבאות">
+            <input type="checkbox" checked={automation.stopOnReply} onChange={onToggleStopOnReply} />
+            עצירה כשהליד עונה
+          </label>
           <label className="flex items-center gap-1">
             <input type="checkbox" checked={automation.active} onChange={onToggleActive} />
             פעיל
@@ -231,15 +290,12 @@ function AutomationRow({
         <div className="mt-4 border-t border-neutral-200 dark:border-neutral-800 pt-3">
           <ol className="space-y-2 mb-3">
             {automation.steps.map((step, i) => (
-              <li key={step.id} className="flex items-center justify-between text-sm bg-neutral-50 dark:bg-neutral-900 rounded-md px-3 py-2">
+              <li key={step.id} className="flex items-center justify-between gap-2 text-sm bg-neutral-50 dark:bg-neutral-900 rounded-md px-3 py-2">
                 <span>
                   {i + 1}. {STEP_LABELS[step.type]}
-                  {step.type === "send_message" && `: "${step.message}"`}
-                  {step.type === "wait" && `: ${step.waitMinutes} דק'`}
-                  {step.type === "add_tag" && `: "${step.tag}"`}
-                  {step.type === "notify" && `: "${step.notifyText}"`}
+                  {stepSummary(step, channels)}
                 </span>
-                <button onClick={() => removeAutomationStep(automation.id, step.id)} className="text-neutral-400 hover:text-red-500 text-xs">
+                <button onClick={() => removeAutomationStep(automation.id, step.id)} className="text-neutral-400 hover:text-red-500 text-xs shrink-0">
                   הסרה
                 </button>
               </li>
@@ -247,36 +303,93 @@ function AutomationRow({
             {automation.steps.length === 0 && <p className="text-sm text-neutral-400">אין עדיין צעדים.</p>}
           </ol>
 
-          <form onSubmit={handleAddStep} className="flex flex-wrap gap-2">
-            <select
-              value={stepType}
-              onChange={(e) => setStepType(e.target.value as AutomationStepType)}
-              className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
-            >
-              {Object.entries(STEP_LABELS).map(([v, label]) => (
-                <option key={v} value={v}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            {stepType === "wait" ? (
-              <input
-                value={waitMinutes}
-                onChange={(e) => setWaitMinutes(e.target.value)}
-                type="number"
-                placeholder="דקות"
-                className="w-28 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
-              />
-            ) : (
-              <input
+          <form onSubmit={handleAddStep} className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <select value={stepType} onChange={(e) => setStepType(e.target.value as AutomationStepType)} className={inputClass}>
+                {Object.entries(STEP_LABELS).map(([v, label]) => (
+                  <option key={v} value={v}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              {stepType === "wait" && (
+                <input
+                  value={waitMinutes}
+                  onChange={(e) => setWaitMinutes(e.target.value)}
+                  type="number"
+                  min={0}
+                  placeholder="דקות"
+                  className={`w-28 ${inputClass}`}
+                />
+              )}
+              {(stepType === "add_tag" || stepType === "notify") && (
+                <input
+                  value={stepValue}
+                  onChange={(e) => setStepValue(e.target.value)}
+                  placeholder={stepType === "add_tag" ? "שם התגית" : "טקסט ההתראה"}
+                  className={`flex-1 min-w-[10rem] ${inputClass}`}
+                />
+              )}
+              {stepType === "send_message" && (
+                <>
+                  <select value={channelId} onChange={(e) => setChannelId(e.target.value)} className={inputClass} title="מאיזה מספר ההודעה יוצאת">
+                    <option value="">מספר ברירת המחדל</option>
+                    {activeChannels.map((ch) => (
+                      <option key={ch.id} value={ch.id}>
+                        {ch.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select value={messageMode} onChange={(e) => setMessageMode(e.target.value as "template" | "text")} className={inputClass}>
+                    <option value="template">תבנית מאושרת</option>
+                    <option value="text">טקסט חופשי (רק בתוך 24 שעות)</option>
+                  </select>
+                </>
+              )}
+            </div>
+
+            {stepType === "send_message" && messageMode === "template" && (
+              <div className="flex flex-wrap gap-2">
+                <input
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="שם התבנית"
+                  dir="ltr"
+                  className={`flex-1 min-w-[10rem] ${inputClass}`}
+                />
+                <input
+                  value={templateLanguage}
+                  onChange={(e) => setTemplateLanguage(e.target.value)}
+                  dir="ltr"
+                  title="קוד שפה"
+                  className={`w-16 ${inputClass}`}
+                />
+                <input
+                  value={templateParams}
+                  onChange={(e) => setTemplateParams(e.target.value)}
+                  placeholder="פרמטרים מופרדים ב-| (למשל {{first_name}} | חוליאן)"
+                  className={`flex-[2] min-w-[14rem] ${inputClass}`}
+                />
+                <input
+                  value={templateButtonParam}
+                  onChange={(e) => setTemplateButtonParam(e.target.value)}
+                  placeholder="סיומת לכפתור הקישור (למשל {{booking_token}})"
+                  title="לתבנית עם כפתור קישור דינמי — הכפתור הזה חייב להיות הראשון בתבנית"
+                  dir="ltr"
+                  className={`w-full ${inputClass}`}
+                />
+              </div>
+            )}
+            {stepType === "send_message" && messageMode === "text" && (
+              <textarea
                 value={stepValue}
                 onChange={(e) => setStepValue(e.target.value)}
-                placeholder={
-                  stepType === "send_message" ? "תוכן ההודעה" : stepType === "add_tag" ? "שם התגית" : "טקסט ההתראה"
-                }
-                className="flex-1 min-w-[10rem] px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                rows={3}
+                placeholder="תוכן ההודעה — למשל: היי {{first_name}}, ניסיתי לחייג ולא היה מענה…"
+                className={`w-full ${inputClass}`}
               />
             )}
+
             <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
               הוספת צעד
             </button>
