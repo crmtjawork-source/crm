@@ -44,7 +44,7 @@ export const invitations = pgTable("invitations", {
 // ============================= Leads (contacts) =============================
 
 export const activityType = pgEnum("activity_type", ["note", "stage_change"]);
-export const automationTriggerType = pgEnum("automation_trigger_type", ["new_contact", "stage_change", "tag_added"]);
+export const automationTriggerType = pgEnum("automation_trigger_type", ["new_contact", "stage_change", "tag_added", "appointment_booked"]);
 export const automationStepType = pgEnum("automation_step_type", ["send_message", "wait", "add_tag", "notify"]);
 export const formFieldType = pgEnum("form_field_type", ["text", "phone", "email", "textarea"]);
 
@@ -133,6 +133,7 @@ export const appointmentTypes = pgTable("appointment_types", {
   orgId: uuid("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   durationMinutes: integer("duration_minutes").notNull().default(30),
+  publicBooking: boolean("public_booking").notNull().default(false), // offered on the lead's booking page
 });
 
 export const appointments = pgTable("appointments", {
@@ -186,6 +187,7 @@ export const automations = pgTable("automations", {
   triggerPipelineId: uuid("trigger_pipeline_id").references(() => pipelines.id, { onDelete: "cascade" }),
   triggerStageId: uuid("trigger_stage_id").references(() => stages.id, { onDelete: "cascade" }),
   triggerTag: text("trigger_tag"),
+  triggerSource: text("trigger_source"), // e.g. "meta_lead_ads"; null = any source
   stopOnReply: boolean("stop_on_reply").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

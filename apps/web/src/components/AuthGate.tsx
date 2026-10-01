@@ -11,14 +11,16 @@ function Gate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === "/login";
+  // Pages for leads, not staff: no login, no app chrome.
+  const isPublicPage = pathname.startsWith("/book/");
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || isPublicPage) return;
     if (!session && !isLoginPage) router.replace("/login");
     if (session && isLoginPage) router.replace("/dashboard");
-  }, [loading, session, isLoginPage, router]);
+  }, [loading, session, isLoginPage, isPublicPage, router]);
 
-  if (isLoginPage) return <>{children}</>;
+  if (isLoginPage || isPublicPage) return <>{children}</>;
 
   if (loading || !session) {
     return <div className="min-h-screen flex items-center justify-center text-sm text-neutral-400">טוען…</div>;

@@ -172,6 +172,6 @@ export async function handleLeadgenChange(db: Db, value: Row): Promise<string | 
   // Mark processed before running automations: a crash while sending the
   // welcome message must not re-create the lead on retry.
   await db.from("lead_ad_submissions").update({ contact_id: contactId }).eq("leadgen_id", leadgenId);
-  if (!existing) await triggerAutomations(db, page.org_id, "new_contact", contactId);
+  if (!existing) await triggerAutomations(db, page.org_id, "new_contact", contactId, { source: "meta_lead_ads" });
   return null;
 }

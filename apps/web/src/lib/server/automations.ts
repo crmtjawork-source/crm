@@ -2,8 +2,10 @@ import "server-only";
 import type { Db } from "./supabaseAdmin";
 import { sendToContact, type OutgoingContent } from "./whatsapp";
 
-export type TriggerType = "new_contact" | "stage_change" | "tag_added";
-export type TriggerCtx = { pipelineId?: string; stageId?: string; tag?: string };
+export type TriggerType = "new_contact" | "stage_change" | "tag_added" | "appointment_booked";
+// source: where the lead came from, matched against automations.trigger_source
+// (e.g. "meta_lead_ads"). Leads created by hand or by import pass none.
+export type TriggerCtx = { pipelineId?: string; stageId?: string; tag?: string; source?: string };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
@@ -40,6 +42,7 @@ export async function triggerAutomations(
     if (a.trigger_pipeline_id && a.trigger_pipeline_id !== ctx.pipelineId) return false;
     if (a.trigger_stage_id && a.trigger_stage_id !== ctx.stageId) return false;
     if (a.trigger_tag && a.trigger_tag !== ctx.tag) return false;
+    if (a.trigger_source && a.trigger_source !== ctx.source) return false;
     return true;
   });
 

@@ -15,6 +15,7 @@ export default function CalendarPage() {
     addAppointment,
     deleteAppointment,
     addAppointmentType,
+    setAppointmentTypePublic,
     setAvailability,
   } = useStore();
 
@@ -145,7 +146,7 @@ export default function CalendarPage() {
               >
                 {appointmentTypes.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name} ({t.durationMinutes} דק')
+                    {t.name} ({t.durationMinutes} דק&apos;)
                   </option>
                 ))}
               </select>
@@ -223,11 +224,23 @@ export default function CalendarPage() {
         </div>
         <div className="flex flex-wrap gap-2 mb-3">
           {appointmentTypes.map((t) => (
-            <span key={t.id} className="text-xs px-2 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800">
-              {t.name} · {t.durationMinutes} דק'
-            </span>
+            <button
+              key={t.id}
+              onClick={() => setAppointmentTypePublic(t.id, !t.publicBooking)}
+              title="לחיצה מסמנת/מבטלת את הסוג הזה לקביעה עצמית בקישור האישי של הליד"
+              className={`text-xs px-2 py-1 rounded-full ${
+                t.publicBooking
+                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200"
+                  : "bg-neutral-100 dark:bg-neutral-800"
+              }`}
+            >
+              {t.name} · {t.durationMinutes} דק&apos;{t.publicBooking && " · 🔗 קביעה עצמית"}
+            </button>
           ))}
         </div>
+        <p className="text-xs text-neutral-400 mb-3">
+          לחיצה על סוג פגישה מסמנת אותו לקביעה עצמית: לידים יוכלו לבחור שעה פנויה בקישור האישי שלהם, לפי הזמינות השבועית למטה.
+        </p>
         {showTypeForm && (
           <form onSubmit={handleAddType} className="flex gap-2">
             <input

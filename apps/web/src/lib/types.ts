@@ -60,6 +60,7 @@ export type AppointmentType = {
   id: string;
   name: string;
   durationMinutes: number;
+  publicBooking: boolean; // leads can book it themselves via their personal link
 };
 
 export type Appointment = {
@@ -106,13 +107,14 @@ export type Member = {
   createdAt: string;
 };
 
-export type AutomationTriggerType = "new_contact" | "stage_change" | "tag_added";
+export type AutomationTriggerType = "new_contact" | "stage_change" | "tag_added" | "appointment_booked";
 
 export type AutomationTrigger = {
   type: AutomationTriggerType;
   pipelineId?: string; // stage_change
   stageId?: string; // stage_change
   tag?: string; // tag_added
+  source?: "meta_lead_ads"; // new_contact: only leads from this source; empty = any
 };
 
 export type AutomationStepType = "send_message" | "wait" | "add_tag" | "notify";

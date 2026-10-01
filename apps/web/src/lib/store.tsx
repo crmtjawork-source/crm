@@ -113,6 +113,7 @@ type Store = State & {
   removeFieldDef: (name: string) => Promise<void>;
 
   addAppointmentType: (name: string, durationMinutes: number) => Promise<void>;
+  setAppointmentTypePublic: (id: string, publicBooking: boolean) => Promise<void>;
   addAppointment: (a: { contactId?: string; typeId: string; title: string; startAt: string; endAt: string; notes?: string }) => Promise<Appointment>;
   updateAppointment: (id: string, patch: Partial<Pick<Appointment, "title" | "startAt" | "endAt" | "notes">>) => Promise<void>;
   deleteAppointment: (id: string) => Promise<void>;
@@ -203,7 +204,7 @@ function mapTask(r: Row): Task {
 }
 
 function mapAppointmentType(r: Row): AppointmentType {
-  return { id: r.id, name: r.name, durationMinutes: r.duration_minutes };
+  return { id: r.id, name: r.name, durationMinutes: r.duration_minutes, publicBooking: r.public_booking ?? false };
 }
 
 function mapAppointment(r: Row): Appointment {
@@ -266,6 +267,7 @@ function mapAutomation(r: Row, stepRows: Row[]): Automation {
       pipelineId: r.trigger_pipeline_id ?? undefined,
       stageId: r.trigger_stage_id ?? undefined,
       tag: r.trigger_tag ?? undefined,
+      source: r.trigger_source ?? undefined,
     },
     steps: stepRows
       .filter((s) => s.automation_id === r.id)
@@ -465,6 +467,15 @@ export function StoreProvider({
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "activities", filter }, (payload) => {
         const activity = mapActivity(payload.new as Row);
         setState((s) => ({ ...s, activities: upsertById(s.activities, activity) }));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          const id = (payload.old as Row).id;
+          setState((s) => ({ ...s, appointments: s.appointments.filter((a) => a.id !== id) }));
+        } else {
+          const appointment = mapAppointment(payload.new as Row);
+          setState((s) => ({ ...s, appointments: upsertById(s.appointments, appointment) }));
+        }
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter }, (payload) => {
         if (payload.eventType === "DELETE") return;
@@ -771,6 +782,19 @@ export function StoreProvider({
     if (data) setState((s) => ({ ...s, appointmentTypes: [...s.appointmentTypes, mapAppointmentType(data)] }));
   };
 
+  // Only one type is offered on the lead's booking page, so enabling one
+  // disables the others.
+  const setAppointmentTypePublic: Store["setAppointmentTypePublic"] = async (id, publicBooking) => {
+    if (publicBooking) await supabase.from("appointment_types").update({ public_booking: false }).eq("org_id", orgId).neq("id", id);
+    await supabase.from("appointment_types").update({ public_booking: publicBooking }).eq("id", id);
+    setState((s) => ({
+      ...s,
+      appointmentTypes: s.appointmentTypes.map((t) =>
+        t.id === id ? { ...t, publicBooking } : publicBooking ? { ...t, publicBooking: false } : t
+      ),
+    }));
+  };
+
   const addAppointment: Store["addAppointment"] = async (a) => {
     const { data, error } = await supabase
       .from("appointments")
@@ -906,6 +930,7 @@ export function StoreProvider({
         trigger_pipeline_id: a.trigger.pipelineId,
         trigger_stage_id: a.trigger.stageId,
         trigger_tag: a.trigger.tag,
+        trigger_source: a.trigger.source ?? null,
       })
       .select()
       .single();
@@ -925,6 +950,7 @@ export function StoreProvider({
       payload.trigger_pipeline_id = patch.trigger.pipelineId ?? null;
       payload.trigger_stage_id = patch.trigger.stageId ?? null;
       payload.trigger_tag = patch.trigger.tag ?? null;
+      payload.trigger_source = patch.trigger.source ?? null;
     }
     await supabase.from("automations").update(payload).eq("id", id);
     setState((s) => ({ ...s, automations: s.automations.map((a) => (a.id === id ? { ...a, ...patch } : a)) }));
@@ -1015,6 +1041,7 @@ export function StoreProvider({
         addFieldDef,
         removeFieldDef,
         addAppointmentType,
+        setAppointmentTypePublic,
         addAppointment,
         updateAppointment,
         deleteAppointment,

@@ -8,6 +8,7 @@ const TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
   new_contact: "ליד חדש נוצר",
   stage_change: "הזדמנות עברה לשלב",
   tag_added: "תגית נוספה",
+  appointment_booked: "ליד קבע שיחה בקישור האישי",
 };
 
 const STEP_LABELS: Record<AutomationStepType, string> = {
@@ -27,6 +28,7 @@ export default function AutomationsPage() {
   const [pipelineId, setPipelineId] = useState(pipelines[0]?.id ?? "");
   const [stageId, setStageId] = useState("");
   const [tag, setTag] = useState("");
+  const [onlyMetaLeads, setOnlyMetaLeads] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const selectedPipeline = pipelines.find((p) => p.id === pipelineId);
@@ -39,7 +41,9 @@ export default function AutomationsPage() {
         ? { type: "stage_change", pipelineId, stageId: stageId || undefined }
         : triggerType === "tag_added"
         ? { type: "tag_added", tag: tag.trim() || undefined }
-        : { type: "new_contact" };
+        : triggerType === "appointment_booked"
+        ? { type: "appointment_booked" }
+        : { type: "new_contact", source: onlyMetaLeads ? "meta_lead_ads" : undefined };
     const automation = await addAutomation({ name: name.trim(), trigger });
     setName("");
     setCreating(false);
@@ -126,6 +130,12 @@ export default function AutomationsPage() {
               </label>
             </div>
           )}
+          {triggerType === "new_contact" && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={onlyMetaLeads} onChange={(e) => setOnlyMetaLeads(e.target.checked)} />
+              רק לידים מטפסי פייסבוק / אינסטגרם (לא לידים שנוספו ידנית או מיובאים)
+            </label>
+          )}
           {triggerType === "tag_added" && (
             <label className="block text-sm">
               <span className="block text-xs text-neutral-500 mb-1">תגית (ריק = כל תגית)</span>
@@ -167,7 +177,8 @@ export default function AutomationsPage() {
 
 function triggerSummary(automation: Automation, pipelines: ReturnType<typeof useStore>["pipelines"]): string {
   const t = automation.trigger;
-  if (t.type === "new_contact") return TRIGGER_LABELS.new_contact;
+  if (t.type === "new_contact") return t.source === "meta_lead_ads" ? `${TRIGGER_LABELS.new_contact} — מטפסי מטא בלבד` : TRIGGER_LABELS.new_contact;
+  if (t.type === "appointment_booked") return TRIGGER_LABELS.appointment_booked;
   if (t.type === "stage_change") {
     const pipeline = pipelines.find((p) => p.id === t.pipelineId);
     const stage = pipeline?.stages.find((s) => s.id === t.stageId);
