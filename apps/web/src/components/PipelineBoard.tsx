@@ -6,8 +6,53 @@ import Link from "next/link";
 import type { Pipeline, Opportunity, Contact } from "@/lib/types";
 import { useStore } from "@/lib/store";
 
+function CloseForm({ opp, onDone }: { opp: Opportunity; onDone: () => void }) {
+  const { opportunities, setOpportunityStatus } = useStore();
+  const [reason, setReason] = useState("");
+  const knownReasons = Array.from(new Set(opportunities.map((o) => o.lostReason).filter(Boolean))) as string[];
+
+  async function close(status: "won" | "lost" | "abandoned") {
+    await setOpportunityStatus(opp.id, status, reason);
+    onDone();
+  }
+
+  return (
+    <div onPointerDown={(e) => e.stopPropagation()} className="mt-2 space-y-1.5 border-t border-neutral-200 dark:border-neutral-800 pt-2">
+      <div className="flex gap-1">
+        <button onClick={() => close("won")} className="flex-1 text-xs px-2 py-1 rounded bg-emerald-600 text-white">
+          ✓ נסגר
+        </button>
+        <button onClick={() => close("abandoned")} className="flex-1 text-xs px-2 py-1 rounded border border-neutral-200 dark:border-neutral-700">
+          בוטל
+        </button>
+      </div>
+      <div className="flex gap-1">
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          list={`lost-reasons-${opp.id}`}
+          placeholder="סיבה (לא נסגר)"
+          className="flex-1 min-w-0 px-2 py-1 text-xs rounded border border-neutral-200 dark:border-neutral-800 bg-transparent"
+        />
+        <datalist id={`lost-reasons-${opp.id}`}>
+          {knownReasons.map((r) => (
+            <option key={r} value={r} />
+          ))}
+        </datalist>
+        <button onClick={() => close("lost")} className="text-xs px-2 py-1 rounded border border-red-300 text-red-600 dark:border-red-800">
+          ✗ לא נסגר
+        </button>
+      </div>
+      <button onClick={onDone} className="text-[11px] text-neutral-400">
+        ביטול
+      </button>
+    </div>
+  );
+}
+
 function OpportunityCard({ opp, contactName }: { opp: Opportunity; contactName: string }) {
   const { updateOpportunity, deleteOpportunity, members, currentMemberId } = useStore();
+  const [closing, setClosing] = useState(false);
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: opp.id });
   const style = transform
@@ -77,6 +122,13 @@ function OpportunityCard({ opp, contactName }: { opp: Opportunity; contactName: 
           {contactName}
         </Link>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); setClosing((v) => !v); }}
+            title="סגירת ההזדמנות"
+            className="text-neutral-400 hover:text-emerald-600 text-xs"
+          >
+            ⚑
+          </button>
           <button onClick={(e) => { e.stopPropagation(); setEditing(true); }} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-xs">
             ✎
           </button>
@@ -90,6 +142,7 @@ function OpportunityCard({ opp, contactName }: { opp: Opportunity; contactName: 
       {opp.value > 0 && (
         <div className="text-xs text-neutral-500 mt-1">₪{opp.value.toLocaleString("he-IL")}</div>
       )}
+      {closing && <CloseForm opp={opp} onDone={() => setClosing(false)} />}
     </div>
   );
 }
@@ -247,7 +300,7 @@ export function PipelineBoard({ pipeline }: { pipeline: Pipeline }) {
             name={stage.name}
             winProbability={stage.winProbability}
             opportunities={opportunities.filter(
-              (o) => o.pipelineId === pipeline.id && o.stageId === stage.id
+              (o) => o.pipelineId === pipeline.id && o.stageId === stage.id && o.status === "open"
             )}
             contacts={contacts}
           />

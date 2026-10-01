@@ -3,27 +3,43 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { downloadCsv } from "@/lib/exportCsv";
 
-export default function ContactsPage() {
-  const { contacts } = useStore();
-  const [q, setQ] = useState("");
+const PAGE_SIZE = 100;
 
-  const filtered = contacts.filter((c) => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return true;
-    return (
-      c.name.toLowerCase().includes(needle) ||
-      c.phone?.toLowerCase().includes(needle) ||
-      c.email?.toLowerCase().includes(needle)
-    );
-  });
+export default function ContactsPage() {
+  const { contacts, members } = useStore();
+  const { session } = useAuth();
+  const [q, setQ] = useState("");
+  const [owner, setOwner] = useState("all"); // all | mine | none | <email>
+  const [visible, setVisible] = useState(PAGE_SIZE);
+
+  const myEmail = session?.user.email?.toLowerCase() ?? "";
+  const ownerName = (email?: string) =>
+    email ? members.find((m) => m.email.toLowerCase() === email.toLowerCase())?.name ?? email : "";
+
+  const needle = q.trim().toLowerCase();
+  const filtered = contacts
+    .filter((c) => {
+      const ownerEmail = c.ownerEmail?.toLowerCase() ?? "";
+      if (owner === "mine" && ownerEmail !== myEmail) return false;
+      if (owner === "none" && ownerEmail) return false;
+      if (!["all", "mine", "none"].includes(owner) && ownerEmail !== owner) return false;
+      if (!needle) return true;
+      return (
+        c.name.toLowerCase().includes(needle) ||
+        c.phone?.toLowerCase().includes(needle) ||
+        c.email?.toLowerCase().includes(needle)
+      );
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   function handleExport() {
     downloadCsv(
       "לידים.csv",
-      ["שם", "טלפון", "אימייל", "מקור", "תגיות"],
-      filtered.map((c) => [c.name, c.phone ?? "", c.email ?? "", c.source ?? "", c.tags.join("; ")])
+      ["שם", "טלפון", "אימייל", "מקור", "בעלים", "תגיות"],
+      filtered.map((c) => [c.name, c.phone ?? "", c.email ?? "", c.source ?? "", ownerName(c.ownerEmail), c.tags.join("; ")])
     );
   }
 
@@ -53,13 +69,35 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-4">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="חיפוש לפי שם, טלפון או אימייל…"
-          className="w-72 px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
-        />
+      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+        <div className="flex gap-2">
+          <input
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setVisible(PAGE_SIZE);
+            }}
+            placeholder="חיפוש לפי שם, טלפון או אימייל…"
+            className="w-72 px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+          />
+          <select
+            value={owner}
+            onChange={(e) => {
+              setOwner(e.target.value);
+              setVisible(PAGE_SIZE);
+            }}
+            className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+          >
+            <option value="all">כל הלידים</option>
+            <option value="mine">הלידים שלי</option>
+            <option value="none">ללא בעלים</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.email.toLowerCase()}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <span className="text-sm text-neutral-500">{filtered.length} מתוך {contacts.length}</span>
       </div>
 
@@ -70,11 +108,12 @@ export default function ContactsPage() {
               <th className="text-start px-4 py-2 font-medium">שם</th>
               <th className="text-start px-4 py-2 font-medium">טלפון</th>
               <th className="text-start px-4 py-2 font-medium">מקור</th>
+              <th className="text-start px-4 py-2 font-medium">בעלים</th>
               <th className="text-start px-4 py-2 font-medium">תגיות</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((c) => (
+            {filtered.slice(0, visible).map((c) => (
               <tr
                 key={c.id}
                 className="border-t border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900"
@@ -88,6 +127,7 @@ export default function ContactsPage() {
                   {c.phone ?? "—"}
                 </td>
                 <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">{c.source ?? "—"}</td>
+                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">{ownerName(c.ownerEmail) || "—"}</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1">
                     {c.tags.map((t) => (
@@ -104,7 +144,7 @@ export default function ContactsPage() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={5} className="px-4 py-6 text-center text-neutral-400">
                   אין תוצאות.
                 </td>
               </tr>
@@ -112,6 +152,14 @@ export default function ContactsPage() {
           </tbody>
         </table>
       </div>
+      {filtered.length > visible && (
+        <button
+          onClick={() => setVisible((v) => v + PAGE_SIZE)}
+          className="mt-3 w-full text-sm py-2 rounded-md border border-neutral-200 dark:border-neutral-800 text-neutral-500"
+        >
+          הצגת עוד {Math.min(PAGE_SIZE, filtered.length - visible)} (מוצגים {visible} מתוך {filtered.length})
+        </button>
+      )}
     </div>
   );
 }

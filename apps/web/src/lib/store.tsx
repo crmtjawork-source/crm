@@ -10,6 +10,7 @@ import type {
   Pipeline,
   Stage,
   Opportunity,
+  OpportunityStatus,
   Activity,
   Task,
   AppointmentType,
@@ -77,7 +78,7 @@ const emptyState: State = {
   leadAdPages: [],
 };
 
-type ContactPatch = Partial<Pick<Contact, "name" | "phone" | "email" | "source">>;
+type ContactPatch = Partial<Pick<Contact, "name" | "phone" | "email" | "source" | "ownerEmail">>;
 type OpportunityPatch = Partial<Pick<Opportunity, "title" | "value">>;
 type ImportRow = { name: string; phone?: string; email?: string; source?: string; fields?: Record<string, string> };
 
@@ -95,10 +96,12 @@ type Store = State & {
   addOpportunity: (o: { contactId: string; pipelineId: string; stageId: string; title: string; value: number }) => Promise<Opportunity>;
   updateOpportunity: (opportunityId: string, patch: OpportunityPatch) => Promise<void>;
   deleteOpportunity: (opportunityId: string) => Promise<void>;
+  setOpportunityStatus: (opportunityId: string, status: OpportunityStatus, lostReason?: string) => Promise<void>;
   moveOpportunity: (opportunityId: string, stageId: string) => Promise<void>;
 
   addNote: (contactId: string, text: string) => Promise<void>;
   activitiesFor: (contactId: string) => Activity[];
+  loadActivitiesFor: (contactId: string) => Promise<void>;
 
   addPipeline: (name: string) => Promise<Pipeline>;
   addStage: (pipelineId: string, name: string) => Promise<void>;
@@ -156,6 +159,7 @@ function mapContact(r: Row): Contact {
     source: r.source ?? undefined,
     tags: r.tags ?? [],
     fields: r.fields ?? {},
+    ownerEmail: r.owner_email ?? undefined,
     createdAt: r.created_at,
   };
 }
@@ -183,6 +187,9 @@ function mapOpportunity(r: Row): Opportunity {
     stageId: r.stage_id,
     title: r.title,
     value: Number(r.value),
+    status: r.status ?? "open",
+    lostReason: r.lost_reason ?? undefined,
+    closedAt: r.closed_at ?? undefined,
     createdAt: r.created_at,
   };
 }
@@ -329,6 +336,20 @@ function mergeById<T extends { id: string }>(list: T[], items: T[]): T[] {
 
 type TriggerResult = { contact: Row | null; activities: Row[]; notifications: Row[]; runs: Row[] };
 
+// Supabase caps a single select at 1000 rows; an org with thousands of leads
+// would be silently truncated without paging.
+const PAGE = 1000;
+async function fetchAll(table: string, order = "created_at"): Promise<{ data: Row[] }> {
+  const rows: Row[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from(table).select("*").order(order).order("id").range(from, from + PAGE - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE) break;
+  }
+  return { data: rows };
+}
+
 export function StoreProvider({
   orgId,
   userId,
@@ -368,15 +389,17 @@ export function StoreProvider({
         channelsRes,
         leadAdPagesRes,
       ] = await Promise.all([
-        supabase.from("contacts").select("*").order("created_at"),
+        fetchAll("contacts"),
         supabase.from("pipelines").select("*").order("created_at"),
         supabase.from("stages").select("*"),
-        supabase.from("opportunities").select("*"),
-        supabase.from("activities").select("*"),
-        supabase.from("tasks").select("*").order("created_at"),
+        fetchAll("opportunities"),
+        // Timelines load per lead (loadActivitiesFor) — an org's full
+        // history is tens of thousands of rows.
+        Promise.resolve({ data: [] as Row[] }),
+        fetchAll("tasks"),
         supabase.from("contact_field_defs").select("*"),
         supabase.from("appointment_types").select("*"),
-        supabase.from("appointments").select("*"),
+        fetchAll("appointments", "start_at"),
         supabase.from("availability_rules").select("*"),
         supabase.from("forms").select("*").order("created_at"),
         supabase.from("form_fields").select("*"),
@@ -384,8 +407,8 @@ export function StoreProvider({
         supabase.from("invitations").select("*"),
         supabase.from("automations").select("*").order("created_at"),
         supabase.from("automation_steps").select("*"),
-        supabase.from("automation_runs").select("*"),
-        supabase.from("notifications").select("*").order("created_at", { ascending: false }),
+        fetchAll("automation_runs", "ran_at"),
+        supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(200),
         supabase.from("channels").select("*").order("created_at"),
         supabase.from("lead_ad_pages").select("*").order("created_at"),
       ]);
@@ -529,6 +552,16 @@ export function StoreProvider({
 
   const getContact: Store["getContact"] = (id) => state.contacts.find((c) => c.id === id);
 
+  const loadActivitiesFor: Store["loadActivitiesFor"] = useCallback(async (contactId: string) => {
+    const { data } = await supabase
+      .from("activities")
+      .select("*")
+      .eq("contact_id", contactId)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (data) setState((s) => ({ ...s, activities: mergeById(s.activities, data.map(mapActivity)) }));
+  }, []);
+
   const activitiesFor: Store["activitiesFor"] = (contactId) =>
     state.activities.filter((a) => a.contactId === contactId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
@@ -546,7 +579,13 @@ export function StoreProvider({
   };
 
   const updateContact: Store["updateContact"] = async (contactId, patch) => {
-    const { data } = await supabase.from("contacts").update(patch).eq("id", contactId).select().single();
+    const payload: Row = {};
+    if (patch.name !== undefined) payload.name = patch.name;
+    if (patch.phone !== undefined) payload.phone = patch.phone ?? null;
+    if (patch.email !== undefined) payload.email = patch.email ?? null;
+    if (patch.source !== undefined) payload.source = patch.source ?? null;
+    if ("ownerEmail" in patch) payload.owner_email = patch.ownerEmail || null;
+    const { data } = await supabase.from("contacts").update(payload).eq("id", contactId).select().single();
     if (!data) return;
     const updated = mapContact(data);
     setState((s) => ({ ...s, contacts: s.contacts.map((c) => (c.id === contactId ? updated : c)) }));
@@ -653,6 +692,20 @@ export function StoreProvider({
   const updateOpportunity: Store["updateOpportunity"] = async (opportunityId, patch) => {
     const { data } = await supabase.from("opportunities").update(patch).eq("id", opportunityId).select().single();
     if (data) setState((s) => ({ ...s, opportunities: s.opportunities.map((o) => (o.id === opportunityId ? mapOpportunity(data) : o)) }));
+  };
+
+  const setOpportunityStatus: Store["setOpportunityStatus"] = async (opportunityId, status, lostReason) => {
+    const { data } = await supabase
+      .from("opportunities")
+      .update({
+        status,
+        lost_reason: status === "lost" ? lostReason?.trim() || null : null,
+        closed_at: status === "open" ? null : new Date().toISOString(),
+      })
+      .eq("id", opportunityId)
+      .select()
+      .single();
+    if (data) setState((s) => ({ ...s, opportunities: upsertById(s.opportunities, mapOpportunity(data)) }));
   };
 
   const deleteOpportunity: Store["deleteOpportunity"] = async (opportunityId) => {
@@ -1028,9 +1081,11 @@ export function StoreProvider({
         addOpportunity,
         updateOpportunity,
         deleteOpportunity,
+        setOpportunityStatus,
         moveOpportunity,
         addNote,
         activitiesFor,
+        loadActivitiesFor,
         addPipeline,
         addStage,
         renameStage,

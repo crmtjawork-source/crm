@@ -5,20 +5,12 @@ import { useStore } from "@/lib/store";
 export default function DashboardPage() {
   const { contacts, opportunities, pipelines, tasks } = useStore();
 
-  const lastStageIdByPipeline = new Map(
-    pipelines.map((p) => [p.id, p.stages[p.stages.length - 1]?.id])
-  );
-
-  const openOpportunities = opportunities.filter(
-    (o) => o.stageId !== lastStageIdByPipeline.get(o.pipelineId)
-  );
-  const wonOpportunities = opportunities.filter(
-    (o) => o.stageId === lastStageIdByPipeline.get(o.pipelineId)
-  );
+  const openOpportunities = opportunities.filter((o) => o.status === "open");
+  const wonOpportunities = opportunities.filter((o) => o.status === "won");
+  const closedCount = opportunities.length - openOpportunities.length;
   const totalOpenValue = openOpportunities.reduce((sum, o) => sum + o.value, 0);
-  const conversionRate = opportunities.length
-    ? Math.round((wonOpportunities.length / opportunities.length) * 100)
-    : 0;
+  // Close rate among decided opportunities — open ones haven't had a chance yet.
+  const conversionRate = closedCount ? Math.round((wonOpportunities.length / closedCount) * 1000) / 10 : 0;
   const openTasks = tasks.filter((t) => !t.done);
   const overdueTasks = openTasks.filter((t) => t.dueDate && t.dueDate < new Date().toISOString().slice(0, 10));
 
@@ -26,7 +18,7 @@ export default function DashboardPage() {
     p.stages.map((stage) => ({
       key: `${p.id}-${stage.id}`,
       label: pipelines.length > 1 ? `${p.name} · ${stage.name}` : stage.name,
-      count: opportunities.filter((o) => o.pipelineId === p.id && o.stageId === stage.id).length,
+      count: openOpportunities.filter((o) => o.pipelineId === p.id && o.stageId === stage.id).length,
     }))
   );
 
@@ -43,7 +35,7 @@ export default function DashboardPage() {
 
       <div className="grid md:grid-cols-2 gap-6">
         <section>
-          <h2 className="text-sm font-semibold text-neutral-500 mb-3">התפלגות לפי שלב</h2>
+          <h2 className="text-sm font-semibold text-neutral-500 mb-3">הזדמנויות פתוחות לפי שלב</h2>
           <div className="space-y-2">
             {byStage.map(({ key, label, count }) => (
               <div key={key} className="flex items-center gap-2 text-sm">
@@ -51,7 +43,7 @@ export default function DashboardPage() {
                 <div className="flex-1 h-2 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
                   <div
                     className="h-full bg-neutral-900 dark:bg-white"
-                    style={{ width: `${opportunities.length ? (count / opportunities.length) * 100 : 0}%` }}
+                    style={{ width: `${openOpportunities.length ? (count / openOpportunities.length) * 100 : 0}%` }}
                   />
                 </div>
                 <span className="text-neutral-500 w-6 text-end">{count}</span>

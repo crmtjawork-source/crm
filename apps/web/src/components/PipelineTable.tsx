@@ -8,7 +8,7 @@ import { useStore } from "@/lib/store";
 export function PipelineTable({ pipeline }: { pipeline: Pipeline }) {
   const { opportunities, contacts, moveOpportunity, updateOpportunity, deleteOpportunity, members, currentMemberId } = useStore();
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
-  const rows = opportunities.filter((o) => o.pipelineId === pipeline.id);
+  const rows = opportunities.filter((o) => o.pipelineId === pipeline.id && o.status === "open");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [value, setValue] = useState("");
@@ -108,7 +108,7 @@ export function PipelineTable({ pipeline }: { pipeline: Pipeline }) {
           {rows.length === 0 && (
             <tr>
               <td colSpan={4} className="px-4 py-6 text-center text-neutral-400">
-                אין הזדמנויות בפייפליין הזה.
+                אין הזדמנויות פתוחות בפייפליין הזה.
               </td>
             </tr>
           )}

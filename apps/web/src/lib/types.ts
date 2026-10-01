@@ -10,6 +10,7 @@ export type Contact = {
   source?: string;
   tags: string[];
   fields: Record<string, string>; // custom fields (budget, product type, ...)
+  ownerEmail?: string; // assigned teammate (member or pending invite), by email
   createdAt: string;
 };
 
@@ -25,6 +26,8 @@ export type Pipeline = {
   stages: Stage[];
 };
 
+export type OpportunityStatus = "open" | "won" | "lost" | "abandoned";
+
 export type Opportunity = {
   id: string;
   contactId: string;
@@ -32,6 +35,9 @@ export type Opportunity = {
   stageId: string;
   title: string;
   value: number;
+  status: OpportunityStatus; // only "open" ones appear on the pipeline board
+  lostReason?: string;
+  closedAt?: string;
   createdAt: string;
 };
 

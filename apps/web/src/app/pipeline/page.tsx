@@ -40,9 +40,10 @@ export default function PipelinePage() {
       .map((o) => {
         const contactName = contacts.find((c) => c.id === o.contactId)?.name ?? "";
         const stageName = pipeline!.stages.find((s) => s.id === o.stageId)?.name ?? "";
-        return [o.title, contactName, stageName, String(o.value)];
+        const outcome = { open: "פתוחה", won: "נסגרה", lost: "לא נסגרה", abandoned: "בוטלה" }[o.status];
+        return [o.title, contactName, stageName, String(o.value), outcome, o.lostReason ?? ""];
       });
-    downloadCsv(`${pipeline!.name}.csv`, ["כותרת", "ליד", "שלב", "שווי"], rows);
+    downloadCsv(`${pipeline!.name}.csv`, ["כותרת", "ליד", "שלב", "שווי", "תוצאה", "סיבה"], rows);
   }
 
   async function handleSubmit(e: React.FormEvent) {

@@ -38,6 +38,7 @@ export const invitations = pgTable("invitations", {
   email: text("email").notNull(),
   role: memberRole("role").notNull().default("agent"),
   invitedBy: uuid("invited_by").notNull().references(() => users.id),
+  name: text("name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -46,6 +47,7 @@ export const invitations = pgTable("invitations", {
 export const activityType = pgEnum("activity_type", ["note", "stage_change"]);
 export const automationTriggerType = pgEnum("automation_trigger_type", ["new_contact", "stage_change", "tag_added", "appointment_booked"]);
 export const automationStepType = pgEnum("automation_step_type", ["send_message", "wait", "add_tag", "notify"]);
+export const opportunityStatus = pgEnum("opportunity_status", ["open", "won", "lost", "abandoned"]);
 export const formFieldType = pgEnum("form_field_type", ["text", "phone", "email", "textarea"]);
 
 export const contacts = pgTable("contacts", {
@@ -61,6 +63,10 @@ export const contacts = pgTable("contacts", {
   phoneDigits: text("phone_digits"),
   // Suffix of the lead's personal booking link (template dynamic URL button).
   bookingToken: text("booking_token").notNull().unique(),
+  // Assigned teammate, by email (works for invited-but-not-joined members).
+  ownerEmail: text("owner_email"),
+  // Record this row was imported from, e.g. "fireberry:<guid>"; unique per org.
+  externalRef: text("external_ref"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -101,6 +107,11 @@ export const opportunities = pgTable("opportunities", {
   stageId: uuid("stage_id").notNull().references(() => stages.id, { onDelete: "restrict" }),
   title: text("title").notNull(),
   value: numeric("value").notNull().default("0"),
+  status: opportunityStatus("status").notNull().default("open"),
+  lostReason: text("lost_reason"),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  // Record this row was imported from, e.g. "fireberry:<guid>"; unique per org.
+  externalRef: text("external_ref"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -110,6 +121,8 @@ export const activities = pgTable("activities", {
   contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
   type: activityType("type").notNull(),
   text: text("text").notNull(),
+  // Record this row was imported from, e.g. "fireberry:<guid>"; unique per org.
+  externalRef: text("external_ref"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -123,6 +136,8 @@ export const tasks = pgTable("tasks", {
   assignee: text("assignee"),
   dueDate: date("due_date"),
   done: boolean("done").notNull().default(false),
+  // Record this row was imported from, e.g. "fireberry:<guid>"; unique per org.
+  externalRef: text("external_ref"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -145,6 +160,8 @@ export const appointments = pgTable("appointments", {
   startAt: timestamp("start_at", { withTimezone: true }).notNull(),
   endAt: timestamp("end_at", { withTimezone: true }).notNull(),
   notes: text("notes"),
+  // Record this row was imported from, e.g. "fireberry:<guid>"; unique per org.
+  externalRef: text("external_ref"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

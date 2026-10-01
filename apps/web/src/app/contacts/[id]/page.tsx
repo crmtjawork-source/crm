@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
@@ -21,8 +21,15 @@ export default function ContactDetailPage() {
     fieldDefs,
     members,
     currentMemberId,
+    pipelines,
+    loadActivitiesFor,
+    setOpportunityStatus,
   } = useStore();
   const contact = getContact(id);
+
+  useEffect(() => {
+    loadActivitiesFor(id);
+  }, [id, loadActivitiesFor]);
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
 
   const [editingInfo, setEditingInfo] = useState(false);
@@ -169,6 +176,26 @@ export default function ContactDetailPage() {
         </div>
       )}
 
+      <label className="flex items-center gap-2 mb-4 text-sm">
+        <span className="text-neutral-500">בעלים:</span>
+        <select
+          value={contact.ownerEmail?.toLowerCase() ?? ""}
+          onChange={(e) => updateContact(contact.id, { ownerEmail: e.target.value || undefined })}
+          className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+        >
+          <option value="">ללא בעלים</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.email.toLowerCase()}>
+              {m.name}
+              {m.status === "invited" ? " (הוזמן)" : ""}
+            </option>
+          ))}
+          {contact.ownerEmail && !members.some((m) => m.email.toLowerCase() === contact.ownerEmail!.toLowerCase()) && (
+            <option value={contact.ownerEmail.toLowerCase()}>{contact.ownerEmail}</option>
+          )}
+        </select>
+      </label>
+
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         {contact.tags.map((t) => (
           <span
@@ -229,14 +256,37 @@ export default function ContactDetailPage() {
       <section className="mb-6">
         <h2 className="text-sm font-semibold text-neutral-500 mb-2">הזדמנויות</h2>
         {contactOpportunities.length === 0 ? (
-          <p className="text-sm text-neutral-400">אין הזדמנויות פתוחות.</p>
+          <p className="text-sm text-neutral-400">אין הזדמנויות.</p>
         ) : (
           <ul className="space-y-2">
-            {contactOpportunities.map((o) => (
-              <li key={o.id} className="border border-neutral-200 dark:border-neutral-800 rounded-md p-3 text-sm">
-                {o.title} {o.value > 0 ? `· ₪${o.value.toLocaleString("he-IL")}` : ""}
-              </li>
-            ))}
+            {contactOpportunities.map((o) => {
+              const pipeline = pipelines.find((p) => p.id === o.pipelineId);
+              const stage = pipeline?.stages.find((s) => s.id === o.stageId);
+              const outcome = { won: "נסגרה ✓", lost: "לא נסגרה", abandoned: "בוטלה" } as const;
+              return (
+                <li key={o.id} className="border border-neutral-200 dark:border-neutral-800 rounded-md p-3 text-sm flex items-center justify-between gap-2">
+                  <div>
+                    <p>
+                      {o.title} {o.value > 0 ? `· ₪${o.value.toLocaleString("he-IL")}` : ""}
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      {pipeline?.name} · {stage?.name}
+                      {o.status !== "open" && (
+                        <span className={o.status === "won" ? "text-emerald-600" : "text-neutral-500"}>
+                          {" "}· {outcome[o.status]}
+                          {o.lostReason ? ` (${o.lostReason})` : ""}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  {o.status !== "open" && (
+                    <button onClick={() => setOpportunityStatus(o.id, "open")} className="text-xs text-neutral-400 hover:underline shrink-0">
+                      פתיחה מחדש
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
