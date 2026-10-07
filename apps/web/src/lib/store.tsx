@@ -4,6 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { supabase } from "./supabaseClient";
 import { apiPost } from "./api";
 import type {
+  Campaign,
+  CampaignSpend,
+  LeadSource,
   Channel,
   LeadAdPage,
   Contact,
@@ -56,6 +59,9 @@ type State = {
   notifications: Notification[];
   channels: Channel[];
   leadAdPages: LeadAdPage[];
+  campaigns: Campaign[];
+  campaignSpend: CampaignSpend[];
+  leadSources: LeadSource[];
 };
 
 const emptyState: State = {
@@ -76,9 +82,14 @@ const emptyState: State = {
   notifications: [],
   channels: [],
   leadAdPages: [],
+  campaigns: [],
+  campaignSpend: [],
+  leadSources: [],
 };
 
-type ContactPatch = Partial<Pick<Contact, "name" | "phone" | "email" | "source" | "ownerEmail">>;
+type ContactPatch = Partial<Pick<Contact, "name" | "phone" | "email" | "source" | "ownerEmail" | "campaignId">>;
+type CampaignPatch = Partial<Pick<Campaign, "name" | "platform" | "agency" | "archived">>;
+type LeadSourcePatch = Partial<Pick<LeadSource, "name" | "defaultPlatform" | "defaultAgency" | "defaultCampaignId" | "active">>;
 type OpportunityPatch = Partial<Pick<Opportunity, "title" | "value">>;
 type ImportRow = { name: string; phone?: string; email?: string; source?: string; fields?: Record<string, string> };
 
@@ -141,6 +152,17 @@ type Store = State & {
   markAllNotificationsRead: () => Promise<void>;
 
   reloadIntegrations: () => Promise<void>;
+
+  addCampaign: (c: { name: string; platform: string; agency?: string }) => Promise<Campaign>;
+  updateCampaign: (id: string, patch: CampaignPatch) => Promise<void>;
+  deleteCampaign: (id: string) => Promise<void>;
+  mergeCampaigns: (sourceId: string, targetId: string) => Promise<void>;
+  // amount null removes that entry.
+  setSpend: (campaignId: string, day: string, amount: number | null, source?: string) => Promise<void>;
+  importSpend: (rows: { campaignId: string; day: string; amount: number }[], source?: string) => Promise<number>;
+  addLeadSource: (l: { name: string; defaultPlatform?: string; defaultAgency?: string; defaultCampaignId?: string }) => Promise<LeadSource>;
+  updateLeadSource: (id: string, patch: LeadSourcePatch) => Promise<void>;
+  deleteLeadSource: (id: string) => Promise<void>;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -160,6 +182,39 @@ function mapContact(r: Row): Contact {
     tags: r.tags ?? [],
     fields: r.fields ?? {},
     ownerEmail: r.owner_email ?? undefined,
+    campaignId: r.campaign_id ?? undefined,
+    attribution: r.attribution ?? {},
+    createdAt: r.created_at,
+  };
+}
+
+function mapCampaign(r: Row): Campaign {
+  return {
+    id: r.id,
+    name: r.name,
+    platform: r.platform,
+    agency: r.agency ?? undefined,
+    externalId: r.external_id ?? undefined,
+    archived: r.archived,
+    createdAt: r.created_at,
+  };
+}
+
+function mapCampaignSpend(r: Row): CampaignSpend {
+  return { id: r.id, campaignId: r.campaign_id, day: r.day, amount: Number(r.amount), currency: r.currency, source: r.source };
+}
+
+function mapLeadSource(r: Row): LeadSource {
+  return {
+    id: r.id,
+    name: r.name,
+    token: r.token,
+    defaultPlatform: r.default_platform ?? undefined,
+    defaultAgency: r.default_agency ?? undefined,
+    defaultCampaignId: r.default_campaign_id ?? undefined,
+    active: r.active,
+    lastReceivedAt: r.last_received_at ?? undefined,
+    receivedCount: r.received_count ?? 0,
     createdAt: r.created_at,
   };
 }
@@ -388,6 +443,9 @@ export function StoreProvider({
         notificationsRes,
         channelsRes,
         leadAdPagesRes,
+        campaignsRes,
+        campaignSpendRes,
+        leadSourcesRes,
       ] = await Promise.all([
         fetchAll("contacts"),
         supabase.from("pipelines").select("*").order("created_at"),
@@ -411,6 +469,9 @@ export function StoreProvider({
         supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(200),
         supabase.from("channels").select("*").order("created_at"),
         supabase.from("lead_ad_pages").select("*").order("created_at"),
+        supabase.from("campaigns").select("*").order("created_at"),
+        fetchAll("campaign_spend"),
+        supabase.from("lead_sources").select("*").order("created_at"),
       ]);
 
       if (cancelled) return;
@@ -461,6 +522,9 @@ export function StoreProvider({
         notifications: (notificationsRes.data ?? []).map(mapNotification),
         channels: (channelsRes.data ?? []).map(mapChannel),
         leadAdPages: (leadAdPagesRes.data ?? []).map(mapLeadAdPage),
+        campaigns: (campaignsRes.data ?? []).map(mapCampaign),
+        campaignSpend: (campaignSpendRes.data ?? []).map(mapCampaignSpend),
+        leadSources: (leadSourcesRes.data ?? []).map(mapLeadSource),
       });
       setLoading(false);
     }
@@ -486,6 +550,11 @@ export function StoreProvider({
           const contact = mapContact(payload.new as Row);
           setState((s) => ({ ...s, contacts: upsertById(s.contacts, contact) }));
         }
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "campaigns", filter }, (payload) => {
+        if (payload.eventType === "DELETE") return;
+        const campaign = mapCampaign(payload.new as Row);
+        setState((s) => ({ ...s, campaigns: upsertById(s.campaigns, campaign) }));
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "activities", filter }, (payload) => {
         const activity = mapActivity(payload.new as Row);
@@ -585,6 +654,7 @@ export function StoreProvider({
     if (patch.email !== undefined) payload.email = patch.email ?? null;
     if (patch.source !== undefined) payload.source = patch.source ?? null;
     if ("ownerEmail" in patch) payload.owner_email = patch.ownerEmail || null;
+    if ("campaignId" in patch) payload.campaign_id = patch.campaignId || null;
     const { data } = await supabase.from("contacts").update(payload).eq("id", contactId).select().single();
     if (!data) return;
     const updated = mapContact(data);
@@ -1065,6 +1135,121 @@ export function StoreProvider({
     setState((s) => ({ ...s, notifications: s.notifications.map((n) => ({ ...n, read: true })) }));
   };
 
+
+  /* ------------------------------- marketing ------------------------------- */
+
+  const addCampaign: Store["addCampaign"] = async (c) => {
+    const { data, error } = await supabase
+      .from("campaigns")
+      .insert({ org_id: orgId, name: c.name, platform: c.platform, agency: c.agency || null })
+      .select()
+      .single();
+    if (error || !data) throw error ?? new Error("יצירת הקמפיין נכשלה");
+    const campaign = mapCampaign(data);
+    setState((s) => ({ ...s, campaigns: upsertById(s.campaigns, campaign) }));
+    return campaign;
+  };
+
+  const updateCampaign: Store["updateCampaign"] = async (id, patch) => {
+    const payload: Row = {};
+    if (patch.name !== undefined) payload.name = patch.name;
+    if (patch.platform !== undefined) payload.platform = patch.platform;
+    if ("agency" in patch) payload.agency = patch.agency || null;
+    if (patch.archived !== undefined) payload.archived = patch.archived;
+    const { data } = await supabase.from("campaigns").update(payload).eq("id", id).select().single();
+    if (data) setState((s) => ({ ...s, campaigns: upsertById(s.campaigns, mapCampaign(data)) }));
+  };
+
+  const deleteCampaign: Store["deleteCampaign"] = async (id) => {
+    const { error } = await supabase.from("campaigns").delete().eq("id", id);
+    if (error) throw error;
+    setState((s) => ({
+      ...s,
+      campaigns: s.campaigns.filter((c) => c.id !== id),
+      campaignSpend: s.campaignSpend.filter((x) => x.campaignId !== id),
+      contacts: s.contacts.map((c) => (c.campaignId === id ? { ...c, campaignId: undefined } : c)),
+    }));
+  };
+
+  const mergeCampaigns: Store["mergeCampaigns"] = async (sourceId, targetId) => {
+    const { error } = await supabase.rpc("merge_campaigns", { p_source: sourceId, p_target: targetId });
+    if (error) throw error;
+    const spend = await fetchAll("campaign_spend");
+    setState((s) => ({
+      ...s,
+      campaigns: s.campaigns.filter((c) => c.id !== sourceId),
+      campaignSpend: spend.data.map(mapCampaignSpend),
+      contacts: s.contacts.map((c) => (c.campaignId === sourceId ? { ...c, campaignId: targetId } : c)),
+    }));
+  };
+
+  const setSpend: Store["setSpend"] = async (campaignId, day, amount, source = "manual") => {
+    if (amount === null) {
+      await supabase.from("campaign_spend").delete().eq("campaign_id", campaignId).eq("day", day).eq("source", source);
+      setState((s) => ({
+        ...s,
+        campaignSpend: s.campaignSpend.filter((x) => !(x.campaignId === campaignId && x.day === day && x.source === source)),
+      }));
+      return;
+    }
+    const { data, error } = await supabase
+      .from("campaign_spend")
+      .upsert({ org_id: orgId, campaign_id: campaignId, day, amount, source }, { onConflict: "campaign_id,day,source" })
+      .select()
+      .single();
+    if (error || !data) throw error ?? new Error("שמירת ההוצאה נכשלה");
+    setState((s) => ({ ...s, campaignSpend: upsertById(s.campaignSpend, mapCampaignSpend(data)) }));
+  };
+
+  const importSpend: Store["importSpend"] = async (rows, source = "csv") => {
+    if (!rows.length) return 0;
+    const { data, error } = await supabase
+      .from("campaign_spend")
+      .upsert(
+        rows.map((r) => ({ org_id: orgId, campaign_id: r.campaignId, day: r.day, amount: r.amount, source })),
+        { onConflict: "campaign_id,day,source" }
+      )
+      .select();
+    if (error) throw error;
+    const saved = (data ?? []).map(mapCampaignSpend);
+    setState((s) => ({ ...s, campaignSpend: saved.reduce((acc, x) => upsertById(acc, x), s.campaignSpend) }));
+    return saved.length;
+  };
+
+  const addLeadSource: Store["addLeadSource"] = async (l) => {
+    const { data, error } = await supabase
+      .from("lead_sources")
+      .insert({
+        org_id: orgId,
+        name: l.name,
+        default_platform: l.defaultPlatform || null,
+        default_agency: l.defaultAgency || null,
+        default_campaign_id: l.defaultCampaignId || null,
+      })
+      .select()
+      .single();
+    if (error || !data) throw error ?? new Error("יצירת מקור הלידים נכשלה");
+    const source = mapLeadSource(data);
+    setState((s) => ({ ...s, leadSources: upsertById(s.leadSources, source) }));
+    return source;
+  };
+
+  const updateLeadSource: Store["updateLeadSource"] = async (id, patch) => {
+    const payload: Row = {};
+    if (patch.name !== undefined) payload.name = patch.name;
+    if ("defaultPlatform" in patch) payload.default_platform = patch.defaultPlatform || null;
+    if ("defaultAgency" in patch) payload.default_agency = patch.defaultAgency || null;
+    if ("defaultCampaignId" in patch) payload.default_campaign_id = patch.defaultCampaignId || null;
+    if (patch.active !== undefined) payload.active = patch.active;
+    const { data } = await supabase.from("lead_sources").update(payload).eq("id", id).select().single();
+    if (data) setState((s) => ({ ...s, leadSources: upsertById(s.leadSources, mapLeadSource(data)) }));
+  };
+
+  const deleteLeadSource: Store["deleteLeadSource"] = async (id) => {
+    await supabase.from("lead_sources").delete().eq("id", id);
+    setState((s) => ({ ...s, leadSources: s.leadSources.filter((x) => x.id !== id) }));
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -1116,6 +1301,15 @@ export function StoreProvider({
         markNotificationRead,
         markAllNotificationsRead,
         reloadIntegrations,
+        addCampaign,
+        updateCampaign,
+        deleteCampaign,
+        mergeCampaigns,
+        setSpend,
+        importSpend,
+        addLeadSource,
+        updateLeadSource,
+        deleteLeadSource,
       }}
     >
       {children}

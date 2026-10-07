@@ -11,6 +11,8 @@ export type Contact = {
   tags: string[];
   fields: Record<string, string>; // custom fields (budget, product type, ...)
   ownerEmail?: string; // assigned teammate (member or pending invite), by email
+  campaignId?: string; // campaign that brought the lead (first touch)
+  attribution: Record<string, string>; // raw tracking data: utm_*, click ids, ad/adset names…
   createdAt: string;
 };
 
@@ -216,4 +218,40 @@ export type Notification = {
   contactId?: string;
   createdAt: string;
   read: boolean;
+};
+
+// Marketing: where leads come from and what it cost. platform is free text
+// with well-known values (see lib/attribution.ts PLATFORMS).
+export type Campaign = {
+  id: string;
+  name: string;
+  platform: string;
+  agency?: string;
+  externalId?: string;
+  archived: boolean;
+  createdAt: string;
+};
+
+export type CampaignSpend = {
+  id: string;
+  campaignId: string;
+  day: string; // yyyy-mm-dd; monthly figures sit on the 1st
+  amount: number;
+  currency: string;
+  source: string; // manual | csv | meta_api | google_api
+};
+
+// An intake URL (POST /api/public/leads/<token>) that agencies, Google lead
+// forms, Zapier/Make or landing pages send leads to.
+export type LeadSource = {
+  id: string;
+  name: string;
+  token: string;
+  defaultPlatform?: string;
+  defaultAgency?: string;
+  defaultCampaignId?: string;
+  active: boolean;
+  lastReceivedAt?: string;
+  receivedCount: number;
+  createdAt: string;
 };

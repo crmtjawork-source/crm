@@ -1,7 +1,7 @@
 import "server-only";
 import type { Db } from "../supabaseAdmin";
 import { graphFetch, GraphError } from "../graph";
-import { normalizePhone } from "../phone";
+import { upsertInboundLead } from "../leads";
 import { triggerAutomations } from "../automations";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -11,14 +11,18 @@ type Lead = {
   id: string;
   created_time?: string;
   field_data?: Array<{ name: string; values?: string[] }>;
+  ad_id?: string;
   ad_name?: string;
+  adset_id?: string;
   adset_name?: string;
+  campaign_id?: string;
   campaign_name?: string;
+  is_organic?: boolean;
   form_id?: string;
   platform?: string;
 };
 
-const FULL_FIELDS = "created_time,field_data,ad_id,ad_name,adset_name,campaign_name,form_id,platform,is_organic";
+const FULL_FIELDS = "created_time,field_data,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,platform,is_organic";
 const BASIC_FIELDS = "created_time,field_data,form_id";
 
 async function fetchLead(leadgenId: string, pageToken: string): Promise<Lead> {
@@ -81,97 +85,27 @@ export async function handleLeadgenChange(db: Db, value: Row): Promise<string | 
 
   const lead = await fetchLead(leadgenId, creds.page_access_token);
   const answers = mapLeadAnswers(lead.field_data);
-  const platformLabel = lead.platform === "ig" ? "אינסטגרם" : "פייסבוק";
-  const adFields: Record<string, string> = {};
-  if (lead.campaign_name) adFields["קמפיין"] = lead.campaign_name;
-  if (lead.adset_name) adFields["קהל (ad set)"] = lead.adset_name;
-  if (lead.ad_name) adFields["מודעה"] = lead.ad_name;
-  const fields = { ...answers.extra, ...adFields };
-  const where = lead.campaign_name ? ` — ${lead.campaign_name}` : "";
-
-  const digits = normalizePhone(answers.phone);
-  let existing: Row | null = null;
-  if (digits) {
-    ({ data: existing } = await db
-      .from("contacts")
-      .select("*")
-      .eq("org_id", page.org_id)
-      .eq("phone_digits", digits)
-      .order("created_at")
-      .limit(1)
-      .maybeSingle());
-  } else if (answers.email) {
-    ({ data: existing } = await db
-      .from("contacts")
-      .select("*")
-      .eq("org_id", page.org_id)
-      .ilike("email", answers.email)
-      .order("created_at")
-      .limit(1)
-      .maybeSingle());
+  const attribution: Record<string, string> = {};
+  for (const key of ["ad_id", "ad_name", "adset_id", "adset_name", "campaign_id", "form_id"] as const) {
+    const v = lead[key] ?? (key === "ad_id" || key === "form_id" ? value[key] : undefined);
+    if (v) attribution[key] = String(v);
   }
+  if (lead.platform) attribution.platform = lead.platform;
+  if (lead.is_organic) attribution.organic = "true";
 
-  let contactId: string;
-  const displayName = answers.name || answers.phone || answers.email || `ליד מ${platformLabel}`;
-  if (existing) {
-    contactId = existing.id;
-    await db
-      .from("contacts")
-      .update({
-        fields: { ...(existing.fields ?? {}), ...fields },
-        email: existing.email ?? answers.email ?? null,
-        phone: existing.phone ?? answers.phone ?? null,
-      })
-      .eq("id", contactId);
-    await db.from("activities").insert({
-      org_id: page.org_id,
-      contact_id: contactId,
-      type: "note",
-      text: `📥 השאיר/ה פרטים שוב בפרסומת ${platformLabel}${where}`,
-    });
-    await db.from("notifications").insert({
-      org_id: page.org_id,
-      contact_id: contactId,
-      text: `ליד קיים השאיר פרטים שוב (${platformLabel}): ${existing.name}`,
-    });
-  } else {
-    const { data: contact, error } = await db
-      .from("contacts")
-      .insert({
-        org_id: page.org_id,
-        name: displayName,
-        phone: answers.phone ?? null,
-        email: answers.email ?? null,
-        source: `פרסומת ${platformLabel}`,
-        fields,
-      })
-      .select("id")
-      .single();
-    if (error || !contact) throw error ?? new Error("יצירת ליד נכשלה");
-    contactId = contact.id;
-    await db.from("activities").insert({
-      org_id: page.org_id,
-      contact_id: contactId,
-      type: "note",
-      text: `📥 ליד חדש מפרסומת ${platformLabel}${where}`,
-    });
-    await db.from("notifications").insert({
-      org_id: page.org_id,
-      contact_id: contactId,
-      text: `ליד חדש מ${platformLabel}: ${displayName}`,
-    });
-  }
-
-  const fieldNames = Object.keys(fields);
-  if (fieldNames.length) {
-    await db
-      .from("contact_field_defs")
-      .upsert(fieldNames.map((name) => ({ org_id: page.org_id, name })), { onConflict: "org_id,name", ignoreDuplicates: true });
-  }
+  const { contactId, created } = await upsertInboundLead(db, page.org_id, {
+    name: answers.name,
+    phone: answers.phone,
+    email: answers.email,
+    fields: answers.extra,
+    attribution,
+    campaign: { name: lead.campaign_name, externalId: lead.campaign_id, platform: "meta" },
+    source: `פרסומת ${lead.platform === "ig" ? "אינסטגרם" : "פייסבוק"}`,
+  });
 
   // Mark processed before running automations: a crash while sending the
   // welcome message must not re-create the lead on retry.
   await db.from("lead_ad_submissions").update({ contact_id: contactId }).eq("leadgen_id", leadgenId);
-  if (!existing) await triggerAutomations(db, page.org_id, "new_contact", contactId, { source: "meta_lead_ads" });
+  if (created) await triggerAutomations(db, page.org_id, "new_contact", contactId, { source: "meta_lead_ads" });
   return null;
 }

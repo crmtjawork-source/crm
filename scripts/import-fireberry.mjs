@@ -151,6 +151,38 @@ const STAGE_MAP = {
 const ROLE_MAP = { "סוכן מכירות": "agent", "תפעול": "agent", "מנהל מערכת": "admin" };
 const SYSTEM_ACCOUNT = "מנהל מערכת";
 
+// Campaign attribution. Fireberry keeps the ad platform's campaign name in
+// pcfsystemfield120; this business's naming convention puts the agency
+// first ("AIR | Leads | ABO | …"). Edit AGENCIES for another business.
+const AGENCIES = [
+  [/^air\b/i, "AIR"],
+  [/get\s*scale/i, "Getscale"],
+  [/nexsus/i, "NEXSUS"],
+  [/^pma\b/i, "PMA"],
+];
+const SOURCE_PLATFORMS = {
+  "קמפיין ממומן - פייסבוק": "meta",
+  "אורגני - אינסטגרם": "organic",
+  "שיתופי פעולה": "referral",
+  "המלצה מלקוח": "referral",
+  "טיקטוק": "tiktok",
+  "קהילות וקבוצות ווצאפ": "whatsapp",
+};
+const stripMarks = (v) => clean(v).replace(/[\u200e\u200f\u202a-\u202e]/g, "").replace(/\s+/g, " ").trim();
+
+function campaignOf(lead) {
+  const raw = stripMarks(lead.pcfsystemfield120);
+  if (raw) {
+    const platform = /ליד מהאתר|מהאתר/.test(raw) ? "website" : "meta";
+    const agency = AGENCIES.find(([re]) => re.test(raw.split("|")[0].trim()))?.[1] ?? null;
+    return { name: raw, platform, agency };
+  }
+  const src = clean(lead.pcfsystemfield112name);
+  if (src && !unknown(src)) return { name: src, platform: SOURCE_PLATFORMS[src] ?? "other", agency: null };
+  if (clean(lead.pcfsystemfield134) === "facebook") return { name: "פייסבוק (ללא שם קמפיין)", platform: "meta", agency: null };
+  return null;
+}
+
 function sourceOf(lead) {
   if (!unknown(clean(lead.pcfsystemfield112name))) return clean(lead.pcfsystemfield112name);
   const campaign = clean(clean(lead.pcfsystemfield120).split("|")[0]);
@@ -209,6 +241,7 @@ const now = Date.now();
 const contactRows = [];
 const oppPlan = []; // [contactRef, row-without-contact_id]
 const contactRefByLeadId = new Map();
+const campaignPlan = []; // { ref, campaign, attribution }
 
 for (const group of groups.values()) {
   group.sort((a, b) => clean(b.modifiedon).localeCompare(clean(a.modifiedon)));
@@ -233,6 +266,15 @@ for (const group of groups.values()) {
     owner_email: ownerEmailOf(primary.ownerid),
     created_at: createdIso ?? new Date().toISOString(),
   });
+
+  // First touch: the earliest record that names a campaign.
+  const firstTouch = [...group].sort((a, b) => clean(a.createdon).localeCompare(clean(b.createdon))).find((l) => campaignOf(l));
+  if (firstTouch) {
+    const attribution = {};
+    if (stripMarks(firstTouch.pcfsystemfield131)) attribution.ad_name = stripMarks(firstTouch.pcfsystemfield131);
+    if (clean(firstTouch.pcfsystemfield132)) attribution.ad_id = clean(firstTouch.pcfsystemfield132);
+    campaignPlan.push({ ref, campaign: campaignOf(firstTouch), attribution });
+  }
 
   // The deal that matters is an open one if any record is still open.
   const isOpen = (l) => STAGE_MAP[clean(l.pcfsystemfield101name)]?.[1] === "open";
@@ -276,16 +318,17 @@ const noteRows = manualNotes
   .filter((n) => n.row.text.length > 4);
 
 const meetingKind = (m) => (/zoom|זום|meet/i.test(clean(m.pcfsystemfield100name) + clean(m.pcfsystemfield101)) ? "פגישת זום" : "פגישה במשרד");
+// Every meeting that wasn't cancelled goes on the calendar (campaign reports
+// count booked meetings); past ones are also written into the timeline.
 const pastMeetingRows = [];
-const futureMeetings = [];
+const calendarMeetings = [];
 for (const m of meetings) {
   const contactRef = contactRefByLeadId.get(clean(m.objectid).toLowerCase());
   if (!contactRef) continue;
   const start = israelToIso(m.scheduledstart);
   if (!start) continue;
-  if (new Date(start).getTime() > now && clean(m.status) !== "בוטלה") {
-    futureMeetings.push({ contactRef, m, start, end: israelToIso(m.scheduledend) ?? start });
-  } else {
+  if (clean(m.status) !== "בוטלה") calendarMeetings.push({ contactRef, m, start, end: israelToIso(m.scheduledend) ?? start });
+  if (new Date(start).getTime() <= now) {
     pastMeetingRows.push({
       contactRef,
       row: {
@@ -326,7 +369,7 @@ console.log("opportunities by outcome:", count(oppPlan, ([, o]) => o.status));
 console.log("open opportunities by stage:", count(oppPlan.filter(([, o]) => o.status === "open"), ([, o]) => o.stageName));
 console.log("top sources:", Object.entries(count(contactRows, (c) => c.source)).sort((a, b) => b[1] - a[1]).slice(0, 8));
 console.log("owners:", count(contactRows, (c) => c.owner_email ?? "(ללא בעלים)"));
-console.log(`manual notes: ${noteRows.length} · past meetings → timeline: ${pastMeetingRows.length} · future meetings → calendar: ${futureMeetings.length} · open tasks: ${openTasks.length}`);
+console.log(`manual notes: ${noteRows.length} · past meetings → timeline: ${pastMeetingRows.length} · meetings → calendar: ${calendarMeetings.length} · open tasks: ${openTasks.length}`);
 console.log("team invitations:", team.map((t) => `${t.name} <${t.email}> ${t.fireberryRole}→${t.role}`));
 if (!COMMIT) {
   console.log("\nNothing written. Re-run with --commit to import.");
@@ -398,13 +441,13 @@ console.log(`timeline entries inserted: ${await insertNew("activities", withCont
 // Future meetings → appointments (types created on demand, 60 min default).
 const { data: types } = await db.from("appointment_types").select("id, name").eq("org_id", ORG);
 const typeId = new Map((types ?? []).map((t) => [t.name, t.id]));
-for (const kind of new Set(futureMeetings.map((f) => meetingKind(f.m)))) {
+for (const kind of new Set(calendarMeetings.map((f) => meetingKind(f.m)))) {
   if (!typeId.has(kind)) {
     const { data } = await db.from("appointment_types").insert({ org_id: ORG, name: kind, duration_minutes: 60 }).select("id").single();
     typeId.set(kind, data.id);
   }
 }
-const appointmentRows = futureMeetings
+const appointmentRows = calendarMeetings
   .filter((f) => contactId.has(f.contactRef))
   .map((f) => ({
     org_id: ORG,
@@ -420,4 +463,32 @@ console.log(`appointments inserted: ${await insertNew("appointments", appointmen
 
 const taskRows = openTasks.map((t) => ({ ...t.row, contact_id: t.contactRef ? contactId.get(t.contactRef) ?? null : null }));
 console.log(`tasks inserted: ${await insertNew("tasks", taskRows)}`);
+
+// Campaign attribution — only fills leads that don't have a campaign yet, so
+// a campaign set in the CRM is never overwritten.
+const campaignIds = new Map();
+const byCampaign = new Map();
+for (const { ref, campaign } of campaignPlan) {
+  const key = `${campaign.platform}|${campaign.name.toLowerCase()}`;
+  if (!campaignIds.has(key)) {
+    const { data, error } = await db.rpc("resolve_campaign", { p_org: ORG, p_platform: campaign.platform, p_name: campaign.name, p_external_id: null, p_agency: campaign.agency });
+    if (error) throw new Error(`resolve_campaign: ${error.message}`);
+    campaignIds.set(key, data);
+  }
+  const id = contactId.get(ref);
+  if (id) byCampaign.set(campaignIds.get(key), [...(byCampaign.get(campaignIds.get(key)) ?? []), id]);
+}
+let attributed = 0;
+for (const [campaignId, ids] of byCampaign) {
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db.from("contacts").update({ campaign_id: campaignId }).in("id", ids.slice(i, i + 200)).is("campaign_id", null).select("id");
+    if (error) throw new Error(`campaign backfill: ${error.message}`);
+    attributed += data.length;
+  }
+}
+for (const { ref, attribution } of campaignPlan) {
+  if (!Object.keys(attribution).length || !contactId.get(ref)) continue;
+  await db.from("contacts").update({ attribution }).eq("id", contactId.get(ref)).filter("attribution", "eq", "{}");
+}
+console.log(`campaigns: ${campaignIds.size} · leads attributed now: ${attributed}`);
 console.log("\ndone.");

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
+import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
 
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +25,7 @@ export default function ContactDetailPage() {
     pipelines,
     loadActivitiesFor,
     setOpportunityStatus,
+    campaigns,
   } = useStore();
   const contact = getContact(id);
 
@@ -195,6 +197,40 @@ export default function ContactDetailPage() {
           )}
         </select>
       </label>
+
+      <label className="flex items-center gap-2 mb-2 text-sm">
+        <span className="text-neutral-500">קמפיין:</span>
+        <select
+          value={contact.campaignId ?? ""}
+          onChange={(e) => updateContact(contact.id, { campaignId: e.target.value || undefined })}
+          className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent max-w-80"
+        >
+          <option value="">ללא קמפיין</option>
+          {campaigns
+            .filter((c) => !c.archived || c.id === contact.campaignId)
+            .map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({platformLabel(c.platform)}
+                {c.agency ? ` · ${c.agency}` : ""})
+              </option>
+            ))}
+        </select>
+      </label>
+      {Object.keys(contact.attribution).length > 0 && (
+        <details className="mb-4 text-xs text-neutral-500">
+          <summary className="cursor-pointer">נתוני מעקב (UTM / מודעה)</summary>
+          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+            {Object.entries(contact.attribution).map(([k, v]) => (
+              <div key={k} className="contents">
+                <dt className="text-neutral-400">{ATTRIBUTION_LABELS[k] ?? k}</dt>
+                <dd className="break-all" dir="auto">
+                  {v}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      )}
 
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         {contact.tags.map((t) => (

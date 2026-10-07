@@ -65,6 +65,9 @@ export const contacts = pgTable("contacts", {
   bookingToken: text("booking_token").notNull().unique(),
   // Assigned teammate, by email (works for invited-but-not-joined members).
   ownerEmail: text("owner_email"),
+  // Campaign that brought the lead (first touch) + raw tracking data (utm_*, click ids, ad names).
+  campaignId: uuid("campaign_id"),
+  attribution: jsonb("attribution").notNull().default({}),
   // Record this row was imported from, e.g. "fireberry:<guid>"; unique per org.
   externalRef: text("external_ref"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -360,5 +363,46 @@ export const leadAdSubmissions = pgTable("lead_ad_submissions", {
   adId: text("ad_id"),
   contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
   raw: jsonb("raw").notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================== Marketing ==============================
+
+// platform: free text with well-known values (meta, google, tiktok, …).
+export const campaigns = pgTable("campaigns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  platform: text("platform").notNull().default("other"),
+  agency: text("agency"),
+  externalId: text("external_id"),
+  archived: boolean("archived").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// One row per campaign per day per source; monthly figures sit on the 1st.
+export const campaignSpend = pgTable("campaign_spend", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  day: date("day").notNull(),
+  amount: numeric("amount").notNull(),
+  currency: text("currency").notNull().default("ILS"),
+  source: text("source").notNull().default("manual"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Lead intake URL: POST /api/public/leads/<token>.
+export const leadSources = pgTable("lead_sources", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  token: text("token").notNull().unique(),
+  defaultPlatform: text("default_platform"),
+  defaultAgency: text("default_agency"),
+  defaultCampaignId: uuid("default_campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  active: boolean("active").notNull().default(true),
+  lastReceivedAt: timestamp("last_received_at", { withTimezone: true }),
+  receivedCount: integer("received_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

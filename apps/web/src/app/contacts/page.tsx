@@ -9,10 +9,11 @@ import { downloadCsv } from "@/lib/exportCsv";
 const PAGE_SIZE = 100;
 
 export default function ContactsPage() {
-  const { contacts, members } = useStore();
+  const { contacts, members, campaigns } = useStore();
   const { session } = useAuth();
   const [q, setQ] = useState("");
   const [owner, setOwner] = useState("all"); // all | mine | none | <email>
+  const [campaign, setCampaign] = useState(""); // "" all | "none" | <campaign id>
   const [visible, setVisible] = useState(PAGE_SIZE);
 
   const myEmail = session?.user.email?.toLowerCase() ?? "";
@@ -26,6 +27,8 @@ export default function ContactsPage() {
       if (owner === "mine" && ownerEmail !== myEmail) return false;
       if (owner === "none" && ownerEmail) return false;
       if (!["all", "mine", "none"].includes(owner) && ownerEmail !== owner) return false;
+      if (campaign === "none" && c.campaignId) return false;
+      if (campaign && campaign !== "none" && c.campaignId !== campaign) return false;
       if (!needle) return true;
       return (
         c.name.toLowerCase().includes(needle) ||
@@ -96,6 +99,25 @@ export default function ContactsPage() {
                 {m.name}
               </option>
             ))}
+          </select>
+          <select
+            value={campaign}
+            onChange={(e) => {
+              setCampaign(e.target.value);
+              setVisible(PAGE_SIZE);
+            }}
+            className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent max-w-56"
+          >
+            <option value="">כל הקמפיינים</option>
+            <option value="none">ללא קמפיין</option>
+            {campaigns
+              .filter((c) => !c.archived)
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
           </select>
         </div>
         <span className="text-sm text-neutral-500">{filtered.length} מתוך {contacts.length}</span>

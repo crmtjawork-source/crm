@@ -14,6 +14,7 @@ const NAV = [
   { href: "/contacts", label: "לידים" },
   { href: "/inbox", label: "שיחות" },
   { href: "/pipeline", label: "פייפליין" },
+  { href: "/campaigns", label: "קמפיינים" },
   { href: "/calendar", label: "יומן" },
   { href: "/automations", label: "אוטומציות" },
   { href: "/forms", label: "טפסים" },
