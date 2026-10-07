@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 // Imports a Fireberry "full system export" (one CSV per object) into an org.
+// Leads already in the CRM (same phone) get their Fireberry history attached
+// instead of a duplicate contact.
 //
 //   node scripts/import-fireberry.mjs --dir ~/Downloads --org <org-uuid> [--commit]
 //
@@ -360,8 +362,30 @@ if (missing.length) {
   for (const s of data ?? []) stageId.set(s.name, s.id);
 }
 
-console.log(`contacts inserted: ${await insertNew("contacts", contactRows)}`);
+// Leads that already reached the CRM another way (Meta lead form, manual
+// entry) are matched by phone: their Fireberry history attaches to that
+// contact instead of creating a duplicate.
+const byPhone = new Map();
+for (let from = 0; ; from += 1000) {
+  const { data, error } = await db.from("contacts").select("id, phone_digits, external_ref, owner_email").eq("org_id", ORG).not("phone_digits", "is", null).range(from, from + 999);
+  if (error) throw new Error(`contacts by phone: ${error.message}`);
+  for (const c of data) if (!byPhone.has(c.phone_digits)) byPhone.set(c.phone_digits, c);
+  if (data.length < 1000) break;
+}
+const matched = new Map(); // fireberry ref -> existing contact
+for (const row of contactRows) {
+  const existing = byPhone.get(normalizePhone(row.phone));
+  if (existing && existing.external_ref !== row.external_ref) matched.set(row.external_ref, existing);
+}
+for (const [ref, existing] of matched) {
+  if (existing.owner_email) continue;
+  const owner = contactRows.find((c) => c.external_ref === ref)?.owner_email;
+  if (owner) await db.from("contacts").update({ owner_email: owner }).eq("id", existing.id);
+}
+console.log(`matched to existing contacts by phone: ${matched.size}`);
+console.log(`contacts inserted: ${await insertNew("contacts", contactRows.filter((c) => !matched.has(c.external_ref)))}`);
 const contactId = await idsByRef("contacts", contactRows.map((c) => c.external_ref));
+for (const [ref, existing] of matched) contactId.set(ref, existing.id);
 
 const oppRows = oppPlan
   .filter(([ref]) => contactId.has(ref))
