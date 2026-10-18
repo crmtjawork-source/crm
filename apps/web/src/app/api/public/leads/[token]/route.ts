@@ -49,8 +49,16 @@ export async function POST(request: Request, ctx: RouteContext<"/api/public/lead
     agency: source.default_agency,
     campaignId: source.default_campaign_id,
     sourceName: source.name,
+    fieldMap: source.field_map,
   });
+  // Kept so whoever connects a new sender can see exactly what arrived.
+  const remember = (error: string | null) => {
+    const json = JSON.stringify(body ?? {});
+    const payload = json.length <= 20000 ? body : { truncated: true, keys: Object.keys((body ?? {}) as object) };
+    return db.from("lead_sources").update({ last_payload: payload, last_error: error }).eq("id", source.id);
+  };
   if (!lead.phone && !lead.email && !lead.name) {
+    await remember("לא נמצא שם, טלפון או אימייל בנתונים");
     return Response.json({ error: "a lead needs at least a name, phone or email" }, { status: 400, headers: CORS });
   }
 
@@ -60,12 +68,14 @@ export async function POST(request: Request, ctx: RouteContext<"/api/public/lead
       .from("lead_sources")
       .update({ last_received_at: new Date().toISOString(), received_count: (source.received_count ?? 0) + 1 })
       .eq("id", source.id);
+    await remember(null);
     if (created && !lead.isTest) {
       after(() => triggerAutomations(db, source.org_id, "new_contact", contactId, { source: "lead_source" }));
     }
     return Response.json({ ok: true, id: contactId, created }, { headers: CORS });
   } catch (err) {
     console.error("lead intake failed", err);
+    await remember(err instanceof Error ? err.message : "שמירת הליד נכשלה");
     return Response.json({ error: "failed to save lead" }, { status: 500, headers: CORS });
   }
 }

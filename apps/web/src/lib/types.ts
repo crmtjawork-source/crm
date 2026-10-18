@@ -253,5 +253,8 @@ export type LeadSource = {
   active: boolean;
   lastReceivedAt?: string;
   receivedCount: number;
+  fieldMap: Record<string, string>; // incoming key → standard key or custom-field label ("-" drops it)
+  lastPayload?: unknown; // last request body, for connecting a new sender
+  lastError?: string;
   createdAt: string;
 };

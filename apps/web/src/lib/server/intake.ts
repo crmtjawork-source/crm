@@ -68,10 +68,23 @@ function googleLeadForm(body: Record<string, unknown>): Flat | null {
 export function parseIntake(
   body: unknown,
   query: URLSearchParams,
-  defaults: { platform?: string | null; agency?: string | null; campaignId?: string | null; sourceName: string }
+  defaults: {
+    platform?: string | null;
+    agency?: string | null;
+    campaignId?: string | null;
+    sourceName: string;
+    fieldMap?: Record<string, string> | null;
+  }
 ): InboundLead & { isTest: boolean } {
   const b = (body ?? {}) as Record<string, unknown>;
-  const flat: Flat = { ...Object.fromEntries(query), ...(googleLeadForm(b) ?? flatten(b)) };
+  const raw: Flat = { ...Object.fromEntries(query), ...(googleLeadForm(b) ?? flatten(b)) };
+  // Per-source renames (see lead_sources.field_map).
+  const flat: Flat = {};
+  // A target of "-" drops the key (system ids, timestamps…).
+  for (const [k, v] of Object.entries(raw)) {
+    const target = defaults.fieldMap?.[k] ?? k;
+    if (target !== "-") flat[target] = v;
+  }
   const used = new Set<string>();
 
   const first = pick(flat, FIRST, used);

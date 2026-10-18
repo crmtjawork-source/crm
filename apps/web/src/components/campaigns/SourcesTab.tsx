@@ -124,6 +124,18 @@ function SourceRow({ source, isAdmin }: { source: LeadSource; isAdmin: boolean }
           {copied ? "הועתק ✓" : "העתקה"}
         </button>
       </div>
+      {source.lastError && <p className="text-xs text-red-500 mt-2">הבקשה האחרונה נדחתה: {source.lastError}</p>}
+      {source.lastPayload !== undefined && (
+        <details className="mt-2 text-xs">
+          <summary className="cursor-pointer text-neutral-400">הנתונים האחרונים שהתקבלו</summary>
+          <pre className="mt-1 bg-neutral-50 dark:bg-neutral-900 rounded p-2 overflow-x-auto max-h-64" dir="ltr">
+            {JSON.stringify(source.lastPayload, null, 2)}
+          </pre>
+        </details>
+      )}
+      {Object.keys(source.fieldMap).length > 0 && (
+        <p className="text-xs text-neutral-400 mt-1">מוגדרת התאמת שדות ({Object.keys(source.fieldMap).length} שדות)</p>
+      )}
       {isAdmin && (
         <div className="flex gap-3 mt-2 text-xs text-neutral-400">
           <button onClick={() => updateLeadSource(source.id, { active: !source.active })} className="hover:underline">

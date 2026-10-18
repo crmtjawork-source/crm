@@ -215,6 +215,9 @@ function mapLeadSource(r: Row): LeadSource {
     active: r.active,
     lastReceivedAt: r.last_received_at ?? undefined,
     receivedCount: r.received_count ?? 0,
+    fieldMap: r.field_map ?? {},
+    lastPayload: r.last_payload ?? undefined,
+    lastError: r.last_error ?? undefined,
     createdAt: r.created_at,
   };
 }
