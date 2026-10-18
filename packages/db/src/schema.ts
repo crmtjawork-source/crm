@@ -67,6 +67,7 @@ export const contacts = pgTable("contacts", {
   ownerEmail: text("owner_email"),
   // Campaign that brought the lead (first touch) + raw tracking data (utm_*, click ids, ad names).
   campaignId: uuid("campaign_id"),
+  noAnswerCount: integer("no_answer_count").notNull().default(0),
   attribution: jsonb("attribution").notNull().default({}),
   // Record this row was imported from, e.g. "fireberry:<guid>"; unique per org.
   externalRef: text("external_ref"),
@@ -139,6 +140,8 @@ export const tasks = pgTable("tasks", {
   assignee: text("assignee"),
   dueDate: date("due_date"),
   done: boolean("done").notNull().default(false),
+  templateId: uuid("template_id"),
+  appointmentId: uuid("appointment_id"),
   // Record this row was imported from, e.g. "fireberry:<guid>"; unique per org.
   externalRef: text("external_ref"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -404,5 +407,19 @@ export const leadSources = pgTable("lead_sources", {
   active: boolean("active").notNull().default(true),
   lastReceivedAt: timestamp("last_received_at", { withTimezone: true }),
   receivedCount: integer("received_count").notNull().default(0),
+  fieldMap: jsonb("field_map").notNull().default({}),
+  lastPayload: jsonb("last_payload"),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Ready-made messages; quick_action ties one to a lead-card button.
+export const messageTemplates = pgTable("message_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  body: text("body").notNull().default(""),
+  quickAction: text("quick_action"),
+  position: integer("position").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

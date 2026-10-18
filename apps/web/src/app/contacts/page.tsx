@@ -12,7 +12,8 @@ export default function ContactsPage() {
   const { contacts, members, campaigns } = useStore();
   const { session } = useAuth();
   const [q, setQ] = useState("");
-  const [owner, setOwner] = useState("all"); // all | mine | none | <email>
+  const isAgent = members.find((m) => m.email.toLowerCase() === (session?.user.email ?? "").toLowerCase())?.role === "agent";
+  const [owner, setOwner] = useState(isAgent ? "mine" : "all"); // all | mine | none | <email>
   const [campaign, setCampaign] = useState(""); // "" all | "none" | <campaign id>
   const [visible, setVisible] = useState(PAGE_SIZE);
 
@@ -47,19 +48,19 @@ export default function ContactsPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">לידים</h1>
         <div className="flex gap-2">
           <button
             onClick={handleExport}
-            className="text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800"
+            className="hidden md:inline-block text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800"
           >
             ייצוא CSV
           </button>
           <Link
             href="/contacts/import"
-            className="text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800"
+            className="hidden md:inline-block text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800"
           >
             ייבוא CSV
           </Link>
@@ -73,7 +74,7 @@ export default function ContactsPage() {
       </div>
 
       <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
           <input
             value={q}
             onChange={(e) => {
@@ -81,7 +82,7 @@ export default function ContactsPage() {
               setVisible(PAGE_SIZE);
             }}
             placeholder="חיפוש לפי שם, טלפון או אימייל…"
-            className="w-72 px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+            className="w-full md:w-72 px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
           />
           <select
             value={owner}
@@ -129,9 +130,9 @@ export default function ContactsPage() {
             <tr>
               <th className="text-start px-4 py-2 font-medium">שם</th>
               <th className="text-start px-4 py-2 font-medium">טלפון</th>
-              <th className="text-start px-4 py-2 font-medium">מקור</th>
-              <th className="text-start px-4 py-2 font-medium">בעלים</th>
-              <th className="text-start px-4 py-2 font-medium">תגיות</th>
+              <th className="text-start px-4 py-2 font-medium hidden md:table-cell">מקור</th>
+              <th className="text-start px-4 py-2 font-medium hidden md:table-cell">בעלים</th>
+              <th className="text-start px-4 py-2 font-medium hidden md:table-cell">תגיות</th>
             </tr>
           </thead>
           <tbody>
@@ -145,12 +146,18 @@ export default function ContactsPage() {
                     {c.name}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400" dir="ltr">
-                  {c.phone ?? "—"}
+                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 text-end md:text-start" dir="ltr">
+                  {c.phone ? (
+                    <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`} className="hover:underline">
+                      {c.phone}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
                 </td>
-                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">{c.source ?? "—"}</td>
-                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">{ownerName(c.ownerEmail) || "—"}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell">{c.source ?? "—"}</td>
+                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell">{ownerName(c.ownerEmail) || "—"}</td>
+                <td className="px-4 py-3 hidden md:table-cell">
                   <div className="flex gap-1">
                     {c.tags.map((t) => (
                       <span

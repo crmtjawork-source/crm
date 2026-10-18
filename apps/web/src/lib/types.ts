@@ -12,6 +12,8 @@ export type Contact = {
   fields: Record<string, string>; // custom fields (budget, product type, ...)
   ownerEmail?: string; // assigned teammate (member or pending invite), by email
   campaignId?: string; // campaign that brought the lead (first touch)
+  noAnswerCount: number; // "no answer" attempts so far
+  bookingToken?: string; // the lead's personal booking link: /book/<token>
   attribution: Record<string, string>; // raw tracking data: utm_*, click ids, ad/adset names…
   createdAt: string;
 };
@@ -61,6 +63,8 @@ export type Task = {
   assignee?: string;
   dueDate?: string; // yyyy-mm-dd
   done: boolean;
+  templateId?: string; // a message to send when doing the task (e.g. a meeting reminder)
+  appointmentId?: string; // the meeting the message refers to
   createdAt: string;
 };
 
@@ -257,4 +261,14 @@ export type LeadSource = {
   lastPayload?: unknown; // last request body, for connecting a new sender
   lastError?: string;
   createdAt: string;
+};
+
+// A ready-made message; quickAction ties it to a lead-card button
+// (see lib/templates.ts QUICK_ACTIONS).
+export type MessageTemplate = {
+  id: string;
+  name: string;
+  body: string;
+  quickAction?: string;
+  position: number;
 };

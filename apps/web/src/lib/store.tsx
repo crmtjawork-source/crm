@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { supabase } from "./supabaseClient";
 import { apiPost } from "./api";
 import type {
+  MessageTemplate,
   Campaign,
   CampaignSpend,
   LeadSource,
@@ -62,6 +63,7 @@ type State = {
   campaigns: Campaign[];
   campaignSpend: CampaignSpend[];
   leadSources: LeadSource[];
+  messageTemplates: MessageTemplate[];
 };
 
 const emptyState: State = {
@@ -85,9 +87,11 @@ const emptyState: State = {
   campaigns: [],
   campaignSpend: [],
   leadSources: [],
+  messageTemplates: [],
 };
 
-type ContactPatch = Partial<Pick<Contact, "name" | "phone" | "email" | "source" | "ownerEmail" | "campaignId">>;
+type ContactPatch = Partial<Pick<Contact, "name" | "phone" | "email" | "source" | "ownerEmail" | "campaignId" | "noAnswerCount">>;
+type TemplatePatch = Partial<Pick<MessageTemplate, "name" | "body" | "quickAction" | "position">>;
 type CampaignPatch = Partial<Pick<Campaign, "name" | "platform" | "agency" | "archived">>;
 type LeadSourcePatch = Partial<Pick<LeadSource, "name" | "defaultPlatform" | "defaultAgency" | "defaultCampaignId" | "active">>;
 type OpportunityPatch = Partial<Pick<Opportunity, "title" | "value">>;
@@ -119,7 +123,7 @@ type Store = State & {
   renameStage: (pipelineId: string, stageId: string, name: string) => Promise<void>;
   deleteStage: (pipelineId: string, stageId: string) => Promise<{ ok: boolean; reason?: string }>;
 
-  addTask: (t: { title: string; contactId?: string; assignee?: string; dueDate?: string }) => Promise<Task>;
+  addTask: (t: { title: string; contactId?: string; assignee?: string; dueDate?: string; templateId?: string; appointmentId?: string }) => Promise<Task>;
   toggleTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
 
@@ -163,6 +167,10 @@ type Store = State & {
   addLeadSource: (l: { name: string; defaultPlatform?: string; defaultAgency?: string; defaultCampaignId?: string }) => Promise<LeadSource>;
   updateLeadSource: (id: string, patch: LeadSourcePatch) => Promise<void>;
   deleteLeadSource: (id: string) => Promise<void>;
+
+  addMessageTemplate: (t: { name: string; body: string; quickAction?: string }) => Promise<MessageTemplate>;
+  updateMessageTemplate: (id: string, patch: TemplatePatch) => Promise<void>;
+  deleteMessageTemplate: (id: string) => Promise<void>;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -183,9 +191,15 @@ function mapContact(r: Row): Contact {
     fields: r.fields ?? {},
     ownerEmail: r.owner_email ?? undefined,
     campaignId: r.campaign_id ?? undefined,
+    noAnswerCount: r.no_answer_count ?? 0,
+    bookingToken: r.booking_token ?? undefined,
     attribution: r.attribution ?? {},
     createdAt: r.created_at,
   };
+}
+
+function mapMessageTemplate(r: Row): MessageTemplate {
+  return { id: r.id, name: r.name, body: r.body, quickAction: r.quick_action ?? undefined, position: r.position };
 }
 
 function mapCampaign(r: Row): Campaign {
@@ -264,6 +278,8 @@ function mapTask(r: Row): Task {
     assignee: r.assignee ?? undefined,
     dueDate: r.due_date ?? undefined,
     done: r.done,
+    templateId: r.template_id ?? undefined,
+    appointmentId: r.appointment_id ?? undefined,
     createdAt: r.created_at,
   };
 }
@@ -449,6 +465,7 @@ export function StoreProvider({
         campaignsRes,
         campaignSpendRes,
         leadSourcesRes,
+        templatesRes,
       ] = await Promise.all([
         fetchAll("contacts"),
         supabase.from("pipelines").select("*").order("created_at"),
@@ -475,6 +492,7 @@ export function StoreProvider({
         supabase.from("campaigns").select("*").order("created_at"),
         fetchAll("campaign_spend"),
         supabase.from("lead_sources").select("*").order("created_at"),
+        supabase.from("message_templates").select("*").order("position"),
       ]);
 
       if (cancelled) return;
@@ -528,6 +546,7 @@ export function StoreProvider({
         campaigns: (campaignsRes.data ?? []).map(mapCampaign),
         campaignSpend: (campaignSpendRes.data ?? []).map(mapCampaignSpend),
         leadSources: (leadSourcesRes.data ?? []).map(mapLeadSource),
+        messageTemplates: (templatesRes.data ?? []).map(mapMessageTemplate),
       });
       setLoading(false);
     }
@@ -658,6 +677,7 @@ export function StoreProvider({
     if (patch.source !== undefined) payload.source = patch.source ?? null;
     if ("ownerEmail" in patch) payload.owner_email = patch.ownerEmail || null;
     if ("campaignId" in patch) payload.campaign_id = patch.campaignId || null;
+    if (patch.noAnswerCount !== undefined) payload.no_answer_count = patch.noAnswerCount;
     const { data } = await supabase.from("contacts").update(payload).eq("id", contactId).select().single();
     if (!data) return;
     const updated = mapContact(data);
@@ -867,7 +887,15 @@ export function StoreProvider({
   const addTask: Store["addTask"] = async (t) => {
     const { data, error } = await supabase
       .from("tasks")
-      .insert({ org_id: orgId, title: t.title, contact_id: t.contactId, assignee: t.assignee, due_date: t.dueDate })
+      .insert({
+        org_id: orgId,
+        title: t.title,
+        contact_id: t.contactId,
+        assignee: t.assignee,
+        due_date: t.dueDate,
+        template_id: t.templateId ?? null,
+        appointment_id: t.appointmentId ?? null,
+      })
       .select()
       .single();
     if (error || !data) throw error;
@@ -1253,6 +1281,36 @@ export function StoreProvider({
     setState((s) => ({ ...s, leadSources: s.leadSources.filter((x) => x.id !== id) }));
   };
 
+
+  const addMessageTemplate: Store["addMessageTemplate"] = async (t) => {
+    const position = Math.max(-1, ...state.messageTemplates.map((x) => x.position)) + 1;
+    const { data, error } = await supabase
+      .from("message_templates")
+      .insert({ org_id: orgId, name: t.name, body: t.body, quick_action: t.quickAction || null, position })
+      .select()
+      .single();
+    if (error || !data) throw error ?? new Error("שמירת ההודעה נכשלה");
+    const template = mapMessageTemplate(data);
+    setState((s) => ({ ...s, messageTemplates: [...s.messageTemplates, template] }));
+    return template;
+  };
+
+  const updateMessageTemplate: Store["updateMessageTemplate"] = async (id, patch) => {
+    const payload: Row = {};
+    if (patch.name !== undefined) payload.name = patch.name;
+    if (patch.body !== undefined) payload.body = patch.body;
+    if ("quickAction" in patch) payload.quick_action = patch.quickAction || null;
+    if (patch.position !== undefined) payload.position = patch.position;
+    const { data, error } = await supabase.from("message_templates").update(payload).eq("id", id).select().single();
+    if (error) throw error;
+    if (data) setState((s) => ({ ...s, messageTemplates: upsertById(s.messageTemplates, mapMessageTemplate(data)) }));
+  };
+
+  const deleteMessageTemplate: Store["deleteMessageTemplate"] = async (id) => {
+    await supabase.from("message_templates").delete().eq("id", id);
+    setState((s) => ({ ...s, messageTemplates: s.messageTemplates.filter((t) => t.id !== id) }));
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -1313,6 +1371,9 @@ export function StoreProvider({
         addLeadSource,
         updateLeadSource,
         deleteLeadSource,
+        addMessageTemplate,
+        updateMessageTemplate,
+        deleteMessageTemplate,
       }}
     >
       {children}

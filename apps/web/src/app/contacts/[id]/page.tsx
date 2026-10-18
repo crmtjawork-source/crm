@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
+import { QuickActions } from "@/components/leads/QuickActions";
+import { TaskRow } from "@/components/leads/TaskRow";
 
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +28,8 @@ export default function ContactDetailPage() {
     loadActivitiesFor,
     setOpportunityStatus,
     campaigns,
+    tasks,
+    appointments,
   } = useStore();
   const contact = getContact(id);
 
@@ -103,7 +107,7 @@ export default function ContactDetailPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-4 md:p-6 max-w-2xl">
       <div className="flex items-start justify-between mb-1">
         {editingInfo ? (
           <form onSubmit={saveInfo} className="w-full space-y-2 mb-4">
@@ -177,6 +181,33 @@ export default function ContactDetailPage() {
           )}
         </div>
       )}
+
+      {!editingInfo && <QuickActions contact={contact} />}
+
+      {(() => {
+        const leadTasks = tasks.filter((t) => t.contactId === contact.id && !t.done);
+        const upcoming = appointments
+          .filter((a) => a.contactId === contact.id && a.startAt >= new Date().toISOString())
+          .sort((a, b) => a.startAt.localeCompare(b.startAt));
+        if (!leadTasks.length && !upcoming.length) return null;
+        return (
+          <section className="mb-5 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2">
+            {upcoming.map((a) => (
+              <p key={a.id} className="text-sm py-1">
+                📅 {a.title} ·{" "}
+                {new Date(a.startAt).toLocaleString("he-IL", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+              </p>
+            ))}
+            {leadTasks.length > 0 && (
+              <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                {leadTasks.map((t) => (
+                  <TaskRow key={t.id} task={t} showContact={false} />
+                ))}
+              </ul>
+            )}
+          </section>
+        );
+      })()}
 
       <label className="flex items-center gap-2 mb-4 text-sm">
         <span className="text-neutral-500">בעלים:</span>
@@ -349,8 +380,8 @@ export default function ContactDetailPage() {
                 <span className={a.type === "note" ? "text-neutral-400" : "text-neutral-300"}>
                   {a.type === "note" ? "📝" : "→"}
                 </span>
-                <div>
-                  <p>{a.text}</p>
+                <div className="min-w-0">
+                  <p className="whitespace-pre-line break-words">{a.text}</p>
                   <p className="text-xs text-neutral-400">
                     {new Date(a.createdAt).toLocaleString("he-IL")}
                   </p>

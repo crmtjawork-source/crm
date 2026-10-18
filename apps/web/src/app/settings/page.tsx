@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { IntegrationsSettings } from "@/components/settings/IntegrationsSettings";
+import { MessageTemplatesSettings } from "@/components/settings/MessageTemplatesSettings";
 
 export default function SettingsPage() {
-  const { fieldDefs, addFieldDef, removeFieldDef } = useStore();
+  const { fieldDefs, addFieldDef, removeFieldDef, members, currentMemberId } = useStore();
+  const isAdmin = members.find((m) => m.id === currentMemberId)?.role !== "agent";
   const [newField, setNewField] = useState("");
 
   function handleAdd(e: React.FormEvent) {
@@ -17,8 +19,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-4 md:p-6 max-w-2xl">
       <h1 className="text-xl font-bold mb-6">הגדרות</h1>
+      <MessageTemplatesSettings isAdmin={isAdmin} />
       <IntegrationsSettings />
 
       <h2 className="text-base font-semibold mb-1">שדות מותאמים אישית</h2>
