@@ -2,6 +2,8 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { useStore } from "@/lib/store";
+import { apiPost, ApiError } from "@/lib/api";
+import { useMyGateway } from "@/lib/useMyGateway";
 import { renderTemplate, whatsappLink } from "@/lib/templates";
 import type { Appointment, Contact } from "@/lib/types";
 import { Sheet } from "@/components/ui/Sheet";
@@ -32,6 +34,23 @@ export function WhatsAppSheet({
   const [selected, setSelected] = useState(templateId ?? "");
   const template = messageTemplates.find((t) => t.id === selected);
   const [text, setText] = useState(() => (template ? renderTemplate(template.body, ctx) : ""));
+  const { ready: canSendDirect } = useMyGateway();
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function sendNow() {
+    if (!text.trim()) return;
+    setSending(true);
+    setError("");
+    try {
+      await apiPost(`/api/leads/${contact.id}/whatsapp`, { text, templateId: selected || undefined });
+      onOpened?.();
+      onClose();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "השליחה נכשלה");
+      setSending(false);
+    }
+  }
 
   function choose(id: string) {
     setSelected(id);
@@ -74,10 +93,24 @@ export function WhatsAppSheet({
             className="w-full px-3 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent leading-relaxed"
           />
           {/\{\{[^}]+\}\}/.test(text) && <p className="text-xs text-amber-600">יש בהודעה שדות שלא התמלאו — כדאי לבדוק לפני השליחה.</p>}
-          <button onClick={open} className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium">
-            פתיחה בוואטסאפ
-          </button>
-          <p className="text-xs text-neutral-400 text-center">ההודעה תיפתח בוואטסאפ שלך, מוכנה לשליחה.</p>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          {canSendDirect ? (
+            <>
+              <button onClick={sendNow} disabled={sending || !text.trim()} className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium disabled:opacity-50">
+                {sending ? "שולח…" : "שליחה עכשיו מהוואטסאפ שלי"}
+              </button>
+              <button onClick={open} className="w-full text-xs text-neutral-500 hover:underline">
+                או פתיחה בוואטסאפ (למשל כדי לצרף קובץ)
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={open} className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium">
+                פתיחה בוואטסאפ
+              </button>
+              <p className="text-xs text-neutral-400 text-center">ההודעה תיפתח בוואטסאפ שלך, מוכנה לשליחה. חיבור הוואטסאפ בהגדרות ישלח הודעות לבד.</p>
+            </>
+          )}
         </div>
       )}
     </Sheet>

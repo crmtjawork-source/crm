@@ -30,6 +30,8 @@ export default function ContactDetailPage() {
     campaigns,
     tasks,
     appointments,
+    scheduledMessages,
+    cancelScheduledMessage,
   } = useStore();
   const contact = getContact(id);
 
@@ -186,16 +188,33 @@ export default function ContactDetailPage() {
 
       {(() => {
         const leadTasks = tasks.filter((t) => t.contactId === contact.id && !t.done);
+        const queued = scheduledMessages
+          .filter((m) => m.contactId === contact.id && (m.status === "pending" || m.status === "failed"))
+          .sort((a, b) => a.sendAt.localeCompare(b.sendAt));
         const upcoming = appointments
           .filter((a) => a.contactId === contact.id && a.startAt >= new Date().toISOString())
           .sort((a, b) => a.startAt.localeCompare(b.startAt));
-        if (!leadTasks.length && !upcoming.length) return null;
+        if (!leadTasks.length && !upcoming.length && !queued.length) return null;
         return (
           <section className="mb-5 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2">
             {upcoming.map((a) => (
               <p key={a.id} className="text-sm py-1">
                 📅 {a.title} ·{" "}
                 {new Date(a.startAt).toLocaleString("he-IL", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+              </p>
+            ))}
+            {queued.map((m) => (
+              <p key={m.id} className="text-sm py-1 flex items-center gap-2">
+                <span className="flex-1 min-w-0">
+                  ⏰ {m.label} ·{" "}
+                  {new Date(m.sendAt).toLocaleString("he-IL", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  {m.status === "failed" && <span className="text-red-500"> · נכשל: {m.error}</span>}
+                </span>
+                {m.status === "pending" && (
+                  <button onClick={() => cancelScheduledMessage(m.id)} className="text-xs text-neutral-400 hover:text-red-500 shrink-0">
+                    ביטול
+                  </button>
+                )}
               </p>
             ))}
             {leadTasks.length > 0 && (

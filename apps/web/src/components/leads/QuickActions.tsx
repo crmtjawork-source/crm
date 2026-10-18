@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
+import { apiPost, ApiError } from "@/lib/api";
+import { useMyGateway } from "@/lib/useMyGateway";
 import type { Appointment, Contact } from "@/lib/types";
 import { WhatsAppSheet } from "./WhatsAppSheet";
 import { MeetingSheet } from "./MeetingSheet";
@@ -18,6 +20,8 @@ export function QuickActions({ contact }: { contact: Contact }) {
   const { opportunities, pipelines, messageTemplates, members, currentMemberId, moveOpportunity, updateContact, addTask, addNote } = useStore();
   const [composer, setComposer] = useState<Composer>(null);
   const [scheduling, setScheduling] = useState(false);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const { ready: autoSend } = useMyGateway();
   const agentName = members.find((m) => m.id === currentMemberId)?.name;
   const templateFor = (action: string) => messageTemplates.find((t) => t.quickAction === action)?.id;
 
@@ -30,6 +34,24 @@ export function QuickActions({ contact }: { contact: Contact }) {
     await moveOpportunity(opp.id, target.id);
   }
 
+  // With a linked WhatsApp the message goes out on its own; otherwise (or if
+  // sending fails) WhatsApp opens on the agent's phone with the text ready.
+  async function deliver(templateId: string | undefined, appointment?: Appointment) {
+    const template = messageTemplates.find((t) => t.id === templateId);
+    if (!autoSend || !template || !template.body.trim()) {
+      setComposer({ templateId, appointment });
+      return;
+    }
+    setNotice({ ok: true, text: `שולח: ${template.name}…` });
+    try {
+      await apiPost(`/api/leads/${contact.id}/whatsapp`, { templateId, appointmentId: appointment?.id });
+      setNotice({ ok: true, text: `✓ נשלח בוואטסאפ: ${template.name}` });
+    } catch (err) {
+      setNotice({ ok: false, text: `השליחה האוטומטית נכשלה (${err instanceof ApiError ? err.message : "שגיאה"}) — אפשר לשלוח ידנית` });
+      setComposer({ templateId, appointment });
+    }
+  }
+
   async function noAnswer() {
     const attempt = contact.noAnswerCount + 1;
     await updateContact(contact.id, { noAnswerCount: attempt });
@@ -38,12 +60,12 @@ export function QuickActions({ contact }: { contact: Contact }) {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     await addTask({ title: `לחייג שוב ל${contact.name} (ניסיון ${attempt + 1})`, contactId: contact.id, assignee: agentName, dueDate: localDay(tomorrow) });
-    setComposer({ templateId: templateFor(`no_answer_${Math.min(attempt, 4)}`) });
+    await deliver(templateFor(`no_answer_${Math.min(attempt, 4)}`));
   }
 
   async function afterMeeting() {
     await moveTo(STAGE_FOR.afterMeeting);
-    setComposer({ templateId: templateFor("after_meeting") });
+    await deliver(templateFor("after_meeting"));
   }
 
   const btn = "flex flex-col items-center justify-center gap-1 rounded-lg border border-neutral-200 dark:border-neutral-800 py-2.5 text-xs hover:bg-neutral-50 dark:hover:bg-neutral-900 disabled:opacity-40";
@@ -72,15 +94,17 @@ export function QuickActions({ contact }: { contact: Contact }) {
           אחרי פגישה
         </button>
       </div>
+      {notice && <p className={`-mt-3 mb-4 text-xs ${notice.ok ? "text-emerald-600" : "text-amber-600"}`}>{notice.text}</p>}
 
       {scheduling && (
         <MeetingSheet
           contact={contact}
+          autoSend={autoSend}
           onClose={() => setScheduling(false)}
           onScheduled={async (appointment, online) => {
             setScheduling(false);
             await moveTo(STAGE_FOR.meeting);
-            setComposer({ appointment, templateId: templateFor(online ? "meeting_online" : "meeting_office") });
+            await deliver(templateFor(online ? "meeting_online" : "meeting_office"), appointment);
           }}
         />
       )}

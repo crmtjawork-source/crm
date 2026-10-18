@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
+import { apiPost } from "@/lib/api";
 import { isOnlineMeeting } from "@/lib/templates";
 import type { Appointment, Contact } from "@/lib/types";
 import { Sheet } from "@/components/ui/Sheet";
@@ -14,8 +15,18 @@ const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).pad
 // deal to the meeting stage, and creates reminder tasks (3 days / 1 day /
 // morning of) that carry their ready-made message. Calls back with the
 // meeting so the confirmation message can be sent right away.
-export function MeetingSheet({ contact, onClose, onScheduled }: { contact: Contact; onClose: () => void; onScheduled: (a: Appointment, online: boolean) => void }) {
-  const { appointmentTypes, messageTemplates, members, currentMemberId, addAppointment, addTask, updateContact } = useStore();
+export function MeetingSheet({
+  contact,
+  autoSend,
+  onClose,
+  onScheduled,
+}: {
+  contact: Contact;
+  autoSend: boolean; // reminders go out on their own from the agent's linked WhatsApp
+  onClose: () => void;
+  onScheduled: (a: Appointment, online: boolean) => void;
+}) {
+  const { appointmentTypes, messageTemplates, members, currentMemberId, addAppointment, addTask, updateContact, addScheduledMessages } = useStore();
   const agentName = members.find((m) => m.id === currentMemberId)?.name;
   const [typeId, setTypeId] = useState(appointmentTypes[0]?.id ?? "");
   const [date, setDate] = useState(() => localDay(new Date(Date.now() + 86400000)));
@@ -43,15 +54,24 @@ export function MeetingSheet({ contact, onClose, onScheduled }: { contact: Conta
         notes: where.trim() || undefined,
       });
       const today = localDay(new Date());
-      const reminders: [string, number][] = [
-        ["meeting_reminder_3d", 3],
-        ["meeting_reminder_1d", 1],
-        ["meeting_reminder_day", 0],
+      // 3 days before (same time), a day before (same time), and the
+      // morning of the meeting (09:00, or 2 hours before an early meeting).
+      const morning = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 9, 0);
+      const reminders: [string, number, Date][] = [
+        ["meeting_reminder_3d", 3, new Date(start.getTime() - 3 * 86400000)],
+        ["meeting_reminder_1d", 1, new Date(start.getTime() - 86400000)],
+        ["meeting_reminder_day", 0, morning.getTime() < start.getTime() - 3600000 ? morning : new Date(start.getTime() - 2 * 3600000)],
       ];
-      for (const [action, daysBefore] of reminders) {
+      const queued: { templateId: string; sendAt: string; appointmentId: string; label: string }[] = [];
+      for (const [action, daysBefore, sendAt] of reminders) {
         const template = messageTemplates.find((t) => t.quickAction === action);
+        if (!template) continue;
+        if (autoSend && template.body.trim()) {
+          if (sendAt > new Date()) queued.push({ templateId: template.id, sendAt: sendAt.toISOString(), appointmentId: appointment.id, label: template.name });
+          continue;
+        }
         const due = localDay(new Date(start.getFullYear(), start.getMonth(), start.getDate() - daysBefore));
-        if (!template || due < today) continue;
+        if (due < today) continue;
         await addTask({
           title: `לשלוח ל${contact.name}: ${template.name}`,
           contactId: contact.id,
@@ -60,6 +80,10 @@ export function MeetingSheet({ contact, onClose, onScheduled }: { contact: Conta
           templateId: template.id,
           appointmentId: appointment.id,
         });
+      }
+      if (queued.length) {
+        const { scheduled } = await apiPost<{ scheduled: Record<string, unknown>[] }>(`/api/leads/${contact.id}/schedule`, { items: queued });
+        addScheduledMessages(scheduled);
       }
       if (contact.noAnswerCount) await updateContact(contact.id, { noAnswerCount: 0 });
       onScheduled(appointment, isOnlineMeeting(type.name));
@@ -100,8 +124,9 @@ export function MeetingSheet({ contact, onClose, onScheduled }: { contact: Conta
             <input value={where} onChange={(e) => setWhere(e.target.value)} dir="auto" className={input} />
           </label>
           <p className="text-xs text-neutral-400 leading-relaxed">
-            הפגישה תיכנס ליומן, הליד יעבור לשלב &quot;נקבעה פגישה&quot;, ויווצרו משימות תזכורת עם הודעה מוכנה (3 ימים לפני, יום לפני ובבוקר
-            הפגישה).
+            {autoSend
+              ? "הפגישה תיכנס ליומן, הליד יעבור לשלב \"נקבעה פגישה\", אישור הפגישה יישלח עכשיו מהוואטסאפ שלך, והתזכורות (3 ימים לפני, יום לפני ובבוקר הפגישה) יישלחו לבד בזמן."
+              : "הפגישה תיכנס ליומן, הליד יעבור לשלב \"נקבעה פגישה\", ויווצרו משימות תזכורת עם הודעה מוכנה (3 ימים לפני, יום לפני ובבוקר הפגישה)."}
           </p>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button type="submit" disabled={busy} className="w-full py-2.5 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium disabled:opacity-50">

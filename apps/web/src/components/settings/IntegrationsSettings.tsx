@@ -278,10 +278,12 @@ export function IntegrationsSettings() {
         description="מספרי WhatsApp Business (Cloud API) שמחוברים למערכת. הודעות נכנסות ויוצאות מכל המספרים מופיעות במסך השיחות."
       >
         <ul className="space-y-2 mb-3">
-          {channels.map((ch) => (
-            <ChannelRow key={ch.id} channel={ch} canManage={canManage} />
-          ))}
-          {channels.length === 0 && <p className="text-sm text-neutral-400">עוד לא חובר מספר.</p>}
+          {channels
+            .filter((ch) => ch.provider === "whatsapp_cloud")
+            .map((ch) => (
+              <ChannelRow key={ch.id} channel={ch} canManage={canManage} />
+            ))}
+          {!channels.some((ch) => ch.provider === "whatsapp_cloud") && <p className="text-sm text-neutral-400">עוד לא חובר מספר.</p>}
         </ul>
         {canManage ? (
           <div className="space-y-3">

@@ -1,6 +1,7 @@
 import "server-only";
 import type { Db } from "./supabaseAdmin";
 import { graphFetch, GraphError } from "./graph";
+import { sendText as greenApiSendText } from "./greenApi";
 
 export type OutgoingContent =
   | { kind: "text"; body: string }
@@ -72,16 +73,41 @@ export function describeWhatsAppMessage(msg: Row): { type: string; body: string 
   }
 }
 
+// A specific channel when given; otherwise the org's default official
+// (Cloud API) number.
 export async function resolveChannel(db: Db, orgId: string, channelId?: string | null): Promise<Row> {
-  let query = db.from("channels").select("*").eq("org_id", orgId).eq("active", true).eq("provider", "whatsapp_cloud");
+  let query = db.from("channels").select("*").eq("org_id", orgId).eq("active", true);
   if (channelId) {
     query = query.eq("id", channelId);
   } else {
-    query = query.order("is_default", { ascending: false }).order("created_at");
+    query = query.eq("provider", "whatsapp_cloud").order("is_default", { ascending: false }).order("created_at");
   }
   const { data } = await query.limit(1).maybeSingle();
   if (!data) throw new Error(channelId ? "ערוץ הוואטסאפ שנבחר לא קיים או לא פעיל" : "לא הוגדר ערוץ וואטסאפ פעיל (הגדרות ← ערוצים)");
   return data;
+}
+
+// The WhatsApp the user linked through the gateway (their own number), if any.
+export async function userGatewayChannel(db: Db, orgId: string, userId: string): Promise<Row | null> {
+  const { data: membership } = await db.from("memberships").select("id").eq("org_id", orgId).eq("user_id", userId).maybeSingle();
+  if (!membership) return null;
+  const { data } = await db
+    .from("channels")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("provider", "green_api")
+    .eq("owner_membership_id", membership.id)
+    .eq("active", true)
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
+
+async function gatewayCreds(db: Db, channel: Row) {
+  const { data } = await db.from("channel_credentials").select("access_token, api_url").eq("channel_id", channel.id).maybeSingle();
+  if (!data) throw new Error("לחיבור הוואטסאפ הזה אין פרטי גישה שמורים");
+  return { idInstance: channel.external_id as string, apiToken: data.access_token as string, apiUrl: data.api_url as string };
 }
 
 async function channelToken(db: Db, channelId: string): Promise<string> {
@@ -188,7 +214,11 @@ export async function sendToContact(
     contactId: contact.id,
     waId: contact.phone_digits,
   });
-  if (args.content.kind === "text" && !isWindowOpen(conversation.last_inbound_at)) throw new WindowClosedError();
+  const gateway = channel.provider === "green_api";
+  // The 24-hour rule and templates are Cloud API rules; a linked personal
+  // WhatsApp sends plain text any time.
+  if (gateway && args.content.kind !== "text") throw new Error("בחיבור וואטסאפ אישי שולחים טקסט, לא תבנית של מטא");
+  if (!gateway && args.content.kind === "text" && !isWindowOpen(conversation.last_inbound_at)) throw new WindowClosedError();
 
   const body =
     args.content.kind === "text"
@@ -207,8 +237,12 @@ export async function sendToContact(
 
   let wamid: string;
   try {
-    const token = await channelToken(db, channel.id);
-    wamid = await callSendApi(channel.external_id, token, contact.phone_digits, args.content);
+    if (gateway) {
+      wamid = await greenApiSendText(await gatewayCreds(db, channel), contact.phone_digits, (args.content as { body: string }).body);
+    } else {
+      const token = await channelToken(db, channel.id);
+      wamid = await callSendApi(channel.external_id, token, contact.phone_digits, args.content);
+    }
   } catch (err) {
     await db.from("messages").insert({ ...base, status: "failed", error: err instanceof Error ? err.message : String(err) });
     throw err;

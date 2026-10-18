@@ -256,7 +256,7 @@ export const notifications = pgTable("notifications", {
 
 // ============================ Messaging (WhatsApp) ============================
 
-export const channelProvider = pgEnum("channel_provider", ["whatsapp_cloud"]);
+export const channelProvider = pgEnum("channel_provider", ["whatsapp_cloud", "green_api"]);
 export const messageDirection = pgEnum("message_direction", ["inbound", "outbound"]);
 export const messageStatus = pgEnum("message_status", ["pending", "sent", "delivered", "read", "failed", "received"]);
 export const messageOrigin = pgEnum("message_origin", ["crm", "automation", "phone_app", "history"]);
@@ -421,5 +421,22 @@ export const messageTemplates = pgTable("message_templates", {
   body: text("body").notNull().default(""),
   quickAction: text("quick_action"),
   position: integer("position").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Messages queued to send later from an agent's linked WhatsApp (meeting reminders).
+export const scheduledMessages = pgTable("scheduled_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  channelId: uuid("channel_id"),
+  templateId: uuid("template_id"),
+  appointmentId: uuid("appointment_id"),
+  label: text("label").notNull().default(""),
+  sendAt: timestamp("send_at", { withTimezone: true }).notNull(),
+  status: text("status").notNull().default("pending"), // pending | sending | sent | failed | cancelled
+  error: text("error"),
+  createdBy: uuid("created_by"),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

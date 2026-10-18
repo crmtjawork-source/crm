@@ -8,6 +8,7 @@ import {
   handleStateSyncField,
 } from "./whatsapp";
 import { handleLeadgenChange } from "./leadgen";
+import { handleGreenApiEvent } from "./greenApi";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
@@ -54,6 +55,13 @@ async function dispatch(db: Db, payload: Row): Promise<string[]> {
         const note = await handleLeadgenChange(db, change.value ?? {});
         if (note) notes.push(note);
       }
+    }
+  } else if (payload.object === "green_api") {
+    const { data: channel } = await db.from("channels").select("*").eq("id", payload.channel_id).maybeSingle();
+    if (!channel) notes.push("ערוץ Green-API שנמחק");
+    else {
+      const note = await handleGreenApiEvent(db, channel, payload.event ?? {});
+      if (note) notes.push(note);
     }
   } else {
     notes.push(`סוג אובייקט לא נתמך: ${payload.object}`);

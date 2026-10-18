@@ -125,7 +125,8 @@ function Thread({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const windowOpen = isWindowOpen(conversation.lastInboundAt);
+  // A linked personal WhatsApp (gateway) has no 24-hour rule.
+  const windowOpen = channel?.provider === "green_api" || isWindowOpen(conversation.lastInboundAt);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });

@@ -170,8 +170,11 @@ export type AutomationRun = {
 export type Channel = {
   id: string;
   name: string;
-  provider: "whatsapp_cloud";
-  externalId: string; // phone_number_id
+  // whatsapp_cloud = official Cloud API number; green_api = a personal
+  // WhatsApp linked through the unofficial Green-API gateway (QR scan).
+  provider: "whatsapp_cloud" | "green_api";
+  externalId: string; // phone_number_id, or Green-API idInstance
+  status?: string; // green_api: authorized / notAuthorized / blocked …
   wabaId?: string;
   displayPhone?: string;
   ownerMembershipId?: string;
@@ -271,4 +274,15 @@ export type MessageTemplate = {
   body: string;
   quickAction?: string;
   position: number;
+};
+
+// A message queued to send later from an agent's linked WhatsApp (meeting reminders).
+export type ScheduledMessage = {
+  id: string;
+  contactId: string;
+  appointmentId?: string;
+  label: string;
+  sendAt: string;
+  status: "pending" | "sending" | "sent" | "failed" | "cancelled";
+  error?: string;
 };

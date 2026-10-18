@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { supabase } from "./supabaseClient";
 import { apiPost } from "./api";
 import type {
+  ScheduledMessage,
   MessageTemplate,
   Campaign,
   CampaignSpend,
@@ -64,6 +65,7 @@ type State = {
   campaignSpend: CampaignSpend[];
   leadSources: LeadSource[];
   messageTemplates: MessageTemplate[];
+  scheduledMessages: ScheduledMessage[];
 };
 
 const emptyState: State = {
@@ -88,6 +90,7 @@ const emptyState: State = {
   campaignSpend: [],
   leadSources: [],
   messageTemplates: [],
+  scheduledMessages: [],
 };
 
 type ContactPatch = Partial<Pick<Contact, "name" | "phone" | "email" | "source" | "ownerEmail" | "campaignId" | "noAnswerCount">>;
@@ -171,6 +174,9 @@ type Store = State & {
   addMessageTemplate: (t: { name: string; body: string; quickAction?: string }) => Promise<MessageTemplate>;
   updateMessageTemplate: (id: string, patch: TemplatePatch) => Promise<void>;
   deleteMessageTemplate: (id: string) => Promise<void>;
+
+  addScheduledMessages: (rows: Row[]) => void;
+  cancelScheduledMessage: (id: string) => Promise<void>;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -388,7 +394,20 @@ function mapChannel(r: Row): Channel {
     onboarding: r.onboarding ?? "manual",
     onboardedAt: r.onboarded_at ?? undefined,
     historySyncRequestedAt: r.history_sync_requested_at ?? undefined,
+    status: r.status ?? undefined,
     createdAt: r.created_at,
+  };
+}
+
+function mapScheduledMessage(r: Row): ScheduledMessage {
+  return {
+    id: r.id,
+    contactId: r.contact_id,
+    appointmentId: r.appointment_id ?? undefined,
+    label: r.label,
+    sendAt: r.send_at,
+    status: r.status,
+    error: r.error ?? undefined,
   };
 }
 
@@ -466,6 +485,7 @@ export function StoreProvider({
         campaignSpendRes,
         leadSourcesRes,
         templatesRes,
+        scheduledRes,
       ] = await Promise.all([
         fetchAll("contacts"),
         supabase.from("pipelines").select("*").order("created_at"),
@@ -493,6 +513,8 @@ export function StoreProvider({
         fetchAll("campaign_spend"),
         supabase.from("lead_sources").select("*").order("created_at"),
         supabase.from("message_templates").select("*").order("position"),
+        // Upcoming and recently failed reminders; sent ones live in the timeline.
+        supabase.from("scheduled_messages").select("*").in("status", ["pending", "sending", "failed"]).order("send_at").limit(1000),
       ]);
 
       if (cancelled) return;
@@ -547,6 +569,7 @@ export function StoreProvider({
         campaignSpend: (campaignSpendRes.data ?? []).map(mapCampaignSpend),
         leadSources: (leadSourcesRes.data ?? []).map(mapLeadSource),
         messageTemplates: (templatesRes.data ?? []).map(mapMessageTemplate),
+        scheduledMessages: (scheduledRes.data ?? []).map(mapScheduledMessage),
       });
       setLoading(false);
     }
@@ -577,6 +600,15 @@ export function StoreProvider({
         if (payload.eventType === "DELETE") return;
         const campaign = mapCampaign(payload.new as Row);
         setState((s) => ({ ...s, campaigns: upsertById(s.campaigns, campaign) }));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "scheduled_messages", filter }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          const id = (payload.old as Row).id;
+          setState((s) => ({ ...s, scheduledMessages: s.scheduledMessages.filter((m) => m.id !== id) }));
+          return;
+        }
+        const m = mapScheduledMessage(payload.new as Row);
+        setState((s) => ({ ...s, scheduledMessages: upsertById(s.scheduledMessages, m) }));
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "activities", filter }, (payload) => {
         const activity = mapActivity(payload.new as Row);
@@ -1311,6 +1343,17 @@ export function StoreProvider({
     setState((s) => ({ ...s, messageTemplates: s.messageTemplates.filter((t) => t.id !== id) }));
   };
 
+
+  const addScheduledMessages: Store["addScheduledMessages"] = (rows) => {
+    const mapped = rows.map(mapScheduledMessage);
+    setState((s) => ({ ...s, scheduledMessages: mapped.reduce((acc, m) => upsertById(acc, m), s.scheduledMessages) }));
+  };
+
+  const cancelScheduledMessage: Store["cancelScheduledMessage"] = async (id) => {
+    const { data } = await supabase.from("scheduled_messages").update({ status: "cancelled" }).eq("id", id).eq("status", "pending").select().single();
+    if (data) setState((s) => ({ ...s, scheduledMessages: upsertById(s.scheduledMessages, mapScheduledMessage(data)) }));
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -1374,6 +1417,8 @@ export function StoreProvider({
         addMessageTemplate,
         updateMessageTemplate,
         deleteMessageTemplate,
+        addScheduledMessages,
+        cancelScheduledMessage,
       }}
     >
       {children}
