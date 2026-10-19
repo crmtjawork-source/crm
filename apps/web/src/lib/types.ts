@@ -131,7 +131,10 @@ export type AutomationTriggerType =
   | "appointment_booked"
   | "status_changed"
   | "document_viewed"
-  | "document_signed";
+  | "document_signed"
+  | "record_created"
+  | "record_stage_changed"
+  | "record_field_changed";
 
 export type AutomationTrigger = {
   type: AutomationTriggerType;
@@ -140,9 +143,12 @@ export type AutomationTrigger = {
   tag?: string; // tag_added
   source?: "meta_lead_ads"; // new_contact: only leads from this source; empty = any
   status?: string; // status_changed: fires when the handling status becomes this
+  objectTypeId?: string; // record_*: which custom object
+  field?: string; // record_field_changed: the field's key
+  value?: string; // record_stage_changed / record_field_changed: the new value (empty = any change)
 };
 
-export type AutomationStepType = "send_message" | "wait" | "add_tag" | "notify";
+export type AutomationStepType = "send_message" | "wait" | "add_tag" | "notify" | "update_field" | "create_task";
 
 export type AutomationStep = {
   id: string;
@@ -158,6 +164,10 @@ export type AutomationStep = {
   waitMinutes?: number; // wait
   tag?: string; // add_tag
   notifyText?: string; // notify
+  fieldKey?: string; // update_field: the record field to set
+  fieldValue?: string; // update_field
+  taskTitle?: string; // create_task
+  taskDueDays?: number; // create_task: due this many days after the run
 };
 
 export type Automation = {
@@ -175,7 +185,8 @@ export type AutomationRunStatus = "running" | "waiting" | "completed" | "failed"
 export type AutomationRun = {
   id: string;
   automationId: string;
-  contactId: string;
+  contactId?: string;
+  recordId?: string;
   ranAt: string;
   status: AutomationRunStatus;
   resumeAt?: string;

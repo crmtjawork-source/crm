@@ -3,7 +3,17 @@ import type { Db } from "./supabaseAdmin";
 import { sendToContact, type OutgoingContent } from "./whatsapp";
 import { composeForLead, pickChannel, sendLeadMessage } from "./leadMessages";
 
-export type TriggerType = "new_contact" | "stage_change" | "tag_added" | "appointment_booked" | "status_changed" | "document_viewed" | "document_signed";
+export type TriggerType =
+  | "new_contact"
+  | "stage_change"
+  | "tag_added"
+  | "appointment_booked"
+  | "status_changed"
+  | "document_viewed"
+  | "document_signed"
+  | "record_created"
+  | "record_stage_changed"
+  | "record_field_changed";
 // source: where the lead came from, matched against automations.trigger_source
 // (e.g. "meta_lead_ads"). Leads created by hand or by import pass none.
 export type TriggerCtx = { pipelineId?: string; stageId?: string; tag?: string; source?: string; status?: string };
@@ -23,6 +33,52 @@ export function renderPlaceholders(text: string, contact: Row): string {
     if (key.startsWith("field:")) return contact.fields?.[key.slice(6)] ?? "";
     return "";
   });
+}
+
+// Record context for automations on custom objects (clients, properties…).
+type RecordCtx = { record: Row; type: Row; fields: Row[] };
+
+function recordValue(f: Row, v: unknown): string {
+  if (v === null || v === undefined || v === "") return "";
+  const opt = (x: unknown) => (f.options ?? []).find((o: Row) => o.value === x)?.label ?? String(x);
+  if (f.type === "select") return opt(v);
+  if (f.type === "multi_select") return (Array.isArray(v) ? v : [v]).map(opt).join(", ");
+  if (f.type === "checkbox") return v ? "כן" : "לא";
+  if (f.type === "date") return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(String(v)));
+  if (f.type === "number" || f.type === "currency") return Number(v).toLocaleString("he-IL");
+  return String(v);
+}
+
+// {{record_title}} and {{record:<field label>}} inside texts of record automations.
+export function renderRecordPlaceholders(text: string, rec: RecordCtx | null): string {
+  if (!rec) return text;
+  return text.replace(/\{\{\s*record_title\s*\}\}/g, rec.record.title ?? "").replace(/\{\{\s*record:([^}]+?)\s*\}\}/g, (_m, label: string) => {
+    const f = rec.fields.find((x) => x.label === label.trim() || x.key === label.trim());
+    return f ? recordValue(f, rec.record.data?.[f.key]) : "";
+  });
+}
+
+// The lead a record's messages go to: its linked lead, else the lead with
+// the same phone number.
+async function contactForRecord(db: Db, rec: RecordCtx): Promise<Row | null> {
+  if (rec.record.contact_id) {
+    const { data } = await db.from("contacts").select("*").eq("id", rec.record.contact_id).maybeSingle();
+    if (data) return data;
+  }
+  for (const f of rec.fields.filter((x) => x.type === "phone" || x.type === "contact")) {
+    const v = rec.record.data?.[f.key];
+    if (!v) continue;
+    if (f.type === "contact") {
+      const { data } = await db.from("contacts").select("*").eq("id", String(v)).maybeSingle();
+      if (data) return data;
+      continue;
+    }
+    const d = String(v).replace(/\D/g, "");
+    const digits = /^0\d{8,9}$/.test(d) ? `972${d.slice(1)}` : d;
+    const { data } = await db.from("contacts").select("*").eq("org_id", rec.record.org_id).eq("phone_digits", digits).limit(1).maybeSingle();
+    if (data) return data;
+  }
+  return null;
 }
 
 export async function triggerAutomations(
@@ -62,7 +118,55 @@ export async function triggerAutomations(
   return runIds;
 }
 
-async function executeStep(db: Db, automation: Row, step: Row, contact: Row): Promise<{ entry: string; contact: Row }> {
+async function executeStep(
+  db: Db,
+  automation: Row,
+  step: Row,
+  contact: Row | null,
+  rec: RecordCtx | null
+): Promise<{ entry: string; contact: Row | null }> {
+  const fill = (t: string) => renderRecordPlaceholders(contact ? renderPlaceholders(t, contact) : t, rec);
+  switch (step.type) {
+    case "update_field": {
+      if (!rec) return { entry: "עדכון שדה: אין רשומה", contact };
+      const f = rec.fields.find((x) => x.key === step.field_key);
+      if (!f) return { entry: "❌ עדכון שדה: השדה נמחק", contact };
+      const raw = fill(step.field_value ?? "");
+      const value = f.type === "number" || f.type === "currency" ? Number(raw) : f.type === "checkbox" ? raw === "true" || raw === "כן" : raw;
+      const { error } = await db.rpc("automation_set_record_field", { p_record: rec.record.id, p_key: f.key, p_value: value });
+      if (error) return { entry: `❌ עדכון "${f.label}" נכשל`, contact };
+      rec.record.data = { ...(rec.record.data ?? {}), [f.key]: value };
+      return { entry: `"${f.label}" ← ${recordValue(f, value)}`, contact };
+    }
+    case "create_task": {
+      const due = step.task_due_days != null ? new Date(Date.now() + Number(step.task_due_days) * 86400000).toISOString().slice(0, 10) : null;
+      const ownerEmail = rec?.record.owner_email ?? contact?.owner_email ?? null;
+      const { data: owner } = ownerEmail ? await db.from("users").select("full_name").ilike("email", ownerEmail).maybeSingle() : { data: null };
+      const title = fill(step.task_title || "משימה");
+      await db.from("tasks").insert({
+        org_id: automation.org_id,
+        title,
+        record_id: rec?.record.id ?? null,
+        contact_id: contact?.id ?? null,
+        due_date: due,
+        assignee: owner?.full_name ?? null,
+      });
+      return { entry: `נוצרה משימה "${title}"`, contact };
+    }
+  }
+  if (!contact) {
+    if (step.type === "notify") {
+      const t = fill(step.notify_text || `אוטומציה "${automation.name}" רצה`);
+      await db.from("notifications").insert({
+        org_id: automation.org_id,
+        text: t,
+        url: rec ? `/o/${rec.record.object_type_id}/${rec.record.id}` : null,
+        target_email: rec?.record.owner_email ?? null,
+      });
+      return { entry: `התראה: "${t}"`, contact };
+    }
+    return { entry: `❌ ${step.type === "send_message" ? "לא נשלחה הודעה" : "דילוג"}: אין ליד מקושר לרשומה (או ליד עם אותו טלפון)`, contact };
+  }
   switch (step.type) {
     case "send_message": {
       // From the lead owner's own WhatsApp and/or with a ready-made message.
@@ -81,9 +185,10 @@ async function executeStep(db: Db, automation: Row, step: Row, contact: Row): Pr
             contactId: contact.id,
             userId: ownerUserId,
             templateId: step.message_template_id,
-            text: step.message_template_id ? null : renderPlaceholders(step.message ?? "", contact),
+            text: step.message_template_id ? null : fill(step.message ?? ""),
           });
-          await sendLeadMessage(db, { orgId: automation.org_id, channelId, contactId: contact.id, text, attachment, label: `אוטומציה "${automation.name}"`, userId: ownerUserId, origin: "automation" });
+          // Ready-made messages may use the record's fields too.
+          await sendLeadMessage(db, { orgId: automation.org_id, channelId, contactId: contact.id, text: renderRecordPlaceholders(text, rec), attachment, label: `אוטומציה "${automation.name}"`, userId: ownerUserId, origin: "automation" });
           return { entry: `נשלחה הודעה${templateName ? ` "${templateName}"` : ""}`, contact };
         } catch (err) {
           return { entry: `❌ שליחת הודעה נכשלה: ${err instanceof Error ? err.message : String(err)}`, contact };
@@ -97,7 +202,7 @@ async function executeStep(db: Db, automation: Row, step: Row, contact: Row): Pr
             bodyParams: (step.template_params ?? []).map((p: string) => renderPlaceholders(p, contact)),
             ...(step.template_button_param ? { buttonUrlParam: renderPlaceholders(step.template_button_param, contact) } : {}),
           }
-        : { kind: "text", body: renderPlaceholders(step.message ?? "", contact) };
+        : { kind: "text", body: fill(step.message ?? "") };
       try {
         await sendToContact(db, {
           orgId: automation.org_id,
@@ -123,9 +228,14 @@ async function executeStep(db: Db, automation: Row, step: Row, contact: Row): Pr
       return { entry: `הוספת תגית "${tag}"`, contact: data ?? contact };
     }
     case "notify": {
-      const text = renderPlaceholders(step.notify_text || `אוטומציה "${automation.name}" רצה`, contact);
-      await db.from("notifications").insert({ org_id: automation.org_id, contact_id: contact.id, text });
-      return { entry: `התראה: "${text}"`, contact };
+      const t = fill(step.notify_text || `אוטומציה "${automation.name}" רצה`);
+      await db.from("notifications").insert({
+        org_id: automation.org_id,
+        contact_id: contact.id,
+        text: t,
+        url: rec ? `/o/${rec.record.object_type_id}/${rec.record.id}` : null,
+      });
+      return { entry: `התראה: "${t}"`, contact };
     }
     default:
       return { entry: `צעד לא מוכר: ${step.type}`, contact };
@@ -136,15 +246,30 @@ export async function executeRun(db: Db, runId: string): Promise<void> {
   const { data: run } = await db.from("automation_runs").select("*").eq("id", runId).single();
   if (!run || run.status !== "running") return;
 
-  const [{ data: automation }, { data: steps }, { data: contactRow }] = await Promise.all([
+  const [{ data: automation }, { data: steps }] = await Promise.all([
     db.from("automations").select("*").eq("id", run.automation_id).maybeSingle(),
     db.from("automation_steps").select("*").eq("automation_id", run.automation_id).order("position"),
-    db.from("contacts").select("*").eq("id", run.contact_id).maybeSingle(),
   ]);
 
+  // Record automations run on the record, messaging its lead when it has one.
+  let rec: RecordCtx | null = null;
+  if (run.record_id) {
+    const { data: record } = await db.from("records").select("*").eq("id", run.record_id).maybeSingle();
+    if (record) {
+      const [{ data: type }, { data: fields }] = await Promise.all([
+        db.from("object_types").select("*").eq("id", record.object_type_id).single(),
+        db.from("object_fields").select("*").eq("object_type_id", record.object_type_id).order("position"),
+      ]);
+      rec = { record, type, fields: fields ?? [] };
+    }
+  }
+  let contactRow: Row | null = null;
+  if (run.contact_id) contactRow = (await db.from("contacts").select("*").eq("id", run.contact_id).maybeSingle()).data;
+  else if (rec) contactRow = await contactForRecord(db, rec);
+
   const log: string[] = [...(run.steps_log ?? [])];
-  if (!automation || !contactRow) {
-    await db.from("automation_runs").update({ status: "failed", steps_log: [...log, "האוטומציה או הליד נמחקו"] }).eq("id", runId);
+  if (!automation || (!contactRow && !rec)) {
+    await db.from("automation_runs").update({ status: "failed", steps_log: [...log, "האוטומציה, הליד או הרשומה נמחקו"] }).eq("id", runId);
     return;
   }
   if (run.next_step_position > 0 && !automation.active) {
@@ -152,7 +277,7 @@ export async function executeRun(db: Db, runId: string): Promise<void> {
     return;
   }
 
-  let contact: Row = contactRow;
+  let contact: Row | null = contactRow;
   const executedNow: string[] = [];
   const orderedSteps = steps ?? [];
 
@@ -160,7 +285,8 @@ export async function executeRun(db: Db, runId: string): Promise<void> {
     executedNow.length
       ? db.from("activities").insert({
           org_id: automation.org_id,
-          contact_id: contact.id,
+          contact_id: rec ? null : contact?.id,
+          record_id: rec?.record.id ?? null,
           type: "note",
           text: `🤖 אוטומציה "${automation.name}": ${executedNow.join(" ← ")}`,
         })
@@ -185,7 +311,7 @@ export async function executeRun(db: Db, runId: string): Promise<void> {
       await logBatch();
       return;
     }
-    const result = await executeStep(db, automation, step, contact);
+    const result = await executeStep(db, automation, step, contact, rec);
     contact = result.contact;
     log.push(result.entry);
     executedNow.push(result.entry);

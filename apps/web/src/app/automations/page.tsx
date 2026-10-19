@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import type { Automation, AutomationStep, AutomationStepType, AutomationTriggerType, Channel, MessageTemplate } from "@/lib/types";
+import type { Automation, AutomationStep, AutomationStepType, AutomationTriggerType, Channel, MessageTemplate, ObjectType } from "@/lib/types";
 
 const TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
   new_contact: "ליד חדש נוצר",
@@ -12,19 +12,26 @@ const TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
   status_changed: "סטטוס טיפול השתנה",
   document_viewed: "ליד פתח הצעה / הסכם (בפעם הראשונה)",
   document_signed: "ליד חתם על הצעה / הסכם",
+  record_created: "רשומה חדשה נוצרה (לקוח, נכס…)",
+  record_stage_changed: "רשומה עברה שלב",
+  record_field_changed: "שדה ברשומה השתנה",
 };
+
+const RECORD_TRIGGERS: AutomationTriggerType[] = ["record_created", "record_stage_changed", "record_field_changed"];
 
 const STEP_LABELS: Record<AutomationStepType, string> = {
   send_message: "שליחת הודעת וואטסאפ",
   wait: "המתנה",
   add_tag: "הוספת תגית",
   notify: "התראה פנימית",
+  create_task: "יצירת משימה",
+  update_field: "עדכון שדה ברשומה",
 };
 
 const inputClass = "px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 export default function AutomationsPage() {
-  const { automations, pipelines, leadStatuses, addAutomation, updateAutomation, deleteAutomation } = useStore();
+  const { automations, pipelines, leadStatuses, objectTypes, addAutomation, updateAutomation, deleteAutomation } = useStore();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [triggerType, setTriggerType] = useState<AutomationTriggerType>("new_contact");
@@ -33,7 +40,13 @@ export default function AutomationsPage() {
   const [tag, setTag] = useState("");
   const [onlyMetaLeads, setOnlyMetaLeads] = useState(false);
   const [status, setStatus] = useState("");
+  const [objectTypeId, setObjectTypeId] = useState(objectTypes[0]?.id ?? "");
+  const [recordField, setRecordField] = useState("");
+  const [recordValue, setRecordValue] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const objectType = objectTypes.find((t) => t.id === objectTypeId) ?? objectTypes[0];
+  const stageFieldDef = objectType?.fields.find((f) => f.key === objectType.stageField);
+  const watchedField = objectType?.fields.find((f) => f.key === recordField);
 
   const selectedPipeline = pipelines.find((p) => p.id === pipelineId);
 
@@ -49,7 +62,15 @@ export default function AutomationsPage() {
         ? { type: "appointment_booked" }
         : triggerType === "status_changed"
         ? { type: "status_changed", status: status || undefined }
+        : triggerType === "record_created"
+        ? { type: "record_created", objectTypeId: objectType?.id }
+        : triggerType === "record_stage_changed"
+        ? { type: "record_stage_changed", objectTypeId: objectType?.id, value: recordValue || undefined }
+        : triggerType === "record_field_changed"
+        ? { type: "record_field_changed", objectTypeId: objectType?.id, field: recordField || undefined, value: recordValue || undefined }
         : { type: "new_contact", source: onlyMetaLeads ? "meta_lead_ads" : undefined };
+    if (RECORD_TRIGGERS.includes(triggerType) && !objectType) return;
+    if (triggerType === "record_field_changed" && !recordField) return;
     const automation = await addAutomation({ name: name.trim(), trigger });
     setName("");
     setCreating(false);
@@ -72,6 +93,13 @@ export default function AutomationsPage() {
         תבנית מאושרת של וואטסאפ; טקסט חופשי עובד רק בתוך 24 שעות מההודעה האחרונה שלו. אפשר לבחור מאיזה מספר כל הודעה יוצאת.
         אפשר להשתמש ב-{"{{first_name}}"}, {"{{name}}"}, {"{{field:שם שדה}}"} בתוכן ובפרמטרים, וב-{"{{booking_token}}"} כסיומת לכפתור
         קישור אישי לקביעת שיחה.
+        {objectTypes.length > 0 && (
+          <>
+            {" "}
+            אוטומציות על טבלאות (לקוחות, נכסים…) רצות כשרשומה נוצרת, עוברת שלב או ששדה בה משתנה; הודעות נשלחות לליד המקושר לרשומה (או לליד
+            עם אותו טלפון), ואפשר לשלב בהן {"{{record_title}}"} ו-{"{{record:שם שדה}}"}.
+          </>
+        )}
       </p>
 
       {creating && (
@@ -93,13 +121,91 @@ export default function AutomationsPage() {
               onChange={(e) => setTriggerType(e.target.value as AutomationTriggerType)}
               className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
             >
-              {Object.entries(TRIGGER_LABELS).map(([v, label]) => (
-                <option key={v} value={v}>
-                  {label}
-                </option>
-              ))}
+              {Object.entries(TRIGGER_LABELS)
+                .filter(([v]) => objectTypes.length > 0 || !RECORD_TRIGGERS.includes(v as AutomationTriggerType))
+                .map(([v, label]) => (
+                  <option key={v} value={v}>
+                    {label}
+                  </option>
+                ))}
             </select>
           </label>
+          {RECORD_TRIGGERS.includes(triggerType) && (
+            <div className="space-y-2">
+              <label className="block text-sm">
+                <span className="block text-xs text-neutral-500 mb-1">טבלה</span>
+                <select
+                  value={objectType?.id ?? ""}
+                  onChange={(e) => {
+                    setObjectTypeId(e.target.value);
+                    setRecordField("");
+                    setRecordValue("");
+                  }}
+                  className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                >
+                  {objectTypes.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.icon} {t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {triggerType === "record_stage_changed" &&
+                (stageFieldDef ? (
+                  <label className="block text-sm">
+                    <span className="block text-xs text-neutral-500 mb-1">לשלב</span>
+                    <select value={recordValue} onChange={(e) => setRecordValue(e.target.value)} className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent">
+                      <option value="">כל מעבר שלב</option>
+                      {stageFieldDef.options.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <p className="text-xs text-amber-600">לטבלה הזו לא הוגדר שדה שלבים (הגדרות ← אובייקטים ושדות).</p>
+                ))}
+              {triggerType === "record_field_changed" && objectType && (
+                <div className="flex gap-2">
+                  <label className="text-sm flex-1">
+                    <span className="block text-xs text-neutral-500 mb-1">שדה</span>
+                    <select
+                      value={recordField}
+                      onChange={(e) => {
+                        setRecordField(e.target.value);
+                        setRecordValue("");
+                      }}
+                      required
+                      className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                    >
+                      <option value="">בחירה…</option>
+                      {objectType.fields.map((f) => (
+                        <option key={f.id} value={f.key}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm flex-1">
+                    <span className="block text-xs text-neutral-500 mb-1">כשהערך הופך ל־ (ריק = כל שינוי)</span>
+                    {watchedField?.type === "select" ? (
+                      <select value={recordValue} onChange={(e) => setRecordValue(e.target.value)} className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent">
+                        <option value="">כל שינוי</option>
+                        {watchedField.options.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input value={recordValue} onChange={(e) => setRecordValue(e.target.value)} className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+                    )}
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
           {triggerType === "stage_change" && (
             <div className="flex gap-2">
               <label className="text-sm flex-1">
@@ -194,8 +300,17 @@ export default function AutomationsPage() {
   );
 }
 
-function triggerSummary(automation: Automation, pipelines: ReturnType<typeof useStore>["pipelines"]): string {
+function triggerSummary(automation: Automation, pipelines: ReturnType<typeof useStore>["pipelines"], objectTypes: ObjectType[]): string {
   const t = automation.trigger;
+  if (RECORD_TRIGGERS.includes(t.type)) {
+    const type = objectTypes.find((x) => x.id === t.objectTypeId);
+    const where = type ? ` — ${type.icon ?? ""} ${type.name}` : "";
+    if (t.type === "record_created") return `${TRIGGER_LABELS.record_created}${where}`;
+    const field = type?.fields.find((f) => f.key === (t.type === "record_stage_changed" ? type.stageField : t.field));
+    const value = t.value ? field?.options.find((o) => o.value === t.value)?.label ?? t.value : "";
+    if (t.type === "record_stage_changed") return `${TRIGGER_LABELS.record_stage_changed}${where}${value ? ` ל"${value}"` : ""}`;
+    return `${TRIGGER_LABELS.record_field_changed}${where}: ${field?.label ?? "?"}${value ? ` = "${value}"` : ""}`;
+  }
   if (t.type === "new_contact") return t.source === "meta_lead_ads" ? `${TRIGGER_LABELS.new_contact} — מטפסי מטא בלבד` : TRIGGER_LABELS.new_contact;
   if (t.type === "appointment_booked") return TRIGGER_LABELS.appointment_booked;
   if (t.type === "status_changed") return `${TRIGGER_LABELS.status_changed}${t.status ? ` ל"${t.status}"` : ""}`;
@@ -226,6 +341,10 @@ function stepSummary(step: AutomationStep, channels: Channel[], templates: Messa
       return `: "${step.tag}"`;
     case "notify":
       return `: "${step.notifyText}"`;
+    case "create_task":
+      return `: "${step.taskTitle}"${step.taskDueDays != null ? ` · יעד בעוד ${step.taskDueDays} ימים` : ""}`;
+    case "update_field":
+      return `: ${step.fieldKey} ← ${step.fieldValue ?? ""}`;
   }
 }
 
@@ -244,7 +363,13 @@ function AutomationRow({
   onToggleStopOnReply: () => void;
   onDelete: () => void;
 }) {
-  const { pipelines, channels, automationRuns, messageTemplates, addAutomationStep, removeAutomationStep } = useStore();
+  const { pipelines, channels, automationRuns, messageTemplates, objectTypes, addAutomationStep, removeAutomationStep } = useStore();
+  const recordType = RECORD_TRIGGERS.includes(automation.trigger.type) ? objectTypes.find((t) => t.id === automation.trigger.objectTypeId) : undefined;
+  const [fieldKey, setFieldKey] = useState("");
+  const [fieldValue, setFieldValue] = useState("");
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDays, setTaskDays] = useState("1");
+  const updateTarget = recordType?.fields.find((f) => f.key === fieldKey);
   const [stepType, setStepType] = useState<AutomationStepType>("send_message");
   const [stepValue, setStepValue] = useState("");
   const [waitMinutes, setWaitMinutes] = useState("60");
@@ -296,6 +421,15 @@ function AutomationRow({
     } else if (stepType === "notify") {
       if (!stepValue.trim()) return;
       addAutomationStep(automation.id, { type: "notify", notifyText: stepValue.trim() });
+    } else if (stepType === "create_task") {
+      if (!taskTitle.trim()) return;
+      addAutomationStep(automation.id, { type: "create_task", taskTitle: taskTitle.trim(), taskDueDays: taskDays === "" ? undefined : Number(taskDays) });
+      setTaskTitle("");
+    } else if (stepType === "update_field") {
+      if (!fieldKey) return;
+      addAutomationStep(automation.id, { type: "update_field", fieldKey, fieldValue });
+      setFieldKey("");
+      setFieldValue("");
     }
     setStepValue("");
   }
@@ -306,7 +440,7 @@ function AutomationRow({
         <button onClick={onToggle} className="text-start flex-1">
           <p className="font-medium text-sm">{automation.name}</p>
           <p className="text-xs text-neutral-500">
-            {triggerSummary(automation, pipelines)} · {automation.steps.length} צעדים · {runs.length} הפעלות
+            {triggerSummary(automation, pipelines, objectTypes)} · {automation.steps.length} צעדים · {runs.length} הפעלות
             {waitingCount > 0 && ` · ${waitingCount} ממתינות להמשך`}
           </p>
         </button>
@@ -332,7 +466,13 @@ function AutomationRow({
               <li key={step.id} className="flex items-center justify-between gap-2 text-sm bg-neutral-50 dark:bg-neutral-900 rounded-md px-3 py-2">
                 <span>
                   {i + 1}. {STEP_LABELS[step.type]}
-                  {stepSummary(step, channels, messageTemplates)}
+                  {step.type === "update_field" && recordType
+                    ? (() => {
+                        const f = recordType.fields.find((x) => x.key === step.fieldKey);
+                        const v = f?.options.find((o) => o.value === step.fieldValue)?.label ?? step.fieldValue ?? "";
+                        return `: "${f?.label ?? step.fieldKey}" ← ${v}`;
+                      })()
+                    : stepSummary(step, channels, messageTemplates)}
                 </span>
                 <button onClick={() => removeAutomationStep(automation.id, step.id)} className="text-neutral-400 hover:text-red-500 text-xs shrink-0">
                   הסרה
@@ -345,11 +485,13 @@ function AutomationRow({
           <form onSubmit={handleAddStep} className="space-y-2">
             <div className="flex flex-wrap gap-2">
               <select value={stepType} onChange={(e) => setStepType(e.target.value as AutomationStepType)} className={inputClass}>
-                {Object.entries(STEP_LABELS).map(([v, label]) => (
-                  <option key={v} value={v}>
-                    {label}
-                  </option>
-                ))}
+                {Object.entries(STEP_LABELS)
+                  .filter(([v]) => v !== "update_field" || recordType)
+                  .map(([v, label]) => (
+                    <option key={v} value={v}>
+                      {label}
+                    </option>
+                  ))}
               </select>
               {stepType === "wait" && (
                 <input
@@ -368,6 +510,44 @@ function AutomationRow({
                   placeholder={stepType === "add_tag" ? "שם התגית" : "טקסט ההתראה"}
                   className={`flex-1 min-w-[10rem] ${inputClass}`}
                 />
+              )}
+              {stepType === "create_task" && (
+                <>
+                  <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="כותרת המשימה" className={`flex-1 min-w-[10rem] ${inputClass}`} />
+                  <input
+                    value={taskDays}
+                    onChange={(e) => setTaskDays(e.target.value)}
+                    type="number"
+                    min={0}
+                    title="תאריך יעד: בעוד כמה ימים (ריק = ללא)"
+                    className={`w-20 ${inputClass}`}
+                  />
+                  <span className="text-xs text-neutral-400 self-center">ימים</span>
+                </>
+              )}
+              {stepType === "update_field" && recordType && (
+                <>
+                  <select value={fieldKey} onChange={(e) => (setFieldKey(e.target.value), setFieldValue(""))} className={inputClass}>
+                    <option value="">שדה…</option>
+                    {recordType.fields.map((f) => (
+                      <option key={f.id} value={f.key}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                  {updateTarget?.type === "select" ? (
+                    <select value={fieldValue} onChange={(e) => setFieldValue(e.target.value)} className={inputClass}>
+                      <option value="">ערך…</option>
+                      {updateTarget.options.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input value={fieldValue} onChange={(e) => setFieldValue(e.target.value)} placeholder="ערך חדש" className={`flex-1 min-w-[8rem] ${inputClass}`} />
+                  )}
+                </>
               )}
               {stepType === "send_message" && (
                 <>

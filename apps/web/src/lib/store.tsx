@@ -560,6 +560,10 @@ function mapAutomationStep(r: Row): AutomationStep {
     waitMinutes: r.wait_minutes ?? undefined,
     tag: r.tag ?? undefined,
     notifyText: r.notify_text ?? undefined,
+    fieldKey: r.field_key ?? undefined,
+    fieldValue: r.field_value ?? undefined,
+    taskTitle: r.task_title ?? undefined,
+    taskDueDays: r.task_due_days ?? undefined,
   };
 }
 
@@ -576,6 +580,9 @@ function mapAutomation(r: Row, stepRows: Row[]): Automation {
       tag: r.trigger_tag ?? undefined,
       source: r.trigger_source ?? undefined,
       status: r.trigger_status ?? undefined,
+      objectTypeId: r.trigger_object_type_id ?? undefined,
+      field: r.trigger_field ?? undefined,
+      value: r.trigger_value ?? undefined,
     },
     steps: stepRows
       .filter((s) => s.automation_id === r.id)
@@ -589,7 +596,8 @@ function mapAutomationRun(r: Row): AutomationRun {
   return {
     id: r.id,
     automationId: r.automation_id,
-    contactId: r.contact_id,
+    contactId: r.contact_id ?? undefined,
+    recordId: r.record_id ?? undefined,
     ranAt: r.ran_at,
     status: r.status ?? "completed",
     resumeAt: r.resume_at ?? undefined,
@@ -1445,6 +1453,9 @@ export function StoreProvider({
         trigger_tag: a.trigger.tag,
         trigger_source: a.trigger.source ?? null,
         trigger_status: a.trigger.status ?? null,
+        trigger_object_type_id: a.trigger.objectTypeId ?? null,
+        trigger_field: a.trigger.field ?? null,
+        trigger_value: a.trigger.value ?? null,
       })
       .select()
       .single();
@@ -1466,6 +1477,9 @@ export function StoreProvider({
       payload.trigger_tag = patch.trigger.tag ?? null;
       payload.trigger_source = patch.trigger.source ?? null;
       payload.trigger_status = patch.trigger.status ?? null;
+      payload.trigger_object_type_id = patch.trigger.objectTypeId ?? null;
+      payload.trigger_field = patch.trigger.field ?? null;
+      payload.trigger_value = patch.trigger.value ?? null;
     }
     await supabase.from("automations").update(payload).eq("id", id);
     setState((s) => ({ ...s, automations: s.automations.map((a) => (a.id === id ? { ...a, ...patch } : a)) }));
@@ -1495,6 +1509,10 @@ export function StoreProvider({
         wait_minutes: step.waitMinutes,
         tag: step.tag,
         notify_text: step.notifyText,
+        field_key: step.fieldKey ?? null,
+        field_value: step.fieldValue ?? null,
+        task_title: step.taskTitle ?? null,
+        task_due_days: step.taskDueDays ?? null,
         position,
       })
       .select()
