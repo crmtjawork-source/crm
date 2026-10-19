@@ -9,6 +9,7 @@ import { QuickActions } from "@/components/leads/QuickActions";
 import { LeadDocuments } from "@/components/documents/LeadDocuments";
 import { LeadCalls } from "@/components/leads/LeadCalls";
 import { LeadFieldsCard } from "@/components/leads/LeadFieldsCard";
+import { LeadRecords } from "@/components/leads/LeadRecords";
 import { TaskRow } from "@/components/leads/TaskRow";
 
 export default function ContactDetailPage() {
@@ -317,6 +318,7 @@ export default function ContactDetailPage() {
       </div>
 
       <LeadFieldsCard contact={contact} />
+      <LeadRecords contact={contact} />
 
       <LeadDocuments contact={contact} />
       <LeadCalls contactId={contact.id} />

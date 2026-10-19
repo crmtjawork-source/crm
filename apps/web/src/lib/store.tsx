@@ -15,6 +15,7 @@ import type {
   DocumentView,
   ObjectType,
   ObjectField,
+  Role,
   Campaign,
   CampaignSpend,
   LeadSource,
@@ -81,6 +82,7 @@ type State = {
   documentTemplates: DocumentTemplate[];
   documents: CrmDocument[];
   objectTypes: ObjectType[];
+  roles: Role[];
   // Business settings (organizations row).
   meetingReminders: boolean;
 };
@@ -113,6 +115,7 @@ const emptyState: State = {
   documentTemplates: [],
   documents: [],
   objectTypes: [],
+  roles: [],
   meetingReminders: false,
 };
 
@@ -173,6 +176,9 @@ type Store = State & {
 
   addMember: (name: string, email: string, role: MemberRole) => Promise<void>;
   updateMemberRole: (id: string, role: MemberRole) => Promise<void>;
+  saveRole: (r: Omit<Role, "id"> & { id?: string }) => Promise<Role>;
+  deleteRole: (id: string) => Promise<void>;
+  setMemberRoleId: (memberId: string, roleId: string | null) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
 
   addAutomation: (a: { name: string; trigger: Automation["trigger"] }) => Promise<Automation>;
@@ -366,6 +372,17 @@ function mapLeadField(r: Row): ObjectField {
     section: r.section ?? undefined,
     required: false,
     showInList: r.show_in_list ?? false,
+    position: r.position ?? 0,
+  };
+}
+
+function mapRole(r: Row): Role {
+  return {
+    id: r.id,
+    name: r.name,
+    leadsScope: r.leads_scope,
+    objectAccess: r.object_access ?? {},
+    features: r.features ?? undefined,
     position: r.position ?? 0,
   };
 }
@@ -692,6 +709,7 @@ export function StoreProvider({
         documentsRes,
         objectTypesRes,
         objectFieldsRes,
+        rolesRes,
       ] = await Promise.all([
         fetchAll("contacts"),
         supabase.from("pipelines").select("*").order("created_at"),
@@ -707,7 +725,7 @@ export function StoreProvider({
         supabase.from("availability_rules").select("*"),
         supabase.from("forms").select("*").order("created_at"),
         supabase.from("form_fields").select("*"),
-        supabase.from("memberships").select("id, user_id, role, created_at, users(email, full_name)"),
+        supabase.from("memberships").select("id, user_id, role, role_id, created_at, users(email, full_name)"),
         supabase.from("invitations").select("*"),
         supabase.from("automations").select("*").order("created_at"),
         supabase.from("automation_steps").select("*"),
@@ -727,6 +745,7 @@ export function StoreProvider({
         fetchAll("documents", "sent_at"),
         supabase.from("object_types").select("*").order("position"),
         supabase.from("object_fields").select("*").order("position"),
+        supabase.from("roles").select("*").order("position"),
       ]);
 
       if (cancelled) return;
@@ -742,6 +761,7 @@ export function StoreProvider({
             name: m.users?.full_name || m.users?.email || "—",
             email: m.users?.email ?? "",
             role: m.role as MemberRole,
+            roleId: m.role_id ?? undefined,
             status: "active",
             createdAt: m.created_at,
           })
@@ -752,6 +772,7 @@ export function StoreProvider({
             name: inv.name || inv.email,
             email: inv.email,
             role: inv.role as MemberRole,
+            roleId: inv.role_id ?? undefined,
             status: "invited",
             createdAt: inv.created_at,
           })
@@ -788,6 +809,7 @@ export function StoreProvider({
         documentTemplates: (documentTemplatesRes.data ?? []).map(mapDocumentTemplate),
         documents: (documentsRes.data ?? []).map(mapDocument),
         objectTypes: (objectTypesRes.data ?? []).map((t: Row) => mapObjectType(t, objectFieldsRes.data ?? [])),
+        roles: (rolesRes.data ?? []).map(mapRole),
       });
       setLoading(false);
     }
@@ -1358,6 +1380,34 @@ export function StoreProvider({
     setState((s) => ({ ...s, members: s.members.map((m) => (m.id === id ? { ...m, role } : m)) }));
   };
 
+  const saveRole: Store["saveRole"] = async (r) => {
+    const row = {
+      org_id: orgId,
+      name: r.name,
+      leads_scope: r.leadsScope,
+      object_access: r.objectAccess,
+      features: r.features ?? null,
+      position: r.position,
+    };
+    const res = r.id ? await supabase.from("roles").update(row).eq("id", r.id).select().single() : await supabase.from("roles").insert(row).select().single();
+    if (res.error || !res.data) throw res.error ?? new Error("שמירת התפקיד נכשלה");
+    const saved = mapRole(res.data);
+    setState((s) => ({ ...s, roles: upsertById(s.roles, saved) }));
+    return saved;
+  };
+
+  const deleteRole: Store["deleteRole"] = async (id) => {
+    await supabase.from("roles").delete().eq("id", id);
+    setState((s) => ({ ...s, roles: s.roles.filter((r) => r.id !== id), members: s.members.map((m) => (m.roleId === id ? { ...m, roleId: undefined } : m)) }));
+  };
+
+  const setMemberRoleId: Store["setMemberRoleId"] = async (id, roleId) => {
+    const table = id.startsWith("mem:") ? "memberships" : "invitations";
+    const { error } = await supabase.from(table).update({ role_id: roleId }).eq("id", id.slice(4));
+    if (error) throw error;
+    setState((s) => ({ ...s, members: s.members.map((m) => (m.id === id ? { ...m, roleId: roleId ?? undefined } : m)) }));
+  };
+
   const removeMember: Store["removeMember"] = async (id) => {
     if (id === state.currentMemberId) return;
     if (id.startsWith("mem:")) {
@@ -1898,6 +1948,9 @@ export function StoreProvider({
         submitForm,
         addMember,
         updateMemberRole,
+        saveRole,
+        deleteRole,
+        setMemberRoleId,
         removeMember,
         addAutomation,
         updateAutomation,

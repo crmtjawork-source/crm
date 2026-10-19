@@ -118,6 +118,7 @@ export type Member = {
   name: string;
   email: string;
   role: MemberRole;
+  roleId?: string; // custom role (what they see); owners/admins see everything
   status: "active" | "invited";
   createdAt: string;
 };
@@ -405,4 +406,14 @@ export type CrmRecord = {
   contactId?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+// What a team member sees (enforced in the database).
+export type Role = {
+  id: string;
+  name: string;
+  leadsScope: "all" | "own_unassigned" | "own" | "none";
+  objectAccess: Record<string, "all" | "own" | "none">;
+  features?: string[]; // menu screens; undefined = all
+  position: number;
 };

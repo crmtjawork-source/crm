@@ -11,7 +11,7 @@ const ROLE_LABELS: Record<MemberRole, string> = {
 };
 
 export default function TeamPage() {
-  const { members, currentMemberId, addMember, updateMemberRole, removeMember } = useStore();
+  const { members, currentMemberId, addMember, updateMemberRole, removeMember, roles, setMemberRoleId } = useStore();
   const [showInvite, setShowInvite] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -118,6 +118,21 @@ export default function TeamPage() {
                 <option value="admin">מנהל</option>
                 <option value="agent">נציג</option>
               </select>
+              {m.role === "agent" && roles.length > 0 && (
+                <select
+                  value={m.roleId ?? ""}
+                  onChange={(e) => setMemberRoleId(m.id, e.target.value || null)}
+                  title="מה הנציג רואה (מוגדר בהגדרות ← תפקידים והרשאות)"
+                  className="text-sm bg-transparent border border-neutral-200 dark:border-neutral-800 rounded-md px-2 py-1"
+                >
+                  <option value="">גישה מלאה</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              )}
               {m.role !== "owner" && m.id !== currentMemberId && (
                 <button onClick={() => removeMember(m.id)} className="text-xs text-neutral-400 hover:text-red-500">
                   הסרה

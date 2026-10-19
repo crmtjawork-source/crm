@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { NotificationsBell } from "./NotificationsBell";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { canSeeHref, effectiveRole } from "@/lib/permissions";
 
 const ROLE_LABELS = { owner: "בעלים", admin: "מנהל", agent: "נציג" } as const;
 
@@ -55,7 +56,7 @@ function SearchBox() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { members, currentMemberId, loading, objectTypes } = useStore();
+  const { members, currentMemberId, loading, objectTypes, roles } = useStore();
   const { session, signOut } = useAuth();
   const currentMember = members.find((m) => m.id === currentMemberId);
 
@@ -68,7 +69,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   // The business's own objects sit right after leads.
-  const nav = [NAV[0], NAV[1], ...objectTypes.map((t) => ({ href: `/o/${t.id}`, label: `${t.icon ? `${t.icon} ` : ""}${t.name}` })), ...NAV.slice(2)];
+  const role = effectiveRole(currentMember, roles);
+  const nav = [NAV[0], NAV[1], ...objectTypes.map((t) => ({ href: `/o/${t.id}`, label: `${t.icon ? `${t.icon} ` : ""}${t.name}` })), ...NAV.slice(2)].filter((item) =>
+    canSeeHref(role, item.href)
+  );
   const navLinks = (
     <nav className="flex flex-col gap-1 px-2">
       {nav.map((item) => {
@@ -135,7 +139,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex-1 min-w-0 pb-16 md:pb-0">{loading ? <div className="p-6 text-sm text-neutral-400">טוען…</div> : children}</div>
 
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-4 border-t border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-950/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-        {MOBILE_TABS.map((item) => {
+        {MOBILE_TABS.filter((item) => canSeeHref(role, item.href)).map((item) => {
           const active = pathname.startsWith(item.href);
           return (
             <Link key={item.href} href={item.href} className={`flex flex-col items-center py-2 text-[11px] ${active ? "text-neutral-900 dark:text-white font-semibold" : "text-neutral-400"}`}>

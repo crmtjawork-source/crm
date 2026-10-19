@@ -7,6 +7,7 @@ import { MessageTemplatesSettings } from "@/components/settings/MessageTemplates
 import { DocumentTemplatesSettings } from "@/components/settings/DocumentTemplatesSettings";
 import { ObjectsSettings } from "@/components/settings/ObjectsSettings";
 import { LeadFieldsSettings } from "@/components/settings/LeadFieldsSettings";
+import { RolesSettings } from "@/components/settings/RolesSettings";
 import { PersonalWhatsAppSettings } from "@/components/settings/PersonalWhatsAppSettings";
 import { PushSettings } from "@/components/settings/PushSettings";
 import { GoogleCalendarSettings } from "@/components/settings/GoogleCalendarSettings";
@@ -29,6 +30,7 @@ export default function SettingsPage() {
       <LeadStatusesSettings isAdmin={isAdmin} />
       <MessageTemplatesSettings isAdmin={isAdmin} />
       <DocumentTemplatesSettings isAdmin={isAdmin} />
+      <RolesSettings isAdmin={isAdmin} />
       <IntegrationsSettings />
 
     </div>
