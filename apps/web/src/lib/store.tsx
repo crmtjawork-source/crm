@@ -199,6 +199,7 @@ function mapContact(r: Row): Contact {
     campaignId: r.campaign_id ?? undefined,
     noAnswerCount: r.no_answer_count ?? 0,
     bookingToken: r.booking_token ?? undefined,
+    lastActivityAt: r.last_activity_at ?? r.created_at,
     attribution: r.attribution ?? {},
     createdAt: r.created_at,
   };

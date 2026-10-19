@@ -19,12 +19,34 @@ export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS });
 }
 
+// "@key=value" lines: for senders that paste raw values into a template
+// (e.g. Fireberry automations), where quotes or line breaks in a value
+// would break JSON. A line not starting with "@key=" continues the
+// previous value.
+function parseAtLines(text: string): Record<string, string> | null {
+  if (!/^@[^=\n]{1,60}=/m.test(text)) return null;
+  const out: Record<string, string> = {};
+  let key: string | null = null;
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/^@([^=]{1,60})=(.*)$/);
+    if (m) {
+      key = m[1].trim();
+      out[key] = m[2];
+    } else if (key) {
+      out[key] += `\n${line}`;
+    }
+  }
+  for (const k of Object.keys(out)) out[k] = out[k].trim();
+  return out;
+}
+
 async function readBody(request: Request): Promise<unknown> {
   const type = request.headers.get("content-type") ?? "";
-  if (type.includes("application/json")) return request.json();
   if (type.includes("form")) return Object.fromEntries((await request.formData()).entries());
   const text = await request.text();
   if (!text.trim()) return {};
+  const lines = parseAtLines(text);
+  if (lines) return lines;
   try {
     return JSON.parse(text);
   } catch {

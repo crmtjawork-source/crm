@@ -15,6 +15,7 @@ export default function ContactsPage() {
   const isAgent = members.find((m) => m.email.toLowerCase() === (session?.user.email ?? "").toLowerCase())?.role === "agent";
   const [owner, setOwner] = useState(isAgent ? "mine" : "all"); // all | mine | none | <email>
   const [campaign, setCampaign] = useState(""); // "" all | "none" | <campaign id>
+  const [sortBy, setSortBy] = useState<"activity" | "created">("activity");
   const [visible, setVisible] = useState(PAGE_SIZE);
 
   const myEmail = session?.user.email?.toLowerCase() ?? "";
@@ -37,7 +38,7 @@ export default function ContactsPage() {
         c.email?.toLowerCase().includes(needle)
       );
     })
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .sort((a, b) => (sortBy === "activity" ? b.lastActivityAt.localeCompare(a.lastActivityAt) : b.createdAt.localeCompare(a.createdAt)));
 
   function handleExport() {
     downloadCsv(
@@ -119,6 +120,14 @@ export default function ContactsPage() {
                   {c.name}
                 </option>
               ))}
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "activity" | "created")}
+            className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+          >
+            <option value="activity">פעילות אחרונה</option>
+            <option value="created">תאריך כניסה</option>
           </select>
         </div>
         <span className="text-sm text-neutral-500">{filtered.length} מתוך {contacts.length}</span>

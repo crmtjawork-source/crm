@@ -14,6 +14,7 @@ export type Contact = {
   campaignId?: string; // campaign that brought the lead (first touch)
   noAnswerCount: number; // "no answer" attempts so far
   bookingToken?: string; // the lead's personal booking link: /book/<token>
+  lastActivityAt: string; // arrived, left details again, or wrote on WhatsApp
   attribution: Record<string, string>; // raw tracking data: utm_*, click ids, ad/adset names…
   createdAt: string;
 };

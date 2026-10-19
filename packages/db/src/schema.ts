@@ -68,6 +68,8 @@ export const contacts = pgTable("contacts", {
   // Campaign that brought the lead (first touch) + raw tracking data (utm_*, click ids, ad names).
   campaignId: uuid("campaign_id"),
   noAnswerCount: integer("no_answer_count").notNull().default(0),
+  // Arrived, left details again, or wrote on WhatsApp — the leads list sorts by it.
+  lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
   attribution: jsonb("attribution").notNull().default({}),
   // Record this row was imported from, e.g. "fireberry:<guid>"; unique per org.
   externalRef: text("external_ref"),

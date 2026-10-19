@@ -77,6 +77,7 @@ export async function upsertInboundLead(db: Db, orgId: string, lead: InboundLead
         campaign_id: existing.campaign_id ?? campaignId,
         attribution: hasAttribution ? existing.attribution : attribution,
         tags: [...new Set([...(existing.tags ?? []), ...(lead.tags ?? [])])],
+        last_activity_at: new Date().toISOString(),
       })
       .eq("id", contactId);
     await db.from("activities").insert({

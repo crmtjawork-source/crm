@@ -33,6 +33,10 @@ const args = Object.fromEntries(
 const DIR = String(args.dir ?? "").replace(/^~/, homedir());
 const ORG = args.org;
 const COMMIT = args.commit === true;
+// --update: also bring rows imported earlier up to date with Fireberry
+// (contact details, owner, deal stage/outcome, meetings, task status), so the
+// CRM mirrors Fireberry. Without it, existing rows are never touched.
+const UPDATE = args.update === true;
 if (!DIR || !ORG) {
   console.error("usage: node scripts/import-fireberry.mjs --dir <export dir> --org <org uuid> [--commit]");
   process.exit(1);
@@ -108,6 +112,27 @@ async function insertNew(table, rows, size = 500) {
     inserted += data?.length ?? 0;
   }
   return inserted;
+}
+
+// Insert or overwrite by external_ref (used by --update).
+async function upsertAll(table, rows, size = 500) {
+  let written = 0;
+  for (let i = 0; i < rows.length; i += size) {
+    const { data, error } = await db.from(table).upsert(rows.slice(i, i + size), { onConflict: "org_id,external_ref" }).select("id");
+    if (error) throw new Error(`${table}: ${error.message}`);
+    written += data?.length ?? 0;
+  }
+  return written;
+}
+
+async function rowsByRef(table, columns, refs) {
+  const out = new Map();
+  for (let i = 0; i < refs.length; i += 300) {
+    const { data, error } = await db.from(table).select(`external_ref, ${columns}`).eq("org_id", ORG).in("external_ref", refs.slice(i, i + 300));
+    if (error) throw new Error(`${table} lookup: ${error.message}`);
+    for (const r of data ?? []) out.set(r.external_ref, r);
+  }
+  return out;
 }
 
 async function idsByRef(table, refs) {
@@ -342,8 +367,7 @@ for (const m of meetings) {
   }
 }
 
-const openTasks = tasks
-  .filter((t) => clean(t.status) === "פתוח")
+const allTasks = tasks
   .map((t) => ({
     contactRef: contactRefByLeadId.get(clean(t.objectid).toLowerCase()) ?? null,
     row: {
@@ -352,10 +376,12 @@ const openTasks = tasks
       title: clean(t.subject) || "משימה",
       assignee: ownerNameOf(t.ownerid) || null,
       due_date: israelToIso(t.scheduledend)?.slice(0, 10) ?? null,
-      done: false,
+      done: clean(t.status) !== "פתוח",
       created_at: israelToIso(t.createdon) ?? new Date().toISOString(),
     },
   }));
+
+const openTasks = allTasks.filter((t) => !t.row.done);
 
 const team = users
   .filter((u) => clean(u.fullname) !== SYSTEM_ACCOUNT && clean(u.username).includes("@"))
@@ -363,7 +389,7 @@ const team = users
 
 // ------------------------------------------------------------------ report
 const count = (arr, key) => arr.reduce((a, x) => ((a[key(x)] = (a[key(x)] || 0) + 1), a), {});
-console.log(`\n${COMMIT ? "IMPORT" : "DRY RUN"} → org ${ORG}`);
+console.log(`\n${COMMIT ? (UPDATE ? "IMPORT + UPDATE" : "IMPORT") : "DRY RUN"} → org ${ORG}`);
 console.log(`leads in export: ${leads.length} → contacts after merging by phone: ${contactRows.length}`);
 console.log("opportunities by outcome:", count(oppPlan, ([, o]) => o.status));
 console.log("open opportunities by stage:", count(oppPlan.filter(([, o]) => o.status === "open"), ([, o]) => o.stageName));
@@ -426,14 +452,38 @@ for (const [ref, existing] of matched) {
   if (owner) await db.from("contacts").update({ owner_email: owner }).eq("id", existing.id);
 }
 console.log(`matched to existing contacts by phone: ${matched.size}`);
-console.log(`contacts inserted: ${await insertNew("contacts", contactRows.filter((c) => !matched.has(c.external_ref)))}`);
+const ownContactRows = contactRows.filter((c) => !matched.has(c.external_ref));
+if (UPDATE) {
+  // Fireberry wins, but fields and tags added in the CRM are kept.
+  const existing = await rowsByRef("contacts", "fields, tags", ownContactRows.map((c) => c.external_ref));
+  const rows = ownContactRows.map((c) => {
+    const e = existing.get(c.external_ref);
+    return e ? { ...c, fields: { ...(e.fields ?? {}), ...c.fields }, tags: [...new Set([...(e.tags ?? []), ...c.tags])] } : c;
+  });
+  console.log(`contacts written (new + updated): ${await upsertAll("contacts", rows)} (of which already existed: ${existing.size})`);
+} else {
+  console.log(`contacts inserted: ${await insertNew("contacts", ownContactRows)}`);
+}
 const contactId = await idsByRef("contacts", contactRows.map((c) => c.external_ref));
 for (const [ref, existing] of matched) contactId.set(ref, existing.id);
 
 const oppRows = oppPlan
   .filter(([ref]) => contactId.has(ref))
   .map(([ref, { stageName, ...o }]) => ({ ...o, contact_id: contactId.get(ref), pipeline_id: pipeline.id, stage_id: stageId.get(stageName) }));
-console.log(`opportunities inserted: ${await insertNew("opportunities", oppRows)}`);
+if (UPDATE) {
+  // One Fireberry deal per lead: if the lead's chosen record changed (e.g. a
+  // newer duplicate), update the deal it already has instead of adding one.
+  const byContact = new Map();
+  const ids = [...new Set(oppRows.map((o) => o.contact_id))];
+  for (let i = 0; i < ids.length; i += 300) {
+    const { data } = await db.from("opportunities").select("contact_id, external_ref").eq("org_id", ORG).like("external_ref", "fireberry:opp:%").in("contact_id", ids.slice(i, i + 300));
+    for (const r of data ?? []) if (!byContact.has(r.contact_id)) byContact.set(r.contact_id, r.external_ref);
+  }
+  for (const o of oppRows) if (byContact.has(o.contact_id)) o.external_ref = byContact.get(o.contact_id);
+  console.log(`opportunities written (new + updated): ${await upsertAll("opportunities", oppRows)}`);
+} else {
+  console.log(`opportunities inserted: ${await insertNew("opportunities", oppRows)}`);
+}
 
 const withContact = (items) => items.filter((x) => contactId.has(x.contactRef)).map((x) => ({ ...x.row, contact_id: contactId.get(x.contactRef) }));
 console.log(`timeline entries inserted: ${await insertNew("activities", withContact([...noteRows, ...pastMeetingRows]), 1000)}`);
@@ -459,10 +509,18 @@ const appointmentRows = calendarMeetings
     end_at: f.end,
     notes: [clean(f.m.pcfsystemfield100name), clean(f.m.pcfsystemfield104), `נקבעה ע"י ${clean(f.m.ownername)}`].filter(Boolean).join(" · "),
   }));
-console.log(`appointments inserted: ${await insertNew("appointments", appointmentRows)}`);
+console.log(UPDATE ? `appointments written (new + updated): ${await upsertAll("appointments", appointmentRows)}` : `appointments inserted: ${await insertNew("appointments", appointmentRows)}`);
 
-const taskRows = openTasks.map((t) => ({ ...t.row, contact_id: t.contactRef ? contactId.get(t.contactRef) ?? null : null }));
-console.log(`tasks inserted: ${await insertNew("tasks", taskRows)}`);
+const toTaskRow = (t) => ({ ...t.row, contact_id: t.contactRef ? contactId.get(t.contactRef) ?? null : null });
+if (UPDATE) {
+  // New open tasks are added; tasks already here get Fireberry's status
+  // (e.g. done since the last import).
+  const existing = await rowsByRef("tasks", "id", allTasks.map((t) => t.row.external_ref));
+  const rows = allTasks.filter((t) => existing.has(t.row.external_ref) || !t.row.done).map(toTaskRow);
+  console.log(`tasks written (new + updated): ${await upsertAll("tasks", rows)}`);
+} else {
+  console.log(`tasks inserted: ${await insertNew("tasks", openTasks.map(toTaskRow))}`);
+}
 
 // Campaign attribution — only fills leads that don't have a campaign yet, so
 // a campaign set in the CRM is never overwritten.
