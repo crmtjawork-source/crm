@@ -12,7 +12,7 @@ function Gate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const isLoginPage = pathname === "/login";
   // Pages for leads and the public (booking, legal pages Meta links to): no login, no app chrome.
-  const isPublicPage = pathname.startsWith("/book/") || pathname === "/privacy" || pathname === "/data-deletion";
+  const isPublicPage = pathname.startsWith("/book/") || pathname.startsWith("/d/") || pathname === "/privacy" || pathname === "/data-deletion";
 
   useEffect(() => {
     if (loading || isPublicPage) return;

@@ -8,6 +8,11 @@ import type {
   ScheduledMessage,
   MessageTemplate,
   TemplateAttachment,
+  DocumentTemplate,
+  CrmDocument,
+  DocSection,
+  DocCover,
+  DocumentView,
   Campaign,
   CampaignSpend,
   LeadSource,
@@ -69,6 +74,8 @@ type State = {
   messageTemplates: MessageTemplate[];
   scheduledMessages: ScheduledMessage[];
   leadStatuses: LeadStatus[];
+  documentTemplates: DocumentTemplate[];
+  documents: CrmDocument[];
   // Business settings (organizations row).
   meetingReminders: boolean;
 };
@@ -97,6 +104,8 @@ const emptyState: State = {
   messageTemplates: [],
   scheduledMessages: [],
   leadStatuses: [],
+  documentTemplates: [],
+  documents: [],
   meetingReminders: false,
 };
 
@@ -181,6 +190,24 @@ type Store = State & {
   addMessageTemplate: (t: { name: string; body: string; quickAction?: string }) => Promise<MessageTemplate>;
   updateMessageTemplate: (id: string, patch: TemplatePatch) => Promise<void>;
   uploadMedia: (file: File) => Promise<string>;
+  addDocumentTemplate: (t: Omit<DocumentTemplate, "id" | "position">) => Promise<DocumentTemplate>;
+  updateDocumentTemplate: (id: string, t: Omit<DocumentTemplate, "id" | "position">) => Promise<void>;
+  deleteDocumentTemplate: (id: string) => Promise<void>;
+  createDocument: (d: {
+    templateId?: string;
+    contactId: string;
+    title: string;
+    cover: DocCover;
+    sections: DocSection[];
+    signerFields: string[];
+    value?: number;
+    expiresAt?: string;
+  }) => Promise<CrmDocument>;
+  updateDocument: (
+    id: string,
+    patch: Partial<Pick<CrmDocument, "title" | "cover" | "sections" | "signerFields" | "value" | "expiresAt">> & { status?: "void" }
+  ) => Promise<void>;
+  loadDocumentViews: (documentId: string) => Promise<DocumentView[]>;
   setMeetingReminders: (on: boolean) => Promise<void>;
   deleteMessageTemplate: (id: string) => Promise<void>;
 
@@ -231,6 +258,70 @@ function mapMessageTemplate(r: Row): MessageTemplate {
     attachment: r.attachment_url ? { url: r.attachment_url, type: r.attachment_type, name: r.attachment_name ?? undefined } : undefined,
   };
 }
+
+function mapDocumentTemplate(r: Row): DocumentTemplate {
+  return {
+    id: r.id,
+    name: r.name,
+    title: r.title ?? "",
+    logoUrl: r.logo_url ?? undefined,
+    coverImageUrl: r.cover_image_url ?? undefined,
+    accentColor: r.accent_color ?? "#1e3a8a",
+    sections: r.sections ?? [],
+    signerFields: r.signer_fields ?? [],
+    expiryDays: r.expiry_days ?? undefined,
+    defaultValue: r.default_value != null ? Number(r.default_value) : undefined,
+    position: r.position ?? 0,
+  };
+}
+
+function mapDocument(r: Row): CrmDocument {
+  const c = r.cover ?? {};
+  const sig = r.signature;
+  return {
+    id: r.id,
+    templateId: r.template_id ?? undefined,
+    contactId: r.contact_id ?? undefined,
+    token: r.token,
+    title: r.title,
+    cover: {
+      title: c.title ?? r.title,
+      preparedFor: c.prepared_for,
+      date: c.date,
+      logoUrl: c.logo_url,
+      coverImageUrl: c.cover_image_url,
+      accentColor: c.accent_color,
+      senderName: c.sender_name,
+      senderEmail: c.sender_email,
+    },
+    sections: r.sections ?? [],
+    signerFields: r.signer_fields ?? [],
+    value: r.value != null ? Number(r.value) : undefined,
+    status: r.status,
+    createdBy: r.created_by ?? undefined,
+    sentAt: r.sent_at,
+    expiresAt: r.expires_at ?? undefined,
+    firstViewedAt: r.first_viewed_at ?? undefined,
+    lastViewedAt: r.last_viewed_at ?? undefined,
+    viewCount: r.view_count ?? 0,
+    viewSeconds: r.view_seconds ?? 0,
+    signedAt: r.signed_at ?? undefined,
+    signature: sig ? { name: sig.name, image: sig.image, fields: sig.fields, ip: sig.ip, userAgent: sig.user_agent, contentHash: sig.content_hash } : undefined,
+    declinedAt: r.declined_at ?? undefined,
+    declineReason: r.decline_reason ?? undefined,
+  };
+}
+
+const coverRow = (c: DocCover) => ({
+  title: c.title,
+  prepared_for: c.preparedFor,
+  date: c.date,
+  logo_url: c.logoUrl,
+  cover_image_url: c.coverImageUrl,
+  accent_color: c.accentColor,
+  sender_name: c.senderName,
+  sender_email: c.senderEmail,
+});
 
 function mapCampaign(r: Row): Campaign {
   return {
@@ -515,6 +606,8 @@ export function StoreProvider({
         scheduledRes,
         leadStatusesRes,
         orgRes,
+        documentTemplatesRes,
+        documentsRes,
       ] = await Promise.all([
         fetchAll("contacts"),
         supabase.from("pipelines").select("*").order("created_at"),
@@ -546,6 +639,8 @@ export function StoreProvider({
         supabase.from("scheduled_messages").select("*").in("status", ["pending", "sending", "failed"]).order("send_at").limit(1000),
         supabase.from("lead_statuses").select("*").order("position"),
         supabase.from("organizations").select("meeting_reminders").eq("id", orgId).maybeSingle(),
+        supabase.from("document_templates").select("*").order("position"),
+        fetchAll("documents", "sent_at"),
       ]);
 
       if (cancelled) return;
@@ -603,6 +698,8 @@ export function StoreProvider({
         scheduledMessages: (scheduledRes.data ?? []).map(mapScheduledMessage),
         leadStatuses: (leadStatusesRes.data ?? []).map((r: Row) => ({ id: r.id, name: r.name, position: r.position })),
         meetingReminders: Boolean(orgRes.data?.meeting_reminders),
+        documentTemplates: (documentTemplatesRes.data ?? []).map(mapDocumentTemplate),
+        documents: (documentsRes.data ?? []).map(mapDocument),
       });
       setLoading(false);
     }
@@ -655,6 +752,15 @@ export function StoreProvider({
           const appointment = mapAppointment(payload.new as Row);
           setState((s) => ({ ...s, appointments: upsertById(s.appointments, appointment) }));
         }
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "documents", filter }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          const id = (payload.old as Row).id;
+          setState((s) => ({ ...s, documents: s.documents.filter((d) => d.id !== id) }));
+          return;
+        }
+        const d = mapDocument(payload.new as Row);
+        setState((s) => ({ ...s, documents: upsertById(s.documents, d) }));
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter }, (payload) => {
         if (payload.eventType === "DELETE") return;
@@ -1386,6 +1492,106 @@ export function StoreProvider({
   };
 
 
+  const addDocumentTemplate: Store["addDocumentTemplate"] = async (t) => {
+    const position = Math.max(-1, ...state.documentTemplates.map((x) => x.position)) + 1;
+    const { data, error } = await supabase
+      .from("document_templates")
+      .insert({
+        org_id: orgId,
+        name: t.name,
+        title: t.title,
+        logo_url: t.logoUrl ?? null,
+        cover_image_url: t.coverImageUrl ?? null,
+        accent_color: t.accentColor,
+        sections: t.sections,
+        signer_fields: t.signerFields,
+        expiry_days: t.expiryDays ?? null,
+        default_value: t.defaultValue ?? null,
+        position,
+      })
+      .select()
+      .single();
+    if (error || !data) throw error ?? new Error("שמירת התבנית נכשלה");
+    const template = mapDocumentTemplate(data);
+    setState((s) => ({ ...s, documentTemplates: [...s.documentTemplates, template] }));
+    return template;
+  };
+
+  const updateDocumentTemplate: Store["updateDocumentTemplate"] = async (id, t) => {
+    const { data, error } = await supabase
+      .from("document_templates")
+      .update({
+        name: t.name,
+        title: t.title,
+        logo_url: t.logoUrl ?? null,
+        cover_image_url: t.coverImageUrl ?? null,
+        accent_color: t.accentColor,
+        sections: t.sections,
+        signer_fields: t.signerFields,
+        expiry_days: t.expiryDays ?? null,
+        default_value: t.defaultValue ?? null,
+      })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    if (data) setState((s) => ({ ...s, documentTemplates: upsertById(s.documentTemplates, mapDocumentTemplate(data)) }));
+  };
+
+  const deleteDocumentTemplate: Store["deleteDocumentTemplate"] = async (id) => {
+    await supabase.from("document_templates").delete().eq("id", id);
+    setState((s) => ({ ...s, documentTemplates: s.documentTemplates.filter((t) => t.id !== id) }));
+  };
+
+  const createDocument: Store["createDocument"] = async (d) => {
+    const { data, error } = await supabase
+      .from("documents")
+      .insert({
+        org_id: orgId,
+        template_id: d.templateId ?? null,
+        contact_id: d.contactId,
+        title: d.title,
+        cover: coverRow(d.cover),
+        sections: d.sections,
+        signer_fields: d.signerFields,
+        value: d.value ?? null,
+        expires_at: d.expiresAt ?? null,
+      })
+      .select()
+      .single();
+    if (error || !data) throw error ?? new Error("יצירת המסמך נכשלה");
+    const doc = mapDocument(data);
+    setState((s) => ({ ...s, documents: upsertById(s.documents, doc) }));
+    await supabase.from("activities").insert({ org_id: orgId, contact_id: d.contactId, type: "note", text: `📄 נוצר מסמך לחתימה: ${d.title}` });
+    return doc;
+  };
+
+  const updateDocument: Store["updateDocument"] = async (id, patch) => {
+    const payload: Row = {};
+    if (patch.title !== undefined) payload.title = patch.title;
+    if (patch.cover !== undefined) payload.cover = coverRow(patch.cover);
+    if (patch.sections !== undefined) payload.sections = patch.sections;
+    if (patch.signerFields !== undefined) payload.signer_fields = patch.signerFields;
+    if ("value" in patch) payload.value = patch.value ?? null;
+    if ("expiresAt" in patch) payload.expires_at = patch.expiresAt ?? null;
+    if (patch.status === "void") payload.status = "void";
+    const { data, error } = await supabase.from("documents").update(payload).eq("id", id).select().single();
+    if (error) throw error;
+    if (data) setState((s) => ({ ...s, documents: upsertById(s.documents, mapDocument(data)) }));
+  };
+
+  const loadDocumentViews: Store["loadDocumentViews"] = async (documentId) => {
+    const { data } = await supabase.from("document_views").select("*").eq("document_id", documentId).order("started_at", { ascending: false });
+    return (data ?? []).map((v: Row) => ({
+      id: v.id,
+      startedAt: v.started_at,
+      lastSeenAt: v.last_seen_at,
+      seconds: v.seconds,
+      sections: v.sections ?? {},
+      device: v.device ?? undefined,
+    }));
+  };
+
   // Files sent with ready-made messages; public, so WhatsApp can fetch them.
   const uploadMedia: Store["uploadMedia"] = async (file) => {
     const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase() : "";
@@ -1522,6 +1728,12 @@ export function StoreProvider({
         deleteMessageTemplate,
         uploadMedia,
         setMeetingReminders,
+        addDocumentTemplate,
+        updateDocumentTemplate,
+        deleteDocumentTemplate,
+        createDocument,
+        updateDocument,
+        loadDocumentViews,
         addScheduledMessages,
         cancelScheduledMessage,
         setHandlingStatus,

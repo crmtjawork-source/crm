@@ -3,7 +3,7 @@ import type { Db } from "./supabaseAdmin";
 import { sendToContact, type OutgoingContent } from "./whatsapp";
 import { composeForLead, pickChannel, sendLeadMessage } from "./leadMessages";
 
-export type TriggerType = "new_contact" | "stage_change" | "tag_added" | "appointment_booked" | "status_changed";
+export type TriggerType = "new_contact" | "stage_change" | "tag_added" | "appointment_booked" | "status_changed" | "document_viewed" | "document_signed";
 // source: where the lead came from, matched against automations.trigger_source
 // (e.g. "meta_lead_ads"). Leads created by hand or by import pass none.
 export type TriggerCtx = { pipelineId?: string; stageId?: string; tag?: string; source?: string; status?: string };

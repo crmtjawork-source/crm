@@ -15,6 +15,7 @@ export const QUICK_ACTIONS: { id: string; label: string }[] = [
   { id: "meeting_reminder_1d", label: "תזכורת יום לפני פגישה" },
   { id: "meeting_reminder_day", label: "תזכורת בבוקר הפגישה" },
   { id: "after_meeting", label: "אחרי פגישה" },
+  { id: "send_document", label: "שליחת הצעה / הסכם לחתימה" },
 ];
 
 export const PLACEHOLDERS: { key: string; label: string }[] = [
@@ -27,6 +28,8 @@ export const PLACEHOLDERS: { key: string; label: string }[] = [
   { key: "meeting_location", label: "מיקום / קישור הפגישה" },
   { key: "meeting_link", label: "קישור לפגישה" },
   { key: "booking_link", label: "קישור לקביעת שיחה" },
+  { key: "document_link", label: "קישור להצעה / הסכם לחתימה" },
+  { key: "today", label: "התאריך של היום" },
 ];
 
 const TZ = "Asia/Jerusalem";
@@ -37,6 +40,7 @@ export type TemplateContext = {
   appointment?: Appointment;
   origin?: string; // for {{booking_link}}
   bookingToken?: string;
+  documentUrl?: string; // for {{document_link}}
 };
 
 export function renderTemplate(body: string, ctx: TemplateContext): string {
@@ -55,6 +59,8 @@ export function renderTemplate(body: string, ctx: TemplateContext): string {
     meeting_location: notes,
     meeting_link: notes.match(/https?:\/\/\S+/)?.[0] ?? "",
     booking_link: ctx.origin && ctx.bookingToken ? `${ctx.origin}/book/${ctx.bookingToken}` : "",
+    document_link: ctx.documentUrl ?? "",
+    today: new Intl.DateTimeFormat("en-GB", { timeZone: TZ, day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date()),
   };
   return body
     .replace(/\{\{\s*field:([^}]+?)\s*\}\}/g, (_, key: string) => ctx.contact.fields[key.trim()] ?? "")

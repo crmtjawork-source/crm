@@ -10,6 +10,8 @@ const TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
   tag_added: "תגית נוספה",
   appointment_booked: "ליד קבע שיחה בקישור האישי",
   status_changed: "סטטוס טיפול השתנה",
+  document_viewed: "ליד פתח הצעה / הסכם (בפעם הראשונה)",
+  document_signed: "ליד חתם על הצעה / הסכם",
 };
 
 const STEP_LABELS: Record<AutomationStepType, string> = {

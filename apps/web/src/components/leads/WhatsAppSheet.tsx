@@ -17,23 +17,29 @@ export function WhatsAppSheet({
   contact,
   appointment,
   templateId,
+  documentUrl,
   onClose,
   onOpened,
 }: {
   contact: Contact;
   appointment?: Appointment;
   templateId?: string;
+  documentUrl?: string; // fills {{document_link}}
+
   onClose: () => void;
   onOpened?: () => void;
 }) {
   const { messageTemplates, members, currentMemberId, addNote } = useStore();
   const origin = useSyncExternalStore(subscribe, () => window.location.origin, () => "");
   const agentName = members.find((m) => m.id === currentMemberId)?.name;
-  const ctx = useMemo(() => ({ contact, appointment, agentName, origin, bookingToken: contact.bookingToken }), [contact, appointment, agentName, origin]);
+  const ctx = useMemo(
+    () => ({ contact, appointment, agentName, origin, bookingToken: contact.bookingToken, documentUrl }),
+    [contact, appointment, agentName, origin, documentUrl]
+  );
 
   const [selected, setSelected] = useState(templateId ?? "");
   const template = messageTemplates.find((t) => t.id === selected);
-  const [text, setText] = useState(() => (template ? renderTemplate(template.body, ctx) : ""));
+  const [text, setText] = useState(() => (template ? renderTemplate(template.body, ctx) : documentUrl ? `היי ${contact.name.split(" ")[0]}, מצרף כאן את המסמך לעיון ולחתימה:\n${documentUrl}` : ""));
   const { ready: canSendDirect } = useMyGateway();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");

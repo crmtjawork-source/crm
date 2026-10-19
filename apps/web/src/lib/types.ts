@@ -121,7 +121,14 @@ export type Member = {
   createdAt: string;
 };
 
-export type AutomationTriggerType = "new_contact" | "stage_change" | "tag_added" | "appointment_booked" | "status_changed";
+export type AutomationTriggerType =
+  | "new_contact"
+  | "stage_change"
+  | "tag_added"
+  | "appointment_booked"
+  | "status_changed"
+  | "document_viewed"
+  | "document_signed";
 
 export type AutomationTrigger = {
   type: AutomationTriggerType;
@@ -298,3 +305,64 @@ export type ScheduledMessage = {
 
 // One option of the business's handling-status list.
 export type LeadStatus = { id: string; name: string; position: number };
+
+// Proposals / contracts signed online (see lib/documents.ts).
+export type DocSection = { id: string; title: string; subtitle?: string; body: string };
+
+export type DocCover = {
+  title: string;
+  preparedFor?: string;
+  date?: string;
+  logoUrl?: string;
+  coverImageUrl?: string;
+  accentColor?: string;
+  senderName?: string;
+  senderEmail?: string;
+};
+
+export type DocumentTemplate = {
+  id: string;
+  name: string;
+  title: string;
+  logoUrl?: string;
+  coverImageUrl?: string;
+  accentColor: string;
+  sections: DocSection[];
+  signerFields: string[];
+  expiryDays?: number;
+  defaultValue?: number;
+  position: number;
+};
+
+export type CrmDocument = {
+  id: string;
+  templateId?: string;
+  contactId?: string;
+  token: string;
+  title: string;
+  cover: DocCover;
+  sections: DocSection[];
+  signerFields: string[];
+  value?: number;
+  status: "sent" | "viewed" | "signed" | "declined" | "void";
+  createdBy?: string;
+  sentAt: string;
+  expiresAt?: string;
+  firstViewedAt?: string;
+  lastViewedAt?: string;
+  viewCount: number;
+  viewSeconds: number;
+  signedAt?: string;
+  signature?: { name: string; image?: string; fields?: Record<string, string>; ip?: string; userAgent?: string; contentHash?: string };
+  declinedAt?: string;
+  declineReason?: string;
+};
+
+export type DocumentView = {
+  id: string;
+  startedAt: string;
+  lastSeenAt: string;
+  seconds: number;
+  sections: Record<string, number>;
+  device?: string;
+};

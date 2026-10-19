@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useStore } from "@/lib/store";
 import { IntegrationsSettings } from "@/components/settings/IntegrationsSettings";
 import { MessageTemplatesSettings } from "@/components/settings/MessageTemplatesSettings";
+import { DocumentTemplatesSettings } from "@/components/settings/DocumentTemplatesSettings";
 import { PersonalWhatsAppSettings } from "@/components/settings/PersonalWhatsAppSettings";
 import { PushSettings } from "@/components/settings/PushSettings";
 import { GoogleCalendarSettings } from "@/components/settings/GoogleCalendarSettings";
@@ -32,6 +33,7 @@ export default function SettingsPage() {
       <PersonalWhatsAppSettings isAdmin={isAdmin} />
       <LeadStatusesSettings isAdmin={isAdmin} />
       <MessageTemplatesSettings isAdmin={isAdmin} />
+      <DocumentTemplatesSettings isAdmin={isAdmin} />
       <IntegrationsSettings />
 
       <h2 className="text-base font-semibold mb-1">שדות מותאמים אישית</h2>

@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
 import { QuickActions } from "@/components/leads/QuickActions";
+import { LeadDocuments } from "@/components/documents/LeadDocuments";
 import { TaskRow } from "@/components/leads/TaskRow";
 
 export default function ContactDetailPage() {
@@ -359,6 +360,8 @@ export default function ContactDetailPage() {
           </button>
         </form>
       </section>
+
+      <LeadDocuments contact={contact} />
 
       <section className="mb-6">
         <h2 className="text-sm font-semibold text-neutral-500 mb-2">הזדמנויות</h2>
