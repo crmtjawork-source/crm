@@ -367,3 +367,42 @@ export type DocumentView = {
   sections: Record<string, number>;
   device?: string;
 };
+
+// Custom objects (see lib/objects.ts).
+export type FieldOption = { value: string; label: string; color?: string };
+
+export type ObjectField = {
+  id: string;
+  objectTypeId: string;
+  key: string;
+  label: string;
+  type: "text" | "long_text" | "number" | "currency" | "date" | "datetime" | "select" | "multi_select" | "checkbox" | "phone" | "email" | "url" | "relation" | "contact" | "user";
+  options: FieldOption[];
+  relationTypeId?: string;
+  section?: string;
+  required: boolean;
+  showInList: boolean;
+  position: number;
+};
+
+export type ObjectType = {
+  id: string;
+  name: string;
+  singular: string;
+  icon?: string;
+  position: number;
+  titleField?: string;
+  stageField?: string;
+  fields: ObjectField[];
+};
+
+export type CrmRecord = {
+  id: string;
+  objectTypeId: string;
+  title: string;
+  data: Record<string, string | number | boolean | string[] | null>;
+  ownerEmail?: string;
+  contactId?: string;
+  createdAt: string;
+  updatedAt: string;
+};

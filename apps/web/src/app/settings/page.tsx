@@ -5,6 +5,7 @@ import { useStore } from "@/lib/store";
 import { IntegrationsSettings } from "@/components/settings/IntegrationsSettings";
 import { MessageTemplatesSettings } from "@/components/settings/MessageTemplatesSettings";
 import { DocumentTemplatesSettings } from "@/components/settings/DocumentTemplatesSettings";
+import { ObjectsSettings } from "@/components/settings/ObjectsSettings";
 import { PersonalWhatsAppSettings } from "@/components/settings/PersonalWhatsAppSettings";
 import { PushSettings } from "@/components/settings/PushSettings";
 import { GoogleCalendarSettings } from "@/components/settings/GoogleCalendarSettings";
@@ -31,6 +32,7 @@ export default function SettingsPage() {
         <GoogleCalendarSettings />
       </Suspense>
       <PersonalWhatsAppSettings isAdmin={isAdmin} />
+      <ObjectsSettings isAdmin={isAdmin} />
       <LeadStatusesSettings isAdmin={isAdmin} />
       <MessageTemplatesSettings isAdmin={isAdmin} />
       <DocumentTemplatesSettings isAdmin={isAdmin} />

@@ -13,6 +13,8 @@ import type {
   DocSection,
   DocCover,
   DocumentView,
+  ObjectType,
+  ObjectField,
   Campaign,
   CampaignSpend,
   LeadSource,
@@ -76,6 +78,7 @@ type State = {
   leadStatuses: LeadStatus[];
   documentTemplates: DocumentTemplate[];
   documents: CrmDocument[];
+  objectTypes: ObjectType[];
   // Business settings (organizations row).
   meetingReminders: boolean;
 };
@@ -106,6 +109,7 @@ const emptyState: State = {
   leadStatuses: [],
   documentTemplates: [],
   documents: [],
+  objectTypes: [],
   meetingReminders: false,
 };
 
@@ -118,6 +122,7 @@ type ImportRow = { name: string; phone?: string; email?: string; source?: string
 
 type Store = State & {
   loading: boolean;
+  orgId: string;
   addContact: (c: { name: string; phone?: string; email?: string; source?: string }) => Promise<Contact>;
   getContact: (id: string) => Contact | undefined;
   updateContact: (contactId: string, patch: ContactPatch) => Promise<void>;
@@ -191,6 +196,11 @@ type Store = State & {
   addMessageTemplate: (t: { name: string; body: string; quickAction?: string }) => Promise<MessageTemplate>;
   updateMessageTemplate: (id: string, patch: TemplatePatch) => Promise<void>;
   uploadMedia: (file: File) => Promise<string>;
+  addObjectType: (t: Omit<ObjectType, "id" | "position" | "fields"> & { fields: Omit<ObjectField, "id" | "objectTypeId" | "position">[] }) => Promise<ObjectType>;
+  updateObjectType: (id: string, patch: Partial<Omit<ObjectType, "id" | "fields">>) => Promise<void>;
+  deleteObjectType: (id: string) => Promise<void>;
+  saveObjectField: (f: Omit<ObjectField, "id"> & { id?: string }) => Promise<ObjectField>;
+  deleteObjectField: (f: ObjectField) => Promise<void>;
   addDocumentTemplate: (t: Omit<DocumentTemplate, "id" | "position">) => Promise<DocumentTemplate>;
   updateDocumentTemplate: (id: string, t: Omit<DocumentTemplate, "id" | "position">) => Promise<void>;
   deleteDocumentTemplate: (id: string) => Promise<void>;
@@ -322,6 +332,51 @@ const coverRow = (c: DocCover) => ({
   accent_color: c.accentColor,
   sender_name: c.senderName,
   sender_email: c.senderEmail,
+});
+
+function mapObjectField(r: Row): ObjectField {
+  return {
+    id: r.id,
+    objectTypeId: r.object_type_id,
+    key: r.key,
+    label: r.label,
+    type: r.type,
+    options: r.options ?? [],
+    relationTypeId: r.relation_type_id ?? undefined,
+    section: r.section ?? undefined,
+    required: r.required,
+    showInList: r.show_in_list,
+    position: r.position,
+  };
+}
+
+function mapObjectType(r: Row, fieldRows: Row[]): ObjectType {
+  return {
+    id: r.id,
+    name: r.name,
+    singular: r.singular,
+    icon: r.icon ?? undefined,
+    position: r.position,
+    titleField: r.title_field ?? undefined,
+    stageField: r.stage_field ?? undefined,
+    fields: fieldRows
+      .filter((f) => f.object_type_id === r.id)
+      .map(mapObjectField)
+      .sort((a, b) => a.position - b.position),
+  };
+}
+
+const fieldRow = (f: Omit<ObjectField, "id">) => ({
+  object_type_id: f.objectTypeId,
+  key: f.key,
+  label: f.label,
+  type: f.type,
+  options: f.options,
+  relation_type_id: f.relationTypeId ?? null,
+  section: f.section ?? null,
+  required: f.required,
+  show_in_list: f.showInList,
+  position: f.position,
 });
 
 function mapCampaign(r: Row): Campaign {
@@ -615,6 +670,8 @@ export function StoreProvider({
         orgRes,
         documentTemplatesRes,
         documentsRes,
+        objectTypesRes,
+        objectFieldsRes,
       ] = await Promise.all([
         fetchAll("contacts"),
         supabase.from("pipelines").select("*").order("created_at"),
@@ -648,6 +705,8 @@ export function StoreProvider({
         supabase.from("organizations").select("meeting_reminders").eq("id", orgId).maybeSingle(),
         supabase.from("document_templates").select("*").order("position"),
         fetchAll("documents", "sent_at"),
+        supabase.from("object_types").select("*").order("position"),
+        supabase.from("object_fields").select("*").order("position"),
       ]);
 
       if (cancelled) return;
@@ -707,6 +766,7 @@ export function StoreProvider({
         meetingReminders: Boolean(orgRes.data?.meeting_reminders),
         documentTemplates: (documentTemplatesRes.data ?? []).map(mapDocumentTemplate),
         documents: (documentsRes.data ?? []).map(mapDocument),
+        objectTypes: (objectTypesRes.data ?? []).map((t: Row) => mapObjectType(t, objectFieldsRes.data ?? [])),
       });
       setLoading(false);
     }
@@ -1604,6 +1664,72 @@ export function StoreProvider({
     }));
   };
 
+  const addObjectType: Store["addObjectType"] = async (t) => {
+    const position = Math.max(-1, ...state.objectTypes.map((x) => x.position)) + 1;
+    const { data, error } = await supabase
+      .from("object_types")
+      .insert({ org_id: orgId, name: t.name, singular: t.singular, icon: t.icon ?? null, position, title_field: t.titleField ?? null, stage_field: t.stageField ?? null })
+      .select()
+      .single();
+    if (error || !data) throw error ?? new Error("יצירת האובייקט נכשלה");
+    let fieldRows: Row[] = [];
+    if (t.fields.length) {
+      const res = await supabase
+        .from("object_fields")
+        .insert(t.fields.map((f, i) => ({ org_id: orgId, ...fieldRow({ ...f, objectTypeId: data.id, position: i }) })))
+        .select();
+      if (res.error) throw res.error;
+      fieldRows = res.data ?? [];
+    }
+    const type = mapObjectType(data, fieldRows);
+    setState((s) => ({ ...s, objectTypes: [...s.objectTypes, type] }));
+    return type;
+  };
+
+  const updateObjectType: Store["updateObjectType"] = async (id, patch) => {
+    const payload: Row = {};
+    if (patch.name !== undefined) payload.name = patch.name;
+    if (patch.singular !== undefined) payload.singular = patch.singular;
+    if ("icon" in patch) payload.icon = patch.icon ?? null;
+    if ("titleField" in patch) payload.title_field = patch.titleField ?? null;
+    if ("stageField" in patch) payload.stage_field = patch.stageField ?? null;
+    if (patch.position !== undefined) payload.position = patch.position;
+    const { error } = await supabase.from("object_types").update(payload).eq("id", id);
+    if (error) throw error;
+    setState((s) => ({ ...s, objectTypes: s.objectTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)) }));
+  };
+
+  const deleteObjectType: Store["deleteObjectType"] = async (id) => {
+    const { error } = await supabase.from("object_types").delete().eq("id", id);
+    if (error) throw error;
+    setState((s) => ({ ...s, objectTypes: s.objectTypes.filter((t) => t.id !== id) }));
+  };
+
+  const saveObjectField: Store["saveObjectField"] = async (f) => {
+    const row = { org_id: orgId, ...fieldRow(f) };
+    const res = f.id
+      ? await supabase.from("object_fields").update(row).eq("id", f.id).select().single()
+      : await supabase.from("object_fields").insert(row).select().single();
+    if (res.error || !res.data) throw res.error ?? new Error("שמירת השדה נכשלה");
+    const saved = mapObjectField(res.data);
+    setState((s) => ({
+      ...s,
+      objectTypes: s.objectTypes.map((t) =>
+        t.id === saved.objectTypeId ? { ...t, fields: upsertById(t.fields, saved).sort((a, b) => a.position - b.position) } : t
+      ),
+    }));
+    return saved;
+  };
+
+  const deleteObjectField: Store["deleteObjectField"] = async (field) => {
+    const { error } = await supabase.from("object_fields").delete().eq("id", field.id);
+    if (error) throw error;
+    setState((s) => ({
+      ...s,
+      objectTypes: s.objectTypes.map((t) => (t.id === field.objectTypeId ? { ...t, fields: t.fields.filter((x) => x.id !== field.id) } : t)),
+    }));
+  };
+
   // Files sent with ready-made messages; public, so WhatsApp can fetch them.
   const uploadMedia: Store["uploadMedia"] = async (file) => {
     const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase() : "";
@@ -1680,6 +1806,7 @@ export function StoreProvider({
       value={{
         ...state,
         loading,
+        orgId,
         addContact,
         getContact,
         updateContact,
@@ -1741,6 +1868,11 @@ export function StoreProvider({
         deleteMessageTemplate,
         uploadMedia,
         setMeetingReminders,
+        addObjectType,
+        updateObjectType,
+        deleteObjectType,
+        saveObjectField,
+        deleteObjectField,
         addDocumentTemplate,
         updateDocumentTemplate,
         deleteDocumentTemplate,

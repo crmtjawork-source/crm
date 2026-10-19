@@ -55,7 +55,7 @@ function SearchBox() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { members, currentMemberId, loading } = useStore();
+  const { members, currentMemberId, loading, objectTypes } = useStore();
   const { session, signOut } = useAuth();
   const currentMember = members.find((m) => m.id === currentMemberId);
 
@@ -67,9 +67,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setMenuOpen(false);
   }
 
+  // The business's own objects sit right after leads.
+  const nav = [NAV[0], NAV[1], ...objectTypes.map((t) => ({ href: `/o/${t.id}`, label: `${t.icon ? `${t.icon} ` : ""}${t.name}` })), ...NAV.slice(2)];
   const navLinks = (
     <nav className="flex flex-col gap-1 px-2">
-      {NAV.map((item) => {
+      {nav.map((item) => {
         const active = pathname.startsWith(item.href);
         return (
           <Link
