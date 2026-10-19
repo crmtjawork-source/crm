@@ -413,6 +413,8 @@ export type Role = {
   id: string;
   name: string;
   leadsScope: "all" | "own_unassigned" | "own" | "none";
+  meetingsScope: "all" | "own";
+  tasksScope: "all" | "own";
   objectAccess: Record<string, "all" | "own" | "none">;
   features?: string[]; // menu screens; undefined = all
   position: number;

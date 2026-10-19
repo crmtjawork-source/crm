@@ -44,7 +44,7 @@ export function RolesSettings({ isAdmin }: { isAdmin: boolean }) {
 
 function RoleEditor({ role, onClose }: { role: Role | null; onClose: () => void }) {
   const { objectTypes, roles, saveRole, deleteRole } = useStore();
-  const [r, setR] = useState<Omit<Role, "id"> & { id?: string }>(role ?? { name: "", leadsScope: "own_unassigned", objectAccess: {}, position: roles.length });
+  const [r, setR] = useState<Omit<Role, "id"> & { id?: string }>(role ?? { name: "", leadsScope: "own_unassigned", meetingsScope: "all", tasksScope: "all", objectAccess: {}, position: roles.length });
   const [error, setError] = useState("");
   const features = r.features ?? FEATURES.map((f) => f.id);
 
@@ -76,6 +76,17 @@ function RoleEditor({ role, onClose }: { role: Role | null; onClose: () => void 
           </select>
           <span className="text-neutral-400">חל גם על השיחות, המשימות, הפגישות, ההסכמים וההיסטוריה של הלידים.</span>
         </label>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          {(["meetingsScope", "tasksScope"] as const).map((k) => (
+            <label key={k}>
+              <span className="block text-neutral-500 mb-1">{k === "meetingsScope" ? "פגישות ביומן" : "משימות"}</span>
+              <select value={r[k]} onChange={(e) => setR({ ...r, [k]: e.target.value as "all" | "own" })} className={input}>
+                <option value="all">הכל</option>
+                <option value="own">רק שלו</option>
+              </select>
+            </label>
+          ))}
+        </div>
         {objectTypes.length > 0 && (
           <div className="text-xs space-y-1">
             <span className="block text-neutral-500">אובייקטים</span>
