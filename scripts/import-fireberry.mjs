@@ -384,9 +384,12 @@ const allTasks = tasks
 
 const openTasks = allTasks.filter((t) => !t.row.done);
 
+// Exports carry either fullname or first + last name. The shared system
+// account (and any user without a name) is never invited.
+const userName = (u) => clean(u.fullname) || `${clean(u.firstname)} ${clean(u.lastname)}`.trim();
 const team = users
-  .filter((u) => clean(u.fullname) !== SYSTEM_ACCOUNT && clean(u.username).includes("@"))
-  .map((u) => ({ name: clean(u.fullname), email: clean(u.username).toLowerCase(), role: ROLE_MAP[clean(u.rolename)] ?? "agent", fireberryRole: clean(u.rolename) }));
+  .filter((u) => userName(u) && userName(u) !== SYSTEM_ACCOUNT && clean(u.username).includes("@"))
+  .map((u) => ({ name: userName(u), email: clean(u.username).toLowerCase(), role: ROLE_MAP[clean(u.rolename)] ?? "agent", fireberryRole: clean(u.rolename) }));
 
 // ------------------------------------------------------------------ report
 const count = (arr, key) => arr.reduce((a, x) => ((a[key(x)] = (a[key(x)] || 0) + 1), a), {});
