@@ -75,6 +75,7 @@ export type AppointmentType = {
   name: string;
   durationMinutes: number;
   publicBooking: boolean; // leads can book it themselves via their personal link
+  defaultOwnerEmail?: string; // gets meetings booked by leads that have no owner
 };
 
 export type Appointment = {
@@ -290,7 +291,7 @@ export type MessageTemplate = {
   attachment?: TemplateAttachment;
 };
 
-export type TemplateAttachment = { url: string; type: "image" | "video" | "document" | "voice"; name?: string };
+export type TemplateAttachment = { url: string; type: "image" | "video" | "gif" | "document" | "voice"; name?: string };
 
 // A message queued to send later from an agent's linked WhatsApp (meeting reminders).
 export type ScheduledMessage = {

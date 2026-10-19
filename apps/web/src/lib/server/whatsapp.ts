@@ -4,7 +4,7 @@ import { graphFetch, GraphError } from "./graph";
 import { sendText as greenApiSendText, sendFile as greenApiSendFile } from "./greenApi";
 import { sendText as evolutionSendText, sendMedia as evolutionSendMedia, sendVoice as evolutionSendVoice } from "./evolution";
 
-export type MediaType = "image" | "video" | "document" | "voice";
+export type MediaType = "image" | "video" | "gif" | "document" | "voice";
 
 export type OutgoingContent =
   | { kind: "text"; body: string }
@@ -174,8 +174,8 @@ async function callSendApi(phoneNumberId: string, token: string, to: string, con
       ? content.mediaType === "voice"
         ? { type: "audio", audio: { link: content.url } }
         : {
-            type: content.mediaType,
-            [content.mediaType]: {
+            type: content.mediaType === "gif" ? "video" : content.mediaType,
+            [content.mediaType === "gif" ? "video" : content.mediaType]: {
               link: content.url,
               ...(content.caption ? { caption: content.caption } : {}),
               ...(content.mediaType === "document" && content.fileName ? { filename: content.fileName } : {}),
@@ -245,14 +245,14 @@ export async function sendToContact(
     c.kind === "text"
       ? c.body
       : c.kind === "media"
-      ? `[${MEDIA_LABELS[c.mediaType]}]${c.caption ? ` ${c.caption}` : ""}`
+      ? `[${MEDIA_LABELS[c.mediaType === "gif" ? "video" : c.mediaType]}]${c.caption ? ` ${c.caption}` : ""}`
       : `[תבנית: ${c.name}]${c.bodyParams.length ? ` ${c.bodyParams.join(" · ")}` : ""}`;
   const base = {
     org_id: args.orgId,
     conversation_id: conversation.id,
     direction: "outbound",
     origin: args.origin,
-    type: c.kind === "media" ? (c.mediaType === "voice" ? "audio" : c.mediaType) : c.kind,
+    type: c.kind === "media" ? (c.mediaType === "voice" ? "audio" : c.mediaType === "gif" ? "video" : c.mediaType) : c.kind,
     body,
     payload: args.content,
     sent_by: args.sentBy ?? null,
@@ -265,7 +265,7 @@ export async function sendToContact(
       wamid =
         c.kind !== "media" ? await evolutionSendText(channel.external_id, to, (c as { body: string }).body)
         : c.mediaType === "voice" ? await evolutionSendVoice(channel.external_id, to, c.url)
-        : await evolutionSendMedia(channel.external_id, to, c.url, c.mediaType, c.caption, c.fileName);
+        : await evolutionSendMedia(channel.external_id, to, c.url, c.mediaType === "gif" ? "video" : c.mediaType, c.caption, c.fileName, c.mediaType === "gif");
     } else if (gateway) {
       const creds = await gatewayCreds(db, channel);
       wamid =

@@ -151,6 +151,7 @@ type Store = State & {
 
   addAppointmentType: (name: string, durationMinutes: number) => Promise<void>;
   setAppointmentTypePublic: (id: string, publicBooking: boolean) => Promise<void>;
+  setAppointmentTypeOwner: (id: string, email: string | null) => Promise<void>;
   addAppointment: (a: { contactId?: string; typeId: string; title: string; startAt: string; endAt: string; notes?: string }) => Promise<Appointment>;
   updateAppointment: (id: string, patch: Partial<Pick<Appointment, "title" | "startAt" | "endAt" | "notes">>) => Promise<void>;
   deleteAppointment: (id: string) => Promise<void>;
@@ -406,7 +407,13 @@ function mapTask(r: Row): Task {
 }
 
 function mapAppointmentType(r: Row): AppointmentType {
-  return { id: r.id, name: r.name, durationMinutes: r.duration_minutes, publicBooking: r.public_booking ?? false };
+  return {
+    id: r.id,
+    name: r.name,
+    durationMinutes: r.duration_minutes,
+    publicBooking: r.public_booking ?? false,
+    defaultOwnerEmail: r.default_owner_email ?? undefined,
+  };
 }
 
 function mapAppointment(r: Row): Appointment {
@@ -1109,6 +1116,11 @@ export function StoreProvider({
 
   // Only one type is offered on the lead's booking page, so enabling one
   // disables the others.
+  const setAppointmentTypeOwner: Store["setAppointmentTypeOwner"] = async (id, email) => {
+    await supabase.from("appointment_types").update({ default_owner_email: email }).eq("id", id);
+    setState((s) => ({ ...s, appointmentTypes: s.appointmentTypes.map((t) => (t.id === id ? { ...t, defaultOwnerEmail: email ?? undefined } : t)) }));
+  };
+
   const setAppointmentTypePublic: Store["setAppointmentTypePublic"] = async (id, publicBooking) => {
     if (publicBooking) await supabase.from("appointment_types").update({ public_booking: false }).eq("org_id", orgId).neq("id", id);
     await supabase.from("appointment_types").update({ public_booking: publicBooking }).eq("id", id);
@@ -1695,6 +1707,7 @@ export function StoreProvider({
         removeFieldDef,
         addAppointmentType,
         setAppointmentTypePublic,
+        setAppointmentTypeOwner,
         addAppointment,
         updateAppointment,
         deleteAppointment,

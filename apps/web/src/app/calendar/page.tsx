@@ -16,6 +16,8 @@ export default function CalendarPage() {
     deleteAppointment,
     addAppointmentType,
     setAppointmentTypePublic,
+    setAppointmentTypeOwner,
+    members,
     setAvailability,
   } = useStore();
 
@@ -241,6 +243,28 @@ export default function CalendarPage() {
         <p className="text-xs text-neutral-400 mb-3">
           לחיצה על סוג פגישה מסמנת אותו לקביעה עצמית: לידים יוכלו לבחור שעה פנויה בקישור האישי שלהם, לפי הזמינות השבועית למטה.
         </p>
+        {appointmentTypes
+          .filter((t) => t.publicBooking)
+          .map((t) => (
+            <label key={t.id} className="flex flex-wrap items-center gap-2 text-xs mb-3">
+              <span className="text-neutral-500">שיחות שליד קובע לבד ב&quot;{t.name}&quot; עוברות ל:</span>
+              <select
+                value={t.defaultOwnerEmail ?? ""}
+                onChange={(e) => setAppointmentTypeOwner(t.id, e.target.value || null)}
+                className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              >
+                <option value="">בעל הליד (אם יש)</option>
+                {members
+                  .filter((m) => m.status === "active")
+                  .map((m) => (
+                    <option key={m.id} value={m.email}>
+                      {m.name}
+                    </option>
+                  ))}
+              </select>
+              <span className="text-neutral-400">(לליד עם בעלים — לבעל הליד)</span>
+            </label>
+          ))}
         {showTypeForm && (
           <form onSubmit={handleAddType} className="flex gap-2">
             <input

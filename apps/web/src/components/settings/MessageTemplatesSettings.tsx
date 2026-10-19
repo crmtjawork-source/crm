@@ -5,7 +5,7 @@ import { useStore } from "@/lib/store";
 import { PLACEHOLDERS, QUICK_ACTIONS } from "@/lib/templates";
 import type { MessageTemplate, TemplateAttachment } from "@/lib/types";
 
-const KIND_LABEL: Record<TemplateAttachment["type"], string> = { image: "תמונה", video: "סרטון", document: "קובץ", voice: "הקלטה קולית" };
+const KIND_LABEL: Record<TemplateAttachment["type"], string> = { image: "תמונה", video: "סרטון", gif: "גיף", document: "קובץ", voice: "הקלטה קולית" };
 
 // Voice notes must be audio WhatsApp can play as a voice message (ogg/opus, mp3, m4a).
 function kindOf(file: File): TemplateAttachment["type"] {
@@ -151,6 +151,17 @@ function TemplateRow({ template, isAdmin, taken }: { template: MessageTemplate; 
             )}
             {fileError && <span className="text-red-500">{fileError}</span>}
           </div>
+          {template.attachment && (template.attachment.type === "video" || template.attachment.type === "gif") && (
+            <label className="text-xs flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={template.attachment.type === "gif"}
+                disabled={!isAdmin}
+                onChange={(e) => updateMessageTemplate(template.id, { attachment: { ...template.attachment!, type: e.target.checked ? "gif" : "video" } })}
+              />
+              <span>לשלוח כגיף (מתנגן בלולאה, בלי קול)</span>
+            </label>
+          )}
           {template.attachment && template.attachment.type !== "voice" && (
             <p className="text-xs text-neutral-400">הטקסט יישלח ככיתוב של הקובץ.</p>
           )}

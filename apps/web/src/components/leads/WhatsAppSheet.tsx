@@ -101,7 +101,7 @@ export function WhatsAppSheet({
           {/\{\{[^}]+\}\}/.test(text) && <p className="text-xs text-amber-600">יש בהודעה שדות שלא התמלאו — כדאי לבדוק לפני השליחה.</p>}
           {template?.attachment && (
             <p className="text-xs text-neutral-500">
-              📎 מצורף/ת {{ image: "תמונה", video: "סרטון", document: "קובץ", voice: "הקלטה" }[template.attachment.type]}
+              📎 מצורף/ת {{ image: "תמונה", video: "סרטון", gif: "גיף", document: "קובץ", voice: "הקלטה" }[template.attachment.type]}
               {canSendDirect ? " — יישלח יחד עם ההודעה." : " — בפתיחה בוואטסאפ צריך לצרף ידנית: "}
               {!canSendDirect && (
                 <a href={template.attachment.url} target="_blank" rel="noreferrer" className="underline">

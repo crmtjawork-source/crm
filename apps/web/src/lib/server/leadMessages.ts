@@ -117,7 +117,7 @@ export async function sendLeadMessage(
       content: { kind: "media", url: file.url, mediaType: file.type, fileName: file.name ?? undefined, caption: captionFits ? text : undefined },
     });
   }
-  const fileNote = file ? ` + ${{ image: "תמונה", video: "סרטון", document: "קובץ", voice: "הקלטה" }[file.type]}` : "";
+  const fileNote = file ? ` + ${{ image: "תמונה", video: "סרטון", gif: "גיף", document: "קובץ", voice: "הקלטה" }[file.type]}` : "";
   await db.from("activities").insert({ org_id: args.orgId, contact_id: args.contactId, type: "note", text: `💬 ${args.label}${fileNote}\n${text}`.trim() });
   return message;
 }

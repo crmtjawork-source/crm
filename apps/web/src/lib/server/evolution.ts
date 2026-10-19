@@ -79,8 +79,24 @@ export async function sendText(name: string, digits: string, text: string): Prom
 }
 
 // mediatype: image | video | document; voice notes go through sendVoice.
-export async function sendMedia(name: string, digits: string, url: string, mediatype: "image" | "video" | "document", caption?: string, fileName?: string): Promise<string> {
-  const r = await call<{ key?: { id?: string } }>("POST", `/message/sendMedia/${encodeURIComponent(name)}`, { number: digits, mediatype, media: url, caption, fileName });
+// gifPlayback (video only) needs our server's one-line patch (see /opt/evolution/patches).
+export async function sendMedia(
+  name: string,
+  digits: string,
+  url: string,
+  mediatype: "image" | "video" | "document",
+  caption?: string,
+  fileName?: string,
+  gifPlayback = false
+): Promise<string> {
+  const r = await call<{ key?: { id?: string } }>("POST", `/message/sendMedia/${encodeURIComponent(name)}`, {
+    number: digits,
+    mediatype,
+    media: url,
+    caption,
+    fileName,
+    ...(gifPlayback ? { gifPlayback: true } : {}),
+  });
   if (!r.key?.id) throw new EvolutionError("Evolution לא החזיר מזהה הודעה");
   return r.key.id;
 }
