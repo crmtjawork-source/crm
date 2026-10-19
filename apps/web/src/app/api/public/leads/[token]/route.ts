@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/server/supabaseAdmin";
 import { upsertInboundLead } from "@/lib/server/leads";
 import { parseIntake } from "@/lib/server/intake";
 import { triggerAutomations } from "@/lib/server/automations";
+import { sendPendingPushes } from "@/lib/server/push";
 
 // Public lead intake: agencies, Google Ads lead forms, Zapier/Make, landing
 // pages… POST a lead here. The unguessable token in the URL identifies the
@@ -91,6 +92,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/public/lead
       .update({ last_received_at: new Date().toISOString(), received_count: (source.received_count ?? 0) + 1 })
       .eq("id", source.id);
     await remember(null);
+    after(() => sendPendingPushes(db));
     if (created && !lead.isTest) {
       after(() => triggerAutomations(db, source.org_id, "new_contact", contactId, { source: "lead_source" }));
     }

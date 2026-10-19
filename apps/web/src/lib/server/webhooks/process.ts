@@ -9,6 +9,7 @@ import {
 } from "./whatsapp";
 import { handleLeadgenChange } from "./leadgen";
 import { handleGreenApiEvent } from "./greenApi";
+import { sendPendingPushes } from "../push";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
@@ -82,6 +83,8 @@ export async function processWebhookEvent(db: Db, eventId: string): Promise<void
       .from("webhook_events")
       .update({ status: "processed", processed_at: new Date().toISOString(), error: notes.length ? notes.join("; ") : null })
       .eq("id", eventId);
+    // New lead / incoming message → phones right away rather than at the next cron tick.
+    await sendPendingPushes(db).catch((err) => console.error("push after webhook failed", err));
   } catch (err) {
     console.error("webhook processing failed", eventId, err);
     await db

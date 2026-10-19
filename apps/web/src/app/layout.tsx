@@ -11,6 +11,8 @@ const heebo = Heebo({
 export const metadata: Metadata = {
   title: "CRM",
   description: "מערכת CRM פנימית",
+  appleWebApp: { capable: true, title: "CRM", statusBarStyle: "default" },
+  icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

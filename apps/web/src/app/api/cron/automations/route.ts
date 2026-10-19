@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/server/supabaseAdmin";
 import { resumeDueRuns } from "@/lib/server/automations";
 import { retryPendingWebhookEvents } from "@/lib/server/webhooks/process";
 import { sendDueScheduledMessages } from "@/lib/server/leadMessages";
+import { sendPendingPushes } from "@/lib/server/push";
 
 // Hit every minute by a scheduler (Supabase pg_cron + pg_net, or Vercel
 // Cron) with `Authorization: Bearer <CRON_SECRET>`. Resumes automation runs
@@ -24,7 +25,8 @@ async function run(request: Request) {
   const resumed = await resumeDueRuns(db);
   const retried = await retryPendingWebhookEvents(db);
   const reminders = await sendDueScheduledMessages(db);
-  return Response.json({ resumed, retried, reminders });
+  const pushes = await sendPendingPushes(db);
+  return Response.json({ resumed, retried, reminders, pushes });
 }
 
 export const GET = run;
