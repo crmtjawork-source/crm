@@ -55,7 +55,8 @@ export function parseBody(body: string): Block[] {
     const bullet = line.match(/^\s*[-•*]\s+(.*)$/);
     const numbered = line.match(/^\s*\d+[.)]\s+(.*)$/);
     const heading = line.match(/^\s*#{1,3}\s+(.*)$/);
-    const last = blocks[blocks.length - 1];
+    // A list continues only if nothing came between its items.
+    const last = para.length ? null : blocks[blocks.length - 1];
     if (!line.trim()) flush();
     else if (heading) {
       flush();
@@ -64,7 +65,7 @@ export function parseBody(body: string): Block[] {
       flush();
       const kind = bullet ? "ul" : "ol";
       const text = (bullet ?? numbered)![1];
-      if (last && last.type === kind && !para.length) last.items.push(text);
+      if (last && last.type === kind) last.items.push(text);
       else blocks.push({ type: kind, items: [text] });
     } else para.push(line.trim());
   }

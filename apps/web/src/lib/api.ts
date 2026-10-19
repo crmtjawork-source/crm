@@ -24,3 +24,13 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   if (!res.ok) throw new ApiError(json.error ?? `שגיאה ${res.status}`, res.status, json.code);
   return json as T;
 }
+
+export async function apiUpload<T>(path: string, file: File): Promise<T> {
+  const { data } = await supabase.auth.getSession();
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(path, { method: "POST", headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` }, body: form });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(json.error ?? `שגיאה ${res.status}`, res.status, json.code);
+  return json as T;
+}

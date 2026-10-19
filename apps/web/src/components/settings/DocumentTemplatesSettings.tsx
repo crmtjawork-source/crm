@@ -6,7 +6,8 @@ import { SIGNER_FIELDS } from "@/lib/documents";
 import { SectionsEditor } from "@/components/documents/SectionsEditor";
 import { DocumentView } from "@/components/documents/DocumentView";
 import { Sheet } from "@/components/ui/Sheet";
-import type { DocumentTemplate } from "@/lib/types";
+import { apiUpload } from "@/lib/api";
+import type { DocSection, DocumentTemplate } from "@/lib/types";
 
 const field = "w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
@@ -17,6 +18,24 @@ const EMPTY: Draft = { name: "הצעה חדשה", title: "", accentColor: "#1e3a
 export function DocumentTemplatesSettings({ isAdmin }: { isAdmin: boolean }) {
   const { documentTemplates, addDocumentTemplate } = useStore();
   const [editing, setEditing] = useState<DocumentTemplate | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState("");
+
+  // PDF → editable sections; the agent then reviews and fixes the text.
+  async function importPdf(file: File | undefined) {
+    if (!file) return;
+    setImporting(true);
+    setImportError("");
+    try {
+      const r = await apiUpload<{ title: string; sections: DocSection[] }>("/api/documents/import-pdf", file);
+      const name = r.title || file.name.replace(/\.pdf$/i, "");
+      setEditing(await addDocumentTemplate({ ...EMPTY, name, title: r.title || name, sections: r.sections }));
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "הייבוא נכשל");
+    } finally {
+      setImporting(false);
+    }
+  }
 
   return (
     <section className="mb-10">
@@ -36,12 +55,32 @@ export function DocumentTemplatesSettings({ isAdmin }: { isAdmin: boolean }) {
         ))}
       </ul>
       {isAdmin ? (
-        <button
-          onClick={async () => setEditing(await addDocumentTemplate(EMPTY))}
-          className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800"
-        >
-          + תבנית חדשה
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={async () => setEditing(await addDocumentTemplate(EMPTY))}
+            className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800"
+          >
+            + תבנית חדשה
+          </button>
+          <label className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 cursor-pointer">
+            {importing ? "קורא את הקובץ…" : "⬆ העלאת חוזה קיים (PDF)"}
+            <input
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              disabled={importing}
+              onChange={(e) => {
+                importPdf(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {importError && <span className="text-xs text-red-500">{importError}</span>}
+          <p className="w-full text-xs text-neutral-400">
+            הקובץ מומר לפרקים שאפשר לערוך (כותרות, פסקאות, נקודות). כדאי לעבור על הטקסט אחרי ההמרה ולהחליף פרטים משתנים בשדות כמו{" "}
+            <code dir="ltr">{"{{name}}"}</code>.
+          </p>
+        </div>
       ) : (
         <p className="text-xs text-amber-600">רק מנהלים יכולים לערוך תבניות.</p>
       )}

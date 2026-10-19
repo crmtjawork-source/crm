@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The PDF engine (pdf.js build) loads its own files at runtime.
+  serverExternalPackages: ["unpdf"],
   async headers() {
     return [
       {
