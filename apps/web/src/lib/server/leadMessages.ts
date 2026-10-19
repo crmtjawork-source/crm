@@ -1,6 +1,6 @@
 import "server-only";
 import type { Db } from "./supabaseAdmin";
-import { renderTemplate } from "@/lib/templates";
+import { isOnlineMeeting, renderTemplate } from "@/lib/templates";
 import type { Appointment, Contact } from "@/lib/types";
 import { sendToContact } from "./whatsapp";
 
@@ -18,11 +18,34 @@ export async function composeForLead(
   let templateName: string | null = null;
   let text = args.text?.trim() ?? "";
   if (!text && args.templateId) {
-    const { data: template } = await db.from("message_templates").select("name, body").eq("id", args.templateId).eq("org_id", args.orgId).maybeSingle();
+    let { data: template } = await db.from("message_templates").select("name, body, quick_action").eq("id", args.templateId).eq("org_id", args.orgId).maybeSingle();
     if (!template) throw new Error("ההודעה המוכנה לא נמצאה");
-    templateName = template.name;
     const { data: user } = args.userId ? await db.from("users").select("full_name, email").eq("id", args.userId).maybeSingle() : { data: null };
-    const { data: appt } = args.appointmentId ? await db.from("appointments").select("*").eq("id", args.appointmentId).maybeSingle() : { data: null };
+    let appointmentId = args.appointmentId ?? null;
+    // A meeting message sent by an automation (e.g. stage → "meeting set")
+    // uses the lead's next meeting on the calendar.
+    if (!appointmentId && /\{\{\s*meeting_/.test(template.body)) {
+      const { data: next } = await db
+        .from("appointments")
+        .select("id")
+        .eq("contact_id", args.contactId)
+        .gt("end_at", new Date().toISOString())
+        .order("start_at")
+        .limit(1)
+        .maybeSingle();
+      if (!next) throw new Error("אין לליד פגישה עתידית ביומן — ההודעה לא נשלחה");
+      appointmentId = next.id;
+    }
+    const { data: appt } = appointmentId ? await db.from("appointments").select("*, appointment_types(name)").eq("id", appointmentId).maybeSingle() : { data: null };
+    // Online vs. in-person confirmation, by the meeting's type.
+    if (appt && (template.quick_action === "meeting_online" || template.quick_action === "meeting_office")) {
+      const want = isOnlineMeeting(appt.appointment_types?.name ?? appt.title ?? "") ? "meeting_online" : "meeting_office";
+      if (want !== template.quick_action) {
+        const { data: other } = await db.from("message_templates").select("name, body, quick_action").eq("org_id", args.orgId).eq("quick_action", want).maybeSingle();
+        if (other) template = other;
+      }
+    }
+    templateName = template.name;
     text = renderTemplate(template.body, {
       contact: {
         id: contact.id,

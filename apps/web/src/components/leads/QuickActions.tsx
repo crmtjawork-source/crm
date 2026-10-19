@@ -26,13 +26,14 @@ export function QuickActions({ contact }: { contact: Contact }) {
   const agentName = members.find((m) => m.id === currentMemberId)?.name;
   const templateFor = (action: string) => messageTemplates.find((t) => t.quickAction === action)?.id;
 
-  async function moveTo(stageName: string, onlyFromFirst = false) {
+  async function moveTo(stageName: string, onlyFromFirst = false): Promise<boolean> {
     const opp = opportunities.find((o) => o.contactId === contact.id && o.status === "open");
     const pipeline = opp && pipelines.find((p) => p.id === opp.pipelineId);
     const target = pipeline?.stages.find((s) => s.name.includes(stageName));
-    if (!opp || !pipeline || !target || opp.stageId === target.id) return;
-    if (onlyFromFirst && pipeline.stages[0]?.id !== opp.stageId) return;
+    if (!opp || !pipeline || !target || opp.stageId === target.id) return false;
+    if (onlyFromFirst && pipeline.stages[0]?.id !== opp.stageId) return false;
     await moveOpportunity(opp.id, target.id);
+    return true;
   }
 
   // With a linked WhatsApp the message goes out on its own; otherwise (or if
@@ -117,7 +118,20 @@ export function QuickActions({ contact }: { contact: Contact }) {
           onClose={() => setScheduling(false)}
           onScheduled={async (appointment, online) => {
             setScheduling(false);
-            await moveTo(STAGE_FOR.meeting);
+            const moved = await moveTo(STAGE_FOR.meeting);
+            // An active "stage → meeting set" automation sends the confirmation itself.
+            const opp = opportunities.find((o) => o.contactId === contact.id && o.status === "open");
+            const meetingStage = pipelines.find((p) => p.id === opp?.pipelineId)?.stages.find((st) => st.name.includes(STAGE_FOR.meeting));
+            const automated =
+              moved &&
+              meetingStage &&
+              automations.some(
+                (a) => a.active && a.trigger.type === "stage_change" && a.trigger.stageId === meetingStage.id && a.steps.some((st) => st.type === "send_message")
+              );
+            if (automated && autoSend) {
+              setNotice({ ok: true, text: "הפגישה נקבעה — אישור הפגישה נשלח באוטומציה" });
+              return;
+            }
             await deliver(templateFor(online ? "meeting_online" : "meeting_office"), appointment);
           }}
         />
