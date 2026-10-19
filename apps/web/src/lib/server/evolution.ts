@@ -36,6 +36,10 @@ export async function createInstance(name: string, webhookUrl: string): Promise<
     instanceName: name,
     qrcode: true,
     integration: "WHATSAPP-BAILEYS",
+    // Groups never reach the CRM anyway; don't mark chats read or pull history.
+    groupsIgnore: true,
+    readMessages: false,
+    syncFullHistory: false,
     webhook: { url: webhookUrl, byEvents: false, base64: false, events: WEBHOOK_EVENTS },
   });
 }
