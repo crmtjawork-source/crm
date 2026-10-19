@@ -8,6 +8,7 @@ import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
 import { QuickActions } from "@/components/leads/QuickActions";
 import { LeadDocuments } from "@/components/documents/LeadDocuments";
 import { LeadCalls } from "@/components/leads/LeadCalls";
+import { ColorChip, colorAt } from "@/components/ui/ColorChip";
 import { LeadFieldsCard } from "@/components/leads/LeadFieldsCard";
 import { LeadRecords } from "@/components/leads/LeadRecords";
 import { FilesSection } from "@/components/FilesSection";
@@ -229,7 +230,12 @@ export default function ContactDetailPage() {
           <select
             value={contact.handlingStatus ?? ""}
             onChange={(e) => setHandlingStatus(contact.id, e.target.value || null)}
-            className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+            className="px-2 py-1 rounded-md border bg-transparent font-medium"
+            style={(() => {
+              const i = leadStatuses.findIndex((st) => st.name === contact.handlingStatus);
+              const c = i >= 0 ? colorAt(leadStatuses[i].color, i) : undefined;
+              return c ? { color: c, borderColor: c, backgroundColor: `${c}14` } : undefined;
+            })()}
           >
             <option value="">—</option>
             {leadStatuses.map((st) => (
@@ -341,8 +347,9 @@ export default function ContactDetailPage() {
                     <p>
                       {o.title} {o.value > 0 ? `· ₪${o.value.toLocaleString("he-IL")}` : ""}
                     </p>
-                    <p className="text-xs text-neutral-500">
-                      {pipeline?.name} · {stage?.name}
+                    <p className="text-xs text-neutral-500 flex items-center gap-1 flex-wrap">
+                      {pipeline?.name} ·{" "}
+                      <ColorChip label={stage?.name ?? ""} color={pipeline && stage ? colorAt(stage.color, pipeline.stages.indexOf(stage)) : undefined} />
                       {o.status !== "open" && (
                         <span className={o.status === "won" ? "text-emerald-600" : "text-neutral-500"}>
                           {" "}· {outcome[o.status]}

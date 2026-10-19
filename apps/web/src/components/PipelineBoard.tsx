@@ -5,6 +5,7 @@ import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-
 import Link from "next/link";
 import type { Pipeline, Opportunity, Contact } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { colorAt } from "@/components/ui/ColorChip";
 
 function CloseForm({ opp, onDone }: { opp: Opportunity; onDone: () => void }) {
   const { opportunities, setOpportunityStatus } = useStore();
@@ -50,7 +51,7 @@ function CloseForm({ opp, onDone }: { opp: Opportunity; onDone: () => void }) {
   );
 }
 
-function OpportunityCard({ opp, contactName }: { opp: Opportunity; contactName: string }) {
+function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contactName: string; color?: string }) {
   const { updateOpportunity, deleteOpportunity, members, currentMemberId } = useStore();
   const [closing, setClosing] = useState(false);
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
@@ -110,7 +111,8 @@ function OpportunityCard({ opp, contactName }: { opp: Opportunity; contactName: 
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      // A stage-coloured edge on the reading side.
+      style={{ ...style, ...(color ? { borderInlineStartColor: color, borderInlineStartWidth: 3 } : {}) }}
       {...listeners}
       {...attributes}
       className={`group rounded-md border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-3 text-sm cursor-grab active:cursor-grabbing ${
@@ -151,6 +153,7 @@ function StageColumn({
   pipelineId,
   stageId,
   name,
+  color,
   winProbability,
   opportunities,
   contacts,
@@ -158,11 +161,12 @@ function StageColumn({
   pipelineId: string;
   stageId: string;
   name: string;
+  color: string;
   winProbability: number;
   opportunities: Opportunity[];
   contacts: Contact[];
 }) {
-  const { renameStage, deleteStage, members, currentMemberId } = useStore();
+  const { renameStage, deleteStage, setStageColor, members, currentMemberId } = useStore();
   const canManage = members.find((m) => m.id === currentMemberId)?.role !== "agent";
   const { setNodeRef, isOver } = useDroppable({ id: stageId });
   const [editing, setEditing] = useState(false);
@@ -188,8 +192,13 @@ function StageColumn({
         isOver ? "border-neutral-400 dark:border-neutral-500" : "border-neutral-200 dark:border-neutral-800"
       } bg-neutral-50 dark:bg-neutral-900 flex flex-col`}
     >
-      <div className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800">
+      <div className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 rounded-t-lg" style={{ borderTop: `3px solid ${color}`, backgroundColor: `${color}12` }}>
         <div className="flex items-center justify-between gap-2">
+          {canManage ? (
+            <input type="color" value={color} onChange={(e) => setStageColor(pipelineId, stageId, e.target.value)} className="h-4 w-4 shrink-0 cursor-pointer rounded-full" title="צבע השלב" />
+          ) : (
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+          )}
           {editing ? (
             <input
               autoFocus
@@ -200,7 +209,7 @@ function StageColumn({
               className="font-medium text-sm bg-transparent border-b border-neutral-400 outline-none flex-1 min-w-0"
             />
           ) : (
-            <button onClick={() => setEditing(true)} className="font-medium text-sm text-start truncate hover:underline">
+            <button onClick={() => setEditing(true)} className="font-medium text-sm text-start truncate hover:underline flex-1" style={{ color }}>
               {name}
             </button>
           )}
@@ -226,6 +235,7 @@ function StageColumn({
             key={o.id}
             opp={o}
             contactName={contacts.find((c) => c.id === o.contactId)?.name ?? "—"}
+            color={color}
           />
         ))}
       </div>
@@ -292,12 +302,13 @@ export function PipelineBoard({ pipeline }: { pipeline: Pipeline }) {
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {pipeline.stages.map((stage) => (
+        {pipeline.stages.map((stage, i) => (
           <StageColumn
             key={stage.id}
             pipelineId={pipeline.id}
             stageId={stage.id}
             name={stage.name}
+            color={colorAt(stage.color, i)}
             winProbability={stage.winProbability}
             opportunities={opportunities.filter(
               (o) => o.pipelineId === pipeline.id && o.stageId === stage.id && o.status === "open"

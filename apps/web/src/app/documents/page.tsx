@@ -5,6 +5,10 @@ import { useStore } from "@/lib/store";
 import { DOCUMENT_STATUS, formatDuration } from "@/lib/documents";
 import { DocumentInsights, docStatus, StatusChip } from "@/components/documents/DocumentInsights";
 import { WhatsAppSheet } from "@/components/leads/WhatsAppSheet";
+import { NewDocumentSheet } from "@/components/documents/NewDocumentSheet";
+import { Sheet } from "@/components/ui/Sheet";
+import Link from "next/link";
+import type { Contact } from "@/lib/types";
 
 const PERIODS = [
   { id: "7", label: "7 ימים" },
@@ -28,6 +32,8 @@ export default function DocumentsPage() {
   const [template, setTemplate] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [sending, setSending] = useState<{ contactId: string; url: string } | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [creatingFor, setCreatingFor] = useState<Contact | null>(null);
   const [now] = useState(() => Date.now());
 
   const contactName = (id?: string) => contacts.find((c) => c.id === id)?.name ?? "—";
@@ -59,8 +65,16 @@ export default function DocumentsPage() {
 
   return (
     <div className="max-w-6xl">
-      <h1 className="text-2xl font-bold mb-1">הצעות והסכמים</h1>
-      <p className="text-sm text-neutral-500 mb-5">כל מסמך שנשלח לחתימה: מתי נפתח, כמה זמן נקרא, ומי חתם. שולחים מסמך חדש מכרטיס הליד.</p>
+      <div className="flex flex-wrap items-center gap-2 mb-1">
+        <h1 className="text-2xl font-bold me-auto">הצעות והסכמים</h1>
+        <Link href="/settings#documents" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          ניהול תבניות
+        </Link>
+        <button onClick={() => setPicking(true)} className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+          + הצעה / הסכם חדש
+        </button>
+      </div>
+      <p className="text-sm text-neutral-500 mb-5">כל מסמך שנשלח לחתימה: מתי נפתח, כמה זמן נקרא, ומי חתם.</p>
 
       <div className="flex flex-wrap gap-2 mb-4">
         <div className="flex rounded-md border border-neutral-200 dark:border-neutral-800 overflow-hidden">
@@ -177,6 +191,26 @@ export default function DocumentsPage() {
           onSend={open.contactId ? (url) => (setOpenId(null), setSending({ contactId: open.contactId!, url })) : undefined}
         />
       )}
+      {picking && (
+        <LeadPicker
+          contacts={contacts}
+          onClose={() => setPicking(false)}
+          onPick={(c) => {
+            setPicking(false);
+            setCreatingFor(c);
+          }}
+        />
+      )}
+      {creatingFor && (
+        <NewDocumentSheet
+          contact={creatingFor}
+          onClose={() => setCreatingFor(null)}
+          onCreated={(doc) => {
+            setCreatingFor(null);
+            setSending({ contactId: creatingFor.id, url: `${window.location.origin}/d/${doc.token}` });
+          }}
+        />
+      )}
       {sending && sendContact && (
         <WhatsAppSheet
           contact={sendContact}
@@ -186,6 +220,34 @@ export default function DocumentsPage() {
         />
       )}
     </div>
+  );
+}
+
+// Choose the lead a new document is for (by name or phone).
+function LeadPicker({ contacts, onClose, onPick }: { contacts: Contact[]; onClose: () => void; onPick: (c: Contact) => void }) {
+  const [q, setQ] = useState("");
+  const needle = q.trim().toLowerCase();
+  const digits = needle.replace(/\D/g, "");
+  const matches = needle
+    ? contacts.filter((c) => c.name.toLowerCase().includes(needle) || (digits.length >= 3 && (c.phone ?? "").replace(/\D/g, "").includes(digits))).slice(0, 30)
+    : [];
+  return (
+    <Sheet title="למי המסמך?" onClose={onClose}>
+      <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש ליד לפי שם או טלפון…" className={`${field} w-full mb-2`} />
+      {needle && matches.length === 0 && <p className="text-xs text-neutral-400">לא נמצאו לידים.</p>}
+      <ul className="max-h-80 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-900">
+        {matches.map((c) => (
+          <li key={c.id}>
+            <button onClick={() => onPick(c)} className="w-full text-start px-2 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-900 flex justify-between gap-2">
+              <span>{c.name}</span>
+              <span className="text-xs text-neutral-400" dir="ltr">
+                {c.phone}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Sheet>
   );
 }
 

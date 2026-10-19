@@ -38,7 +38,7 @@ export function DocumentTemplatesSettings({ isAdmin }: { isAdmin: boolean }) {
   }
 
   return (
-    <section className="mb-10">
+    <section id="documents" className="mb-10 scroll-mt-4">
       <h2 className="text-base font-semibold mb-1">הצעות מחיר והסכמים</h2>
       <p className="text-sm text-neutral-500 mb-3 leading-relaxed">
         תבניות למסמכים שהלקוח פותח מקישור, קורא וחותם עליהם אונליין. מכרטיס הליד יוצרים מהתבנית מסמך אישי (אפשר לערוך אותו לפני השליחה), שולחים

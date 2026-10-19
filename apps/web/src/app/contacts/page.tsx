@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
+import { ColorChip, colorAt } from "@/components/ui/ColorChip";
 import { useAuth } from "@/lib/auth";
 import { downloadCsv } from "@/lib/exportCsv";
 
@@ -26,6 +27,13 @@ export default function ContactsPage() {
     if (!cur || (cur.status !== "open" && (o.status === "open" || o.createdAt > cur.createdAt))) dealOf.set(o.contactId, o);
   }
   const stageName = new Map(pipelines.flatMap((p) => p.stages.map((st) => [st.id, st.name] as const)));
+  const stageColor = new Map(pipelines.flatMap((p) => p.stages.map((st, i) => [st.id, colorAt(st.color, i)] as const)));
+  const statusColor = new Map(leadStatuses.map((st, i) => [st.name, colorAt(st.color, i)] as const));
+  const OUTCOME_COLOR: Record<string, string> = { won: "#16a34a", lost: "#64748b", abandoned: "#94a3b8" };
+  const stageChipColor = (contactId: string) => {
+    const d = dealOf.get(contactId);
+    return d ? (d.status === "open" ? stageColor.get(d.stageId) : OUTCOME_COLOR[d.status]) : undefined;
+  };
   const OUTCOME: Record<string, string> = { won: "נסגרה עסקה", lost: "לא נסגרה עסקה", abandoned: "בוטלה עסקה" };
   const stageLabel = (contactId: string) => {
     const d = dealOf.get(contactId);
@@ -230,8 +238,12 @@ export default function ContactsPage() {
                     "—"
                   )}
                 </td>
-                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell whitespace-nowrap">{stageLabel(c.id) || "—"}</td>
-                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell whitespace-nowrap">{c.handlingStatus ?? "—"}</td>
+                <td className="px-4 py-3 hidden md:table-cell whitespace-nowrap">
+                  <ColorChip label={stageLabel(c.id)} color={stageChipColor(c.id)} />
+                </td>
+                <td className="px-4 py-3 hidden md:table-cell whitespace-nowrap">
+                  <ColorChip label={c.handlingStatus ?? ""} color={statusColor.get(c.handlingStatus ?? "")} />
+                </td>
                 <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell">{c.source ?? "—"}</td>
                 <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell">{ownerName(c.ownerEmail) || "—"}</td>
                 <td className="px-4 py-3 hidden md:table-cell">

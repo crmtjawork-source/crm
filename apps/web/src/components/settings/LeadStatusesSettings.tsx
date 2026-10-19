@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
+import { colorAt } from "@/components/ui/ColorChip";
 
 export function LeadStatusesSettings({ isAdmin }: { isAdmin: boolean }) {
-  const { leadStatuses, contacts, addLeadStatus, renameLeadStatus, deleteLeadStatus, moveLeadStatus } = useStore();
+  const { leadStatuses, contacts, addLeadStatus, renameLeadStatus, deleteLeadStatus, moveLeadStatus, setLeadStatusColor } = useStore();
   const [name, setName] = useState("");
   const counts = new Map<string, number>();
   for (const c of contacts) if (c.handlingStatus) counts.set(c.handlingStatus, (counts.get(c.handlingStatus) ?? 0) + 1);
@@ -28,6 +29,8 @@ export function LeadStatusesSettings({ isAdmin }: { isAdmin: boolean }) {
           <StatusRow
             key={st.id}
             name={st.name}
+            color={colorAt(st.color, i)}
+            onColor={(c) => setLeadStatusColor(st.id, c)}
             count={counts.get(st.name) ?? 0}
             first={i === 0}
             last={i === leadStatuses.length - 1}
@@ -53,6 +56,8 @@ export function LeadStatusesSettings({ isAdmin }: { isAdmin: boolean }) {
 
 function StatusRow(props: {
   name: string;
+  color: string;
+  onColor: (c: string) => void;
   count: number;
   first: boolean;
   last: boolean;
@@ -64,6 +69,14 @@ function StatusRow(props: {
   const [value, setValue] = useState(props.name);
   return (
     <li className="flex items-center gap-2 border border-neutral-200 dark:border-neutral-800 rounded-md px-2 py-1 text-sm">
+      <input
+        type="color"
+        value={props.color}
+        onChange={(e) => props.onColor(e.target.value)}
+        disabled={!props.isAdmin}
+        className="h-6 w-7 shrink-0 cursor-pointer"
+        title="צבע"
+      />
       <input
         value={value}
         onChange={(e) => setValue(e.target.value)}

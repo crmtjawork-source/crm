@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Pipeline } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { colorAt } from "@/components/ui/ColorChip";
 
 export function PipelineTable({ pipeline }: { pipeline: Pipeline }) {
   const { opportunities, contacts, moveOpportunity, updateOpportunity, deleteOpportunity, members, currentMemberId } = useStore();
@@ -80,7 +81,12 @@ export function PipelineTable({ pipeline }: { pipeline: Pipeline }) {
                   <select
                     value={o.stageId}
                     onChange={(e) => moveOpportunity(o.id, e.target.value)}
-                    className="text-neutral-600 dark:text-neutral-400 bg-transparent border-none outline-none cursor-pointer"
+                    className="text-xs font-medium px-2 py-0.5 rounded-full border-none outline-none cursor-pointer"
+                    style={(() => {
+                      const i = pipeline.stages.findIndex((st) => st.id === o.stageId);
+                      const c = colorAt(pipeline.stages[i]?.color, i);
+                      return { color: c, backgroundColor: `${c}1f` };
+                    })()}
                   >
                     {pipeline.stages.map((s) => (
                       <option key={s.id} value={s.id}>

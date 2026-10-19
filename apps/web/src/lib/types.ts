@@ -24,6 +24,7 @@ export type Stage = {
   id: string;
   name: string;
   winProbability: number; // 0-100, shown on the pipeline column header
+  color?: string;
 };
 
 export type Pipeline = {
@@ -306,7 +307,7 @@ export type ScheduledMessage = {
 };
 
 // One option of the business's handling-status list.
-export type LeadStatus = { id: string; name: string; position: number };
+export type LeadStatus = { id: string; name: string; position: number; color?: string };
 
 // Proposals / contracts signed online (see lib/documents.ts).
 export type DocSection = { id: string; title: string; subtitle?: string; body: string };

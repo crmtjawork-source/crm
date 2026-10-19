@@ -152,6 +152,7 @@ type Store = State & {
   addStage: (pipelineId: string, name: string) => Promise<void>;
   renameStage: (pipelineId: string, stageId: string, name: string) => Promise<void>;
   deleteStage: (pipelineId: string, stageId: string) => Promise<{ ok: boolean; reason?: string }>;
+  setStageColor: (pipelineId: string, stageId: string, color: string) => Promise<void>;
 
   addTask: (t: { title: string; contactId?: string; assignee?: string; dueDate?: string; templateId?: string; appointmentId?: string }) => Promise<Task>;
   toggleTask: (taskId: string) => Promise<void>;
@@ -239,6 +240,7 @@ type Store = State & {
   addLeadStatus: (name: string) => Promise<void>;
   renameLeadStatus: (id: string, name: string) => Promise<void>;
   deleteLeadStatus: (id: string) => Promise<void>;
+  setLeadStatusColor: (id: string, color: string) => Promise<void>;
   moveLeadStatus: (id: string, direction: -1 | 1) => Promise<void>;
 };
 
@@ -453,7 +455,7 @@ function mapLeadSource(r: Row): LeadSource {
 }
 
 function mapStage(r: Row): Stage {
-  return { id: r.id, name: r.name, winProbability: r.win_probability };
+  return { id: r.id, name: r.name, winProbability: r.win_probability, color: r.color ?? undefined };
 }
 
 function mapPipeline(r: Row, stageRows: Row[]): Pipeline {
@@ -806,7 +808,7 @@ export function StoreProvider({
         leadSources: (leadSourcesRes.data ?? []).map(mapLeadSource),
         messageTemplates: (templatesRes.data ?? []).map(mapMessageTemplate),
         scheduledMessages: (scheduledRes.data ?? []).map(mapScheduledMessage),
-        leadStatuses: (leadStatusesRes.data ?? []).map((r: Row) => ({ id: r.id, name: r.name, position: r.position })),
+        leadStatuses: (leadStatusesRes.data ?? []).map((r: Row) => ({ id: r.id, name: r.name, position: r.position, color: r.color ?? undefined })),
         meetingReminders: Boolean(orgRes.data?.meeting_reminders),
         documentTemplates: (documentTemplatesRes.data ?? []).map(mapDocumentTemplate),
         documents: (documentsRes.data ?? []).map(mapDocument),
@@ -1152,6 +1154,14 @@ export function StoreProvider({
       pipelines: s.pipelines.map((p) =>
         p.id === pipelineId ? { ...p, stages: p.stages.map((st) => (st.id === stageId ? { ...st, name } : st)) } : p
       ),
+    }));
+  };
+
+  const setStageColor: Store["setStageColor"] = async (pipelineId, stageId, color) => {
+    await supabase.from("stages").update({ color }).eq("id", stageId);
+    setState((s) => ({
+      ...s,
+      pipelines: s.pipelines.map((p) => (p.id === pipelineId ? { ...p, stages: p.stages.map((st) => (st.id === stageId ? { ...st, color } : st)) } : p)),
     }));
   };
 
@@ -1872,7 +1882,7 @@ export function StoreProvider({
 
   const reloadLeadStatuses = async () => {
     const { data } = await supabase.from("lead_statuses").select("*").order("position");
-    setState((s) => ({ ...s, leadStatuses: (data ?? []).map((r: Row) => ({ id: r.id, name: r.name, position: r.position })) }));
+    setState((s) => ({ ...s, leadStatuses: (data ?? []).map((r: Row) => ({ id: r.id, name: r.name, position: r.position, color: r.color ?? undefined })) }));
   };
 
   const addLeadStatus: Store["addLeadStatus"] = async (name) => {
@@ -1888,6 +1898,11 @@ export function StoreProvider({
     if (old) await supabase.from("contacts").update({ handling_status: name }).eq("org_id", orgId).eq("handling_status", old.name);
     setState((s) => ({ ...s, contacts: s.contacts.map((c) => (old && c.handlingStatus === old.name ? { ...c, handlingStatus: name } : c)) }));
     await reloadLeadStatuses();
+  };
+
+  const setLeadStatusColor: Store["setLeadStatusColor"] = async (id, color) => {
+    await supabase.from("lead_statuses").update({ color }).eq("id", id);
+    setState((s) => ({ ...s, leadStatuses: s.leadStatuses.map((x) => (x.id === id ? { ...x, color } : x)) }));
   };
 
   const deleteLeadStatus: Store["deleteLeadStatus"] = async (id) => {
@@ -1932,6 +1947,7 @@ export function StoreProvider({
         addPipeline,
         addStage,
         renameStage,
+        setStageColor,
         deleteStage,
         addTask,
         toggleTask,
@@ -1995,6 +2011,7 @@ export function StoreProvider({
         addLeadStatus,
         renameLeadStatus,
         deleteLeadStatus,
+        setLeadStatusColor,
         moveLeadStatus,
       }}
     >
