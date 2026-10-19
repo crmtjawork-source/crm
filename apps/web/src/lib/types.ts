@@ -279,7 +279,11 @@ export type MessageTemplate = {
   body: string;
   quickAction?: string;
   position: number;
+  // A file sent with the text (caption) — image, video, PDF or voice note.
+  attachment?: TemplateAttachment;
 };
+
+export type TemplateAttachment = { url: string; type: "image" | "video" | "document" | "voice"; name?: string };
 
 // A message queued to send later from an agent's linked WhatsApp (meeting reminders).
 export type ScheduledMessage = {

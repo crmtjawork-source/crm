@@ -1,7 +1,7 @@
 import "server-only";
 import type { Db } from "./supabaseAdmin";
-import { sendToContact, userGatewayChannel, type OutgoingContent } from "./whatsapp";
-import { composeForLead, sendLeadMessage } from "./leadMessages";
+import { sendToContact, type OutgoingContent } from "./whatsapp";
+import { composeForLead, pickChannel, sendLeadMessage } from "./leadMessages";
 
 export type TriggerType = "new_contact" | "stage_change" | "tag_added" | "appointment_booked" | "status_changed";
 // source: where the lead came from, matched against automations.trigger_source
@@ -73,25 +73,17 @@ async function executeStep(db: Db, automation: Row, step: Row, contact: Row): Pr
             const { data: u } = await db.from("users").select("id").ilike("email", contact.owner_email).maybeSingle();
             ownerUserId = u?.id ?? null;
           }
-          let channelId: string | null = step.channel_id ?? null;
-          if (step.sender === "owner") {
-            const own = ownerUserId ? await userGatewayChannel(db, automation.org_id, ownerUserId) : null;
-            if (!own) throw new Error(contact.owner_email ? "לבעל הליד אין וואטסאפ מחובר" : "לליד אין בעלים");
-            channelId = own.id;
-          }
-          if (!channelId) {
-            const { data: def } = await db.from("channels").select("id").eq("org_id", automation.org_id).eq("active", true).eq("is_default", true).limit(1).maybeSingle();
-            channelId = def?.id ?? null;
-          }
+          // Owner's WhatsApp when linked; otherwise the business's default number.
+          const channelId: string | null = step.channel_id ?? (await pickChannel(db, automation.org_id, contact, step.sender === "owner"));
           if (!channelId) throw new Error("לא הוגדר ערוץ וואטסאפ לשליחה");
-          const { text, templateName } = await composeForLead(db, {
+          const { text, templateName, attachment } = await composeForLead(db, {
             orgId: automation.org_id,
             contactId: contact.id,
             userId: ownerUserId,
             templateId: step.message_template_id,
             text: step.message_template_id ? null : renderPlaceholders(step.message ?? "", contact),
           });
-          await sendLeadMessage(db, { orgId: automation.org_id, channelId, contactId: contact.id, text, label: `אוטומציה "${automation.name}"`, userId: ownerUserId, origin: "automation" });
+          await sendLeadMessage(db, { orgId: automation.org_id, channelId, contactId: contact.id, text, attachment, label: `אוטומציה "${automation.name}"`, userId: ownerUserId, origin: "automation" });
           return { entry: `נשלחה הודעה${templateName ? ` "${templateName}"` : ""}`, contact };
         } catch (err) {
           return { entry: `❌ שליחת הודעה נכשלה: ${err instanceof Error ? err.message : String(err)}`, contact };

@@ -26,7 +26,7 @@ export function MeetingSheet({
   onClose: () => void;
   onScheduled: (a: Appointment, online: boolean) => void;
 }) {
-  const { appointmentTypes, messageTemplates, members, currentMemberId, addAppointment, addTask, updateContact, addScheduledMessages } = useStore();
+  const { appointmentTypes, messageTemplates, members, currentMemberId, addAppointment, addTask, updateContact, addScheduledMessages, meetingReminders } = useStore();
   const agentName = members.find((m) => m.id === currentMemberId)?.name;
   const [typeId, setTypeId] = useState(appointmentTypes[0]?.id ?? "");
   const [date, setDate] = useState(() => localDay(new Date(Date.now() + 86400000)));
@@ -63,7 +63,8 @@ export function MeetingSheet({
         ["meeting_reminder_day", 0, morning.getTime() < start.getTime() - 3600000 ? morning : new Date(start.getTime() - 2 * 3600000)],
       ];
       const queued: { templateId: string; sendAt: string; appointmentId: string; label: string }[] = [];
-      for (const [action, daysBefore, sendAt] of reminders) {
+      // With automatic reminders on, the server queues them for every new meeting.
+      for (const [action, daysBefore, sendAt] of meetingReminders ? [] : reminders) {
         const template = messageTemplates.find((t) => t.quickAction === action);
         if (!template) continue;
         if (autoSend && template.body.trim()) {
@@ -124,7 +125,9 @@ export function MeetingSheet({
             <input value={where} onChange={(e) => setWhere(e.target.value)} dir="auto" className={input} />
           </label>
           <p className="text-xs text-neutral-400 leading-relaxed">
-            {autoSend
+            {meetingReminders
+              ? "הפגישה תיכנס ליומן, הליד יעבור לשלב \"נקבעה פגישה\", ותזכורות הפגישה (3 ימים לפני, יום לפני ובבוקר הפגישה) יישלחו לבד בזמן."
+              : autoSend
               ? "הפגישה תיכנס ליומן, הליד יעבור לשלב \"נקבעה פגישה\", אישור הפגישה יישלח עכשיו מהוואטסאפ שלך, והתזכורות (3 ימים לפני, יום לפני ובבוקר הפגישה) יישלחו לבד בזמן."
               : "הפגישה תיכנס ליומן, הליד יעבור לשלב \"נקבעה פגישה\", ויווצרו משימות תזכורת עם הודעה מוכנה (3 ימים לפני, יום לפני ובבוקר הפגישה)."}
           </p>

@@ -1,11 +1,15 @@
 import "server-only";
 import type { Db } from "./supabaseAdmin";
 import { graphFetch, GraphError } from "./graph";
-import { sendText as greenApiSendText } from "./greenApi";
-import { sendText as evolutionSendText } from "./evolution";
+import { sendText as greenApiSendText, sendFile as greenApiSendFile } from "./greenApi";
+import { sendText as evolutionSendText, sendMedia as evolutionSendMedia, sendVoice as evolutionSendVoice } from "./evolution";
+
+export type MediaType = "image" | "video" | "document" | "voice";
 
 export type OutgoingContent =
   | { kind: "text"; body: string }
+  // A file by public URL; a voice note can't carry a caption.
+  | { kind: "media"; url: string; mediaType: MediaType; fileName?: string; caption?: string }
   | {
       kind: "template";
       name: string;
@@ -165,17 +169,32 @@ function templateComponents(content: Extract<OutgoingContent, { kind: "template"
 
 async function callSendApi(phoneNumberId: string, token: string, to: string, content: OutgoingContent): Promise<string> {
   const components = content.kind === "template" ? templateComponents(content) : [];
+  const media =
+    content.kind === "media"
+      ? content.mediaType === "voice"
+        ? { type: "audio", audio: { link: content.url } }
+        : {
+            type: content.mediaType,
+            [content.mediaType]: {
+              link: content.url,
+              ...(content.caption ? { caption: content.caption } : {}),
+              ...(content.mediaType === "document" && content.fileName ? { filename: content.fileName } : {}),
+            },
+          }
+      : null;
   const body =
     content.kind === "text"
       ? { messaging_product: "whatsapp", recipient_type: "individual", to, type: "text", text: { body: content.body, preview_url: true } }
+      : media
+      ? { messaging_product: "whatsapp", recipient_type: "individual", to, ...media }
       : {
           messaging_product: "whatsapp",
           recipient_type: "individual",
           to,
           type: "template",
           template: {
-            name: content.name,
-            language: { code: content.language },
+            name: (content as Extract<OutgoingContent, { kind: "template" }>).name,
+            language: { code: (content as Extract<OutgoingContent, { kind: "template" }>).language },
             ...(components.length ? { components } : {}),
           },
         };
@@ -218,19 +237,22 @@ export async function sendToContact(
   const gateway = channel.provider === "green_api" || channel.provider === "evolution";
   // The 24-hour rule and templates are Cloud API rules; a linked personal
   // WhatsApp sends plain text any time.
-  if (gateway && args.content.kind !== "text") throw new Error("בחיבור וואטסאפ אישי שולחים טקסט, לא תבנית של מטא");
-  if (!gateway && args.content.kind === "text" && !isWindowOpen(conversation.last_inbound_at)) throw new WindowClosedError();
+  if (gateway && args.content.kind === "template") throw new Error("בחיבור וואטסאפ אישי לא שולחים תבנית של מטא");
+  if (!gateway && args.content.kind !== "template" && !isWindowOpen(conversation.last_inbound_at)) throw new WindowClosedError();
 
+  const c = args.content;
   const body =
-    args.content.kind === "text"
-      ? args.content.body
-      : `[תבנית: ${args.content.name}]${args.content.bodyParams.length ? ` ${args.content.bodyParams.join(" · ")}` : ""}`;
+    c.kind === "text"
+      ? c.body
+      : c.kind === "media"
+      ? `[${MEDIA_LABELS[c.mediaType]}]${c.caption ? ` ${c.caption}` : ""}`
+      : `[תבנית: ${c.name}]${c.bodyParams.length ? ` ${c.bodyParams.join(" · ")}` : ""}`;
   const base = {
     org_id: args.orgId,
     conversation_id: conversation.id,
     direction: "outbound",
     origin: args.origin,
-    type: args.content.kind,
+    type: c.kind === "media" ? (c.mediaType === "voice" ? "audio" : c.mediaType) : c.kind,
     body,
     payload: args.content,
     sent_by: args.sentBy ?? null,
@@ -238,10 +260,17 @@ export async function sendToContact(
 
   let wamid: string;
   try {
+    const to = contact.phone_digits;
     if (channel.provider === "evolution") {
-      wamid = await evolutionSendText(channel.external_id, contact.phone_digits, (args.content as { body: string }).body);
+      wamid =
+        c.kind !== "media" ? await evolutionSendText(channel.external_id, to, (c as { body: string }).body)
+        : c.mediaType === "voice" ? await evolutionSendVoice(channel.external_id, to, c.url)
+        : await evolutionSendMedia(channel.external_id, to, c.url, c.mediaType, c.caption, c.fileName);
     } else if (gateway) {
-      wamid = await greenApiSendText(await gatewayCreds(db, channel), contact.phone_digits, (args.content as { body: string }).body);
+      const creds = await gatewayCreds(db, channel);
+      wamid =
+        c.kind !== "media" ? await greenApiSendText(creds, to, (c as { body: string }).body)
+        : await greenApiSendFile(creds, to, c.url, c.fileName || c.url.split("/").pop() || "file", c.caption);
     } else {
       const token = await channelToken(db, channel.id);
       wamid = await callSendApi(channel.external_id, token, contact.phone_digits, args.content);

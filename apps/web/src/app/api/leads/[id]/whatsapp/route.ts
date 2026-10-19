@@ -17,7 +17,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/leads/[id]/
     if (channel.status && channel.status !== "authorized") throw new HttpError(409, "הוואטסאפ שלך מנותק — צריך לסרוק שוב את הקוד בהגדרות");
 
     const body = (await request.json()) as { templateId?: string; text?: string; appointmentId?: string };
-    const { text, templateName } = await composeForLead(db, {
+    const { text, templateName, attachment } = await composeForLead(db, {
       orgId,
       contactId: id,
       userId: user.userId,
@@ -26,7 +26,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/leads/[id]/
       appointmentId: body.appointmentId,
       origin: new URL(request.url).origin,
     });
-    const message = await sendLeadMessage(db, { orgId, channelId: channel.id, contactId: id, text, label: `נשלח מהוואטסאפ: ${templateName ?? "הודעה"}`, userId: user.userId, origin: "crm" });
+    const message = await sendLeadMessage(db, { orgId, channelId: channel.id, contactId: id, text, attachment, label: `נשלח מהוואטסאפ: ${templateName ?? "הודעה"}`, userId: user.userId, origin: "crm" });
     return Response.json({ message });
   } catch (err) {
     return errorResponse(err);

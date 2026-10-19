@@ -26,6 +26,15 @@ export function QuickActions({ contact }: { contact: Contact }) {
   const agentName = members.find((m) => m.id === currentMemberId)?.name;
   const templateFor = (action: string) => messageTemplates.find((t) => t.quickAction === action)?.id;
 
+  // An active automation on entering this stage sends the message itself.
+  function stageAutomated(stageName: string): boolean {
+    const opp = opportunities.find((o) => o.contactId === contact.id && o.status === "open");
+    const stage = pipelines.find((p) => p.id === opp?.pipelineId)?.stages.find((st) => st.name.includes(stageName));
+    return Boolean(
+      stage && automations.some((a) => a.active && a.trigger.type === "stage_change" && a.trigger.stageId === stage.id && a.steps.some((st) => st.type === "send_message"))
+    );
+  }
+
   async function moveTo(stageName: string, onlyFromFirst = false): Promise<boolean> {
     const opp = opportunities.find((o) => o.contactId === contact.id && o.status === "open");
     const pipeline = opp && pipelines.find((p) => p.id === opp.pipelineId);
@@ -40,7 +49,7 @@ export function QuickActions({ contact }: { contact: Contact }) {
   // sending fails) WhatsApp opens on the agent's phone with the text ready.
   async function deliver(templateId: string | undefined, appointment?: Appointment) {
     const template = messageTemplates.find((t) => t.id === templateId);
-    if (!autoSend || !template || !template.body.trim()) {
+    if (!autoSend || !template || (!template.body.trim() && !template.attachment)) {
       setComposer({ templateId, appointment });
       return;
     }
@@ -71,7 +80,7 @@ export function QuickActions({ contact }: { contact: Contact }) {
     const automated =
       statusName &&
       automations.some((a) => a.active && a.trigger.type === "status_changed" && a.trigger.status === statusName && a.steps.some((st) => st.type === "send_message"));
-    if (automated && autoSend) {
+    if (automated) {
       setNotice({ ok: true, text: `הסטטוס עודכן ל"${statusName}" — ההודעה נשלחת באוטומציה` });
       return;
     }
@@ -79,7 +88,10 @@ export function QuickActions({ contact }: { contact: Contact }) {
   }
 
   async function afterMeeting() {
-    await moveTo(STAGE_FOR.afterMeeting);
+    if ((await moveTo(STAGE_FOR.afterMeeting)) && stageAutomated(STAGE_FOR.afterMeeting)) {
+      setNotice({ ok: true, text: "הליד עבר ל\"אחרי פגישה\" — ההודעה נשלחת באוטומציה" });
+      return;
+    }
     await deliver(templateFor("after_meeting"));
   }
 
@@ -118,17 +130,8 @@ export function QuickActions({ contact }: { contact: Contact }) {
           onClose={() => setScheduling(false)}
           onScheduled={async (appointment, online) => {
             setScheduling(false);
-            const moved = await moveTo(STAGE_FOR.meeting);
-            // An active "stage → meeting set" automation sends the confirmation itself.
-            const opp = opportunities.find((o) => o.contactId === contact.id && o.status === "open");
-            const meetingStage = pipelines.find((p) => p.id === opp?.pipelineId)?.stages.find((st) => st.name.includes(STAGE_FOR.meeting));
-            const automated =
-              moved &&
-              meetingStage &&
-              automations.some(
-                (a) => a.active && a.trigger.type === "stage_change" && a.trigger.stageId === meetingStage.id && a.steps.some((st) => st.type === "send_message")
-              );
-            if (automated && autoSend) {
+            // Automations send from the agent's WhatsApp or the business number.
+            if ((await moveTo(STAGE_FOR.meeting)) && stageAutomated(STAGE_FOR.meeting)) {
               setNotice({ ok: true, text: "הפגישה נקבעה — אישור הפגישה נשלח באוטומציה" });
               return;
             }

@@ -7,6 +7,7 @@ import type {
   LeadStatus,
   ScheduledMessage,
   MessageTemplate,
+  TemplateAttachment,
   Campaign,
   CampaignSpend,
   LeadSource,
@@ -68,6 +69,8 @@ type State = {
   messageTemplates: MessageTemplate[];
   scheduledMessages: ScheduledMessage[];
   leadStatuses: LeadStatus[];
+  // Business settings (organizations row).
+  meetingReminders: boolean;
 };
 
 const emptyState: State = {
@@ -94,10 +97,11 @@ const emptyState: State = {
   messageTemplates: [],
   scheduledMessages: [],
   leadStatuses: [],
+  meetingReminders: false,
 };
 
 type ContactPatch = Partial<Pick<Contact, "name" | "phone" | "email" | "source" | "ownerEmail" | "campaignId" | "noAnswerCount">>;
-type TemplatePatch = Partial<Pick<MessageTemplate, "name" | "body" | "quickAction" | "position">>;
+type TemplatePatch = Partial<Pick<MessageTemplate, "name" | "body" | "quickAction" | "position">> & { attachment?: TemplateAttachment | null };
 type CampaignPatch = Partial<Pick<Campaign, "name" | "platform" | "agency" | "archived">>;
 type LeadSourcePatch = Partial<Pick<LeadSource, "name" | "defaultPlatform" | "defaultAgency" | "defaultCampaignId" | "active">>;
 type OpportunityPatch = Partial<Pick<Opportunity, "title" | "value">>;
@@ -176,6 +180,8 @@ type Store = State & {
 
   addMessageTemplate: (t: { name: string; body: string; quickAction?: string }) => Promise<MessageTemplate>;
   updateMessageTemplate: (id: string, patch: TemplatePatch) => Promise<void>;
+  uploadMedia: (file: File) => Promise<string>;
+  setMeetingReminders: (on: boolean) => Promise<void>;
   deleteMessageTemplate: (id: string) => Promise<void>;
 
   addScheduledMessages: (rows: Row[]) => void;
@@ -216,7 +222,14 @@ function mapContact(r: Row): Contact {
 }
 
 function mapMessageTemplate(r: Row): MessageTemplate {
-  return { id: r.id, name: r.name, body: r.body, quickAction: r.quick_action ?? undefined, position: r.position };
+  return {
+    id: r.id,
+    name: r.name,
+    body: r.body,
+    quickAction: r.quick_action ?? undefined,
+    position: r.position,
+    attachment: r.attachment_url ? { url: r.attachment_url, type: r.attachment_type, name: r.attachment_name ?? undefined } : undefined,
+  };
 }
 
 function mapCampaign(r: Row): Campaign {
@@ -501,6 +514,7 @@ export function StoreProvider({
         templatesRes,
         scheduledRes,
         leadStatusesRes,
+        orgRes,
       ] = await Promise.all([
         fetchAll("contacts"),
         supabase.from("pipelines").select("*").order("created_at"),
@@ -531,6 +545,7 @@ export function StoreProvider({
         // Upcoming and recently failed reminders; sent ones live in the timeline.
         supabase.from("scheduled_messages").select("*").in("status", ["pending", "sending", "failed"]).order("send_at").limit(1000),
         supabase.from("lead_statuses").select("*").order("position"),
+        supabase.from("organizations").select("meeting_reminders").eq("id", orgId).maybeSingle(),
       ]);
 
       if (cancelled) return;
@@ -587,6 +602,7 @@ export function StoreProvider({
         messageTemplates: (templatesRes.data ?? []).map(mapMessageTemplate),
         scheduledMessages: (scheduledRes.data ?? []).map(mapScheduledMessage),
         leadStatuses: (leadStatusesRes.data ?? []).map((r: Row) => ({ id: r.id, name: r.name, position: r.position })),
+        meetingReminders: Boolean(orgRes.data?.meeting_reminders),
       });
       setLoading(false);
     }
@@ -1354,6 +1370,11 @@ export function StoreProvider({
     if (patch.body !== undefined) payload.body = patch.body;
     if ("quickAction" in patch) payload.quick_action = patch.quickAction || null;
     if (patch.position !== undefined) payload.position = patch.position;
+    if ("attachment" in patch) {
+      payload.attachment_url = patch.attachment?.url ?? null;
+      payload.attachment_type = patch.attachment?.type ?? null;
+      payload.attachment_name = patch.attachment?.name ?? null;
+    }
     const { data, error } = await supabase.from("message_templates").update(payload).eq("id", id).select().single();
     if (error) throw error;
     if (data) setState((s) => ({ ...s, messageTemplates: upsertById(s.messageTemplates, mapMessageTemplate(data)) }));
@@ -1364,6 +1385,20 @@ export function StoreProvider({
     setState((s) => ({ ...s, messageTemplates: s.messageTemplates.filter((t) => t.id !== id) }));
   };
 
+
+  // Files sent with ready-made messages; public, so WhatsApp can fetch them.
+  const uploadMedia: Store["uploadMedia"] = async (file) => {
+    const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase() : "";
+    const path = `${orgId}/${crypto.randomUUID()}${ext}`;
+    const { error } = await supabase.storage.from("media").upload(path, file, { contentType: file.type || undefined });
+    if (error) throw error;
+    return supabase.storage.from("media").getPublicUrl(path).data.publicUrl;
+  };
+
+  const setMeetingReminders: Store["setMeetingReminders"] = async (on) => {
+    await apiPost("/api/org/settings", { meetingReminders: on });
+    setState((s) => ({ ...s, meetingReminders: on }));
+  };
 
   const addScheduledMessages: Store["addScheduledMessages"] = (rows) => {
     const mapped = rows.map(mapScheduledMessage);
@@ -1485,6 +1520,8 @@ export function StoreProvider({
         addMessageTemplate,
         updateMessageTemplate,
         deleteMessageTemplate,
+        uploadMedia,
+        setMeetingReminders,
         addScheduledMessages,
         cancelScheduledMessage,
         setHandlingStatus,

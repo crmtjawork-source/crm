@@ -16,6 +16,8 @@ export const env = {
   cronSecret: () => process.env.CRON_SECRET || null,
   // v20 is retired on 2026-09-24; keep this pinned and bump deliberately.
   graphVersion: () => process.env.META_GRAPH_VERSION || "v25.0",
+  // Public address of the app (links inside messages sent by automations).
+  appUrl: () => (process.env.APP_URL || "https://crm-crmtja.vercel.app").replace(/\/+$/, ""),
   // Web Push. The subject is the app's URL, the contact push services see.
   vapidPublicKey: () => process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || null,
   vapidPrivateKey: () => process.env.VAPID_PRIVATE_KEY || null,

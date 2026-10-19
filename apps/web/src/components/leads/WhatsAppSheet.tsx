@@ -39,7 +39,7 @@ export function WhatsAppSheet({
   const [error, setError] = useState("");
 
   async function sendNow() {
-    if (!text.trim()) return;
+    if (!text.trim() && !template?.attachment) return;
     setSending(true);
     setError("");
     try {
@@ -93,10 +93,21 @@ export function WhatsAppSheet({
             className="w-full px-3 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent leading-relaxed"
           />
           {/\{\{[^}]+\}\}/.test(text) && <p className="text-xs text-amber-600">יש בהודעה שדות שלא התמלאו — כדאי לבדוק לפני השליחה.</p>}
+          {template?.attachment && (
+            <p className="text-xs text-neutral-500">
+              📎 מצורף/ת {{ image: "תמונה", video: "סרטון", document: "קובץ", voice: "הקלטה" }[template.attachment.type]}
+              {canSendDirect ? " — יישלח יחד עם ההודעה." : " — בפתיחה בוואטסאפ צריך לצרף ידנית: "}
+              {!canSendDirect && (
+                <a href={template.attachment.url} target="_blank" rel="noreferrer" className="underline">
+                  הורדת הקובץ
+                </a>
+              )}
+            </p>
+          )}
           {error && <p className="text-xs text-red-500">{error}</p>}
           {canSendDirect ? (
             <>
-              <button onClick={sendNow} disabled={sending || !text.trim()} className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium disabled:opacity-50">
+              <button onClick={sendNow} disabled={sending || (!text.trim() && !template?.attachment)} className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium disabled:opacity-50">
                 {sending ? "שולח…" : "שליחה עכשיו מהוואטסאפ שלי"}
               </button>
               <button onClick={open} className="w-full text-xs text-neutral-500 hover:underline">
