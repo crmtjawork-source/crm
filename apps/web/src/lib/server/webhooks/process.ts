@@ -9,6 +9,7 @@ import {
 } from "./whatsapp";
 import { handleLeadgenChange } from "./leadgen";
 import { handleGreenApiEvent } from "./greenApi";
+import { handleEvolutionEvent } from "./evolution";
 import { sendPendingPushes } from "../push";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,6 +57,13 @@ async function dispatch(db: Db, payload: Row): Promise<string[]> {
         const note = await handleLeadgenChange(db, change.value ?? {});
         if (note) notes.push(note);
       }
+    }
+  } else if (payload.object === "evolution") {
+    const { data: channel } = await db.from("channels").select("*").eq("id", payload.channel_id).maybeSingle();
+    if (!channel) notes.push("ערוץ Evolution שנמחק");
+    else {
+      const note = await handleEvolutionEvent(db, channel, payload.event ?? {});
+      if (note) notes.push(note);
     }
   } else if (payload.object === "green_api") {
     const { data: channel } = await db.from("channels").select("*").eq("id", payload.channel_id).maybeSingle();

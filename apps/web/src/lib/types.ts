@@ -177,7 +177,7 @@ export type Channel = {
   name: string;
   // whatsapp_cloud = official Cloud API number; green_api = a personal
   // WhatsApp linked through the unofficial Green-API gateway (QR scan).
-  provider: "whatsapp_cloud" | "green_api";
+  provider: "whatsapp_cloud" | "green_api" | "evolution";
   externalId: string; // phone_number_id, or Green-API idInstance
   status?: string; // green_api: authorized / notAuthorized / blocked …
   wabaId?: string;

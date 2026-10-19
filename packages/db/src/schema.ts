@@ -261,7 +261,7 @@ export const notifications = pgTable("notifications", {
 
 // ============================ Messaging (WhatsApp) ============================
 
-export const channelProvider = pgEnum("channel_provider", ["whatsapp_cloud", "green_api"]);
+export const channelProvider = pgEnum("channel_provider", ["whatsapp_cloud", "green_api", "evolution"]);
 export const messageDirection = pgEnum("message_direction", ["inbound", "outbound"]);
 export const messageStatus = pgEnum("message_status", ["pending", "sent", "delivered", "read", "failed", "received"]);
 export const messageOrigin = pgEnum("message_origin", ["crm", "automation", "phone_app", "history"]);

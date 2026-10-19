@@ -20,7 +20,7 @@ const STATE_LABELS: Record<string, string> = {
 export function PersonalWhatsAppSettings({ isAdmin }: { isAdmin: boolean }) {
   const { channels, members, reloadIntegrations } = useStore();
   const { channel } = useMyGateway();
-  const others = channels.filter((c) => c.provider === "green_api" && c.id !== channel?.id);
+  const others = channels.filter((c) => (c.provider === "green_api" || c.provider === "evolution") && c.id !== channel?.id);
   const ownerName = (c: Channel) => members.find((m) => m.id === `mem:${c.ownerMembershipId}`)?.name ?? "—";
 
   return (
@@ -57,11 +57,48 @@ export function PersonalWhatsAppSettings({ isAdmin }: { isAdmin: boolean }) {
 }
 
 function ConnectForm({ onDone }: { onDone: () => Promise<void> }) {
+  // The platform's own WhatsApp server (Evolution) → one click; otherwise
+  // the member brings a Green-API instance.
+  const [evolution, setEvolution] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    apiPost<{ evolution: boolean }>("/api/channels/gateway", { action: "config" })
+      .then((r) => alive && setEvolution(r.evolution))
+      .catch(() => alive && setEvolution(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [idInstance, setIdInstance] = useState("");
   const [apiToken, setApiToken] = useState("");
   const [apiUrl, setApiUrl] = useState("https://api.green-api.com");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  async function connectEvolution() {
+    setBusy(true);
+    setError("");
+    try {
+      await apiPost("/api/channels/gateway", { action: "connect_evolution" });
+      await onDone();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "החיבור נכשל");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (evolution === null) return <p className="text-sm text-neutral-400">בודק…</p>;
+  if (evolution) {
+    return (
+      <div className="space-y-2">
+        <button onClick={connectEvolution} disabled={busy} className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-50">
+          {busy ? "מכין…" : "חיבור הוואטסאפ שלי"}
+        </button>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+      </div>
+    );
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

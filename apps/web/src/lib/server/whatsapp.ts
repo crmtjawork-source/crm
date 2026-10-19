@@ -2,6 +2,7 @@ import "server-only";
 import type { Db } from "./supabaseAdmin";
 import { graphFetch, GraphError } from "./graph";
 import { sendText as greenApiSendText } from "./greenApi";
+import { sendText as evolutionSendText } from "./evolution";
 
 export type OutgoingContent =
   | { kind: "text"; body: string }
@@ -95,7 +96,7 @@ export async function userGatewayChannel(db: Db, orgId: string, userId: string):
     .from("channels")
     .select("*")
     .eq("org_id", orgId)
-    .eq("provider", "green_api")
+    .in("provider", ["green_api", "evolution"])
     .eq("owner_membership_id", membership.id)
     .eq("active", true)
     .order("created_at")
@@ -214,7 +215,7 @@ export async function sendToContact(
     contactId: contact.id,
     waId: contact.phone_digits,
   });
-  const gateway = channel.provider === "green_api";
+  const gateway = channel.provider === "green_api" || channel.provider === "evolution";
   // The 24-hour rule and templates are Cloud API rules; a linked personal
   // WhatsApp sends plain text any time.
   if (gateway && args.content.kind !== "text") throw new Error("בחיבור וואטסאפ אישי שולחים טקסט, לא תבנית של מטא");
@@ -237,7 +238,9 @@ export async function sendToContact(
 
   let wamid: string;
   try {
-    if (gateway) {
+    if (channel.provider === "evolution") {
+      wamid = await evolutionSendText(channel.external_id, contact.phone_digits, (args.content as { body: string }).body);
+    } else if (gateway) {
       wamid = await greenApiSendText(await gatewayCreds(db, channel), contact.phone_digits, (args.content as { body: string }).body);
     } else {
       const token = await channelToken(db, channel.id);
