@@ -20,4 +20,9 @@ export const env = {
   vapidPublicKey: () => process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || null,
   vapidPrivateKey: () => process.env.VAPID_PRIVATE_KEY || null,
   vapidSubject: () => process.env.VAPID_SUBJECT || "https://crm-crmtja.vercel.app",
+  // Google Calendar (OAuth client from Google Cloud Console).
+  googleClientId: () => process.env.GOOGLE_CLIENT_ID || null,
+  googleClientSecret: () => process.env.GOOGLE_CLIENT_SECRET || null,
+  // Signs the OAuth "state" so a callback can't be forged.
+  oauthStateSecret: () => process.env.OAUTH_STATE_SECRET || null,
 };

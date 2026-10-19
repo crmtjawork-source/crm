@@ -168,6 +168,8 @@ export const appointments = pgTable("appointments", {
   startAt: timestamp("start_at", { withTimezone: true }).notNull(),
   endAt: timestamp("end_at", { withTimezone: true }).notNull(),
   notes: text("notes"),
+  ownerUserId: uuid("owner_user_id"), // whose Google Calendar it goes to
+  googleEventId: text("google_event_id"),
   // Record this row was imported from, e.g. "fireberry:<guid>"; unique per org.
   externalRef: text("external_ref"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -440,5 +442,29 @@ export const scheduledMessages = pgTable("scheduled_messages", {
   error: text("error"),
   createdBy: uuid("created_by"),
   sentAt: timestamp("sent_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Web Push: each device a user turned notifications on in.
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  orgId: uuid("org_id").notNull(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// A member's linked Google Calendar (tokens in calendar_credentials, server-only).
+export const calendarConnections = pgTable("calendar_connections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  provider: text("provider").notNull().default("google"),
+  accountEmail: text("account_email"),
+  calendarId: text("calendar_id").notNull().default("primary"),
+  lastError: text("last_error"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

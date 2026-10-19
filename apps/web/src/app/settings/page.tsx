@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useStore } from "@/lib/store";
 import { IntegrationsSettings } from "@/components/settings/IntegrationsSettings";
 import { MessageTemplatesSettings } from "@/components/settings/MessageTemplatesSettings";
 import { PersonalWhatsAppSettings } from "@/components/settings/PersonalWhatsAppSettings";
 import { PushSettings } from "@/components/settings/PushSettings";
+import { GoogleCalendarSettings } from "@/components/settings/GoogleCalendarSettings";
 
 export default function SettingsPage() {
   const { fieldDefs, addFieldDef, removeFieldDef, members, currentMemberId } = useStore();
@@ -24,6 +25,9 @@ export default function SettingsPage() {
     <div className="p-4 md:p-6 max-w-2xl">
       <h1 className="text-xl font-bold mb-6">הגדרות</h1>
       <PushSettings />
+      <Suspense>
+        <GoogleCalendarSettings />
+      </Suspense>
       <PersonalWhatsAppSettings isAdmin={isAdmin} />
       <MessageTemplatesSettings isAdmin={isAdmin} />
       <IntegrationsSettings />
