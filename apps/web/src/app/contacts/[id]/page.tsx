@@ -10,6 +10,7 @@ import { LeadDocuments } from "@/components/documents/LeadDocuments";
 import { LeadCalls } from "@/components/leads/LeadCalls";
 import { LeadFieldsCard } from "@/components/leads/LeadFieldsCard";
 import { LeadRecords } from "@/components/leads/LeadRecords";
+import { FilesSection } from "@/components/FilesSection";
 import { TaskRow } from "@/components/leads/TaskRow";
 
 export default function ContactDetailPage() {
@@ -322,6 +323,7 @@ export default function ContactDetailPage() {
 
       <LeadDocuments contact={contact} />
       <LeadCalls contactId={contact.id} />
+      <FilesSection contactId={contact.id} />
 
       <section className="mb-6">
         <h2 className="text-sm font-semibold text-neutral-500 mb-2">הזדמנויות</h2>

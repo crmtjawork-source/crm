@@ -11,6 +11,7 @@ import { FieldValue } from "@/components/objects/FieldValue";
 import { FieldInput } from "@/components/objects/FieldInput";
 import { NewRecordSheet } from "@/components/objects/NewRecordSheet";
 import { LeadCalls } from "@/components/leads/LeadCalls";
+import { FilesSection } from "@/components/FilesSection";
 import type { CrmRecord, ObjectField, ObjectType } from "@/lib/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,6 +167,7 @@ export default function RecordPage() {
             </section>
           ))}
           <RelatedRecords type={type} record={r} />
+          <FilesSection recordId={r.id} />
           {r.contactId ? <LeadCalls contactId={r.contactId} /> : <LeadCalls recordId={r.id} />}
           {isAdmin && (
             <button
