@@ -7,6 +7,8 @@ import { useStore } from "@/lib/store";
 import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
 import { QuickActions } from "@/components/leads/QuickActions";
 import { LeadDocuments } from "@/components/documents/LeadDocuments";
+import { LeadCalls } from "@/components/leads/LeadCalls";
+import { LeadFieldsCard } from "@/components/leads/LeadFieldsCard";
 import { TaskRow } from "@/components/leads/TaskRow";
 
 export default function ContactDetailPage() {
@@ -18,11 +20,9 @@ export default function ContactDetailPage() {
     activitiesFor,
     updateContact,
     deleteContact,
-    updateContactFields,
     addTag,
     removeTag,
     addNote,
-    fieldDefs,
     members,
     currentMemberId,
     pipelines,
@@ -50,8 +50,6 @@ export default function ContactDetailPage() {
   const [source, setSource] = useState(contact?.source ?? "");
 
   const [newTag, setNewTag] = useState("");
-  const [fieldKey, setFieldKey] = useState("");
-  const [fieldValue, setFieldValue] = useState("");
   const [noteText, setNoteText] = useState("");
 
   if (!contact) {
@@ -94,14 +92,6 @@ export default function ContactDetailPage() {
     if (!newTag.trim() || !contact) return;
     await addTag(contact.id, newTag.trim());
     setNewTag("");
-  }
-
-  async function handleAddField(e: React.FormEvent) {
-    e.preventDefault();
-    if (!fieldKey.trim() || !contact) return;
-    await updateContactFields(contact.id, { [fieldKey.trim()]: fieldValue.trim() });
-    setFieldKey("");
-    setFieldValue("");
   }
 
   async function handleAddNote(e: React.FormEvent) {
@@ -326,42 +316,10 @@ export default function ContactDetailPage() {
         </form>
       </div>
 
-      <section className="mb-6">
-        <h2 className="text-sm font-semibold text-neutral-500 mb-2">שדות מותאמים אישית</h2>
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          {Object.entries(contact.fields).map(([key, value]) => (
-            <div key={key} className="border border-neutral-200 dark:border-neutral-800 rounded-md p-3">
-              <dt className="text-xs text-neutral-500">{key}</dt>
-              <dd className="text-sm font-medium">{value}</dd>
-            </div>
-          ))}
-        </div>
-        <form onSubmit={handleAddField} className="flex gap-2">
-          <input
-            value={fieldKey}
-            onChange={(e) => setFieldKey(e.target.value)}
-            placeholder="שם שדה (למשל: תקציב)"
-            list="field-defs"
-            className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
-          />
-          <datalist id="field-defs">
-            {fieldDefs.map((f) => (
-              <option key={f} value={f} />
-            ))}
-          </datalist>
-          <input
-            value={fieldValue}
-            onChange={(e) => setFieldValue(e.target.value)}
-            placeholder="ערך"
-            className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
-          />
-          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
-            הוספה
-          </button>
-        </form>
-      </section>
+      <LeadFieldsCard contact={contact} />
 
       <LeadDocuments contact={contact} />
+      <LeadCalls contactId={contact.id} />
 
       <section className="mb-6">
         <h2 className="text-sm font-semibold text-neutral-500 mb-2">הזדמנויות</h2>

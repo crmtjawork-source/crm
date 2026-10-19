@@ -59,6 +59,8 @@ type State = {
   activities: Activity[];
   tasks: Task[];
   fieldDefs: string[];
+  // Typed lead fields (contact_field_defs) in the shape custom-object fields use.
+  leadFields: ObjectField[];
   appointmentTypes: AppointmentType[];
   appointments: Appointment[];
   availability: AvailabilityRule[];
@@ -90,6 +92,7 @@ const emptyState: State = {
   activities: [],
   tasks: [],
   fieldDefs: [],
+  leadFields: [],
   appointmentTypes: [],
   appointments: [],
   availability: [],
@@ -153,6 +156,7 @@ type Store = State & {
 
   addFieldDef: (name: string) => Promise<void>;
   removeFieldDef: (name: string) => Promise<void>;
+  saveLeadField: (f: Omit<ObjectField, "id"> & { id?: string }) => Promise<ObjectField>;
 
   addAppointmentType: (name: string, durationMinutes: number) => Promise<void>;
   setAppointmentTypePublic: (id: string, publicBooking: boolean) => Promise<void>;
@@ -347,6 +351,22 @@ function mapObjectField(r: Row): ObjectField {
     required: r.required,
     showInList: r.show_in_list,
     position: r.position,
+  };
+}
+
+// A lead field: key = label = the name stored in contacts.fields.
+function mapLeadField(r: Row): ObjectField {
+  return {
+    id: r.id,
+    objectTypeId: "contact",
+    key: r.name,
+    label: r.name,
+    type: r.type ?? "text",
+    options: r.options ?? [],
+    section: r.section ?? undefined,
+    required: false,
+    showInList: r.show_in_list ?? false,
+    position: r.position ?? 0,
   };
 }
 
@@ -681,7 +701,7 @@ export function StoreProvider({
         // history is tens of thousands of rows.
         Promise.resolve({ data: [] as Row[] }),
         fetchAll("tasks"),
-        supabase.from("contact_field_defs").select("*"),
+        supabase.from("contact_field_defs").select("*").order("position"),
         supabase.from("appointment_types").select("*"),
         fetchAll("appointments", "start_at"),
         supabase.from("availability_rules").select("*"),
@@ -746,6 +766,7 @@ export function StoreProvider({
         activities: (activitiesRes.data ?? []).map(mapActivity),
         tasks: (tasksRes.data ?? []).map(mapTask),
         fieldDefs: (fieldDefsRes.data ?? []).map((r: Row) => r.name),
+        leadFields: (fieldDefsRes.data ?? []).map(mapLeadField),
         appointmentTypes: (appointmentTypesRes.data ?? []).map(mapAppointmentType),
         appointments: (appointmentsRes.data ?? []).map(mapAppointment),
         availability: (availabilityRes.data ?? []).map(mapAvailability),
@@ -1156,13 +1177,44 @@ export function StoreProvider({
 
   const addFieldDef: Store["addFieldDef"] = async (name) => {
     if (state.fieldDefs.includes(name)) return;
-    await supabase.from("contact_field_defs").insert({ org_id: orgId, name });
-    setState((s) => (s.fieldDefs.includes(name) ? s : { ...s, fieldDefs: [...s.fieldDefs, name] }));
+    const { data } = await supabase
+      .from("contact_field_defs")
+      .insert({ org_id: orgId, name, position: state.leadFields.length })
+      .select()
+      .single();
+    setState((s) =>
+      s.fieldDefs.includes(name) ? s : { ...s, fieldDefs: [...s.fieldDefs, name], leadFields: data ? [...s.leadFields, mapLeadField(data)] : s.leadFields }
+    );
   };
 
   const removeFieldDef: Store["removeFieldDef"] = async (name) => {
     await supabase.from("contact_field_defs").delete().eq("org_id", orgId).eq("name", name);
-    setState((s) => ({ ...s, fieldDefs: s.fieldDefs.filter((f) => f !== name) }));
+    setState((s) => ({ ...s, fieldDefs: s.fieldDefs.filter((f) => f !== name), leadFields: s.leadFields.filter((f) => f.key !== name) }));
+  };
+
+  // A lead field's name is its key in every lead's data, so it is fixed once
+  // created; options store their label (value = label).
+  const saveLeadField: Store["saveLeadField"] = async (f) => {
+    const row = {
+      org_id: orgId,
+      name: f.id ? undefined : f.label.trim(),
+      type: f.type,
+      options: f.options.map((o) => ({ ...o, value: o.label })),
+      position: f.position,
+      section: f.section ?? null,
+      show_in_list: f.showInList,
+    };
+    const res = f.id
+      ? await supabase.from("contact_field_defs").update(row).eq("id", f.id).select().single()
+      : await supabase.from("contact_field_defs").insert(row).select().single();
+    if (res.error || !res.data) throw res.error ?? new Error("שמירת השדה נכשלה");
+    const saved = mapLeadField(res.data);
+    setState((s) => ({
+      ...s,
+      leadFields: upsertById(s.leadFields, saved).sort((a, b) => a.position - b.position),
+      fieldDefs: s.fieldDefs.includes(saved.key) ? s.fieldDefs : [...s.fieldDefs, saved.key],
+    }));
+    return saved;
   };
 
   const addAppointmentType: Store["addAppointmentType"] = async (name, durationMinutes) => {
@@ -1831,6 +1883,7 @@ export function StoreProvider({
         toggleTask,
         deleteTask,
         addFieldDef,
+        saveLeadField,
         removeFieldDef,
         addAppointmentType,
         setAppointmentTypePublic,

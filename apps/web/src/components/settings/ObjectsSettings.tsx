@@ -230,18 +230,20 @@ function ObjectEditor({ type, onClose }: { type: ObjectType; onClose: () => void
   );
 }
 
-function FieldEditor({
+export function FieldEditor({
   type,
   field,
   onClose,
   onSave,
   onDelete,
+  forLeads,
 }: {
   type: ObjectType;
   field: ObjectField | null;
   onClose: () => void;
   onSave: (f: Omit<ObjectField, "id"> & { id?: string }) => Promise<void>;
   onDelete: (f: ObjectField) => Promise<void>;
+  forLeads?: boolean; // lead fields: no relations, name fixed once created
 }) {
   const { objectTypes } = useStore();
   const [f, setF] = useState<Omit<ObjectField, "id"> & { id?: string }>(
@@ -270,18 +272,18 @@ function FieldEditor({
       <div className="space-y-3 text-sm">
         <label className="block text-xs">
           <span className="block text-neutral-500 mb-1">שם השדה</span>
-          <input value={f.label} onChange={(e) => set({ label: e.target.value })} className={input} autoFocus />
+          <input value={f.label} onChange={(e) => set({ label: e.target.value })} className={input} autoFocus disabled={forLeads && Boolean(field)} />
         </label>
         <label className="block text-xs">
           <span className="block text-neutral-500 mb-1">סוג</span>
-          <select value={f.type} onChange={(e) => set({ type: e.target.value as ObjectField["type"] })} className={input} disabled={Boolean(field)}>
-            {FIELD_TYPES.map((t) => (
+          <select value={f.type} onChange={(e) => set({ type: e.target.value as ObjectField["type"] })} className={input} disabled={Boolean(field) && !forLeads}>
+            {FIELD_TYPES.filter((t) => !forLeads || !["relation", "contact"].includes(t.id)).map((t) => (
               <option key={t.id} value={t.id}>
                 {t.label}
               </option>
             ))}
           </select>
-          {field && <span className="text-neutral-400">אי אפשר לשנות סוג של שדה קיים (הנתונים שמורים לפיו).</span>}
+          {field && !forLeads && <span className="text-neutral-400">אי אפשר לשנות סוג של שדה קיים (הנתונים שמורים לפיו).</span>}
         </label>
         {f.type === "relation" && (
           <label className="block text-xs">
