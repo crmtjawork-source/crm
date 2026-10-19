@@ -9,13 +9,29 @@ import { downloadCsv } from "@/lib/exportCsv";
 const PAGE_SIZE = 100;
 
 export default function ContactsPage() {
-  const { contacts, members, campaigns } = useStore();
+  const { contacts, members, campaigns, opportunities, pipelines, leadStatuses } = useStore();
   const { session } = useAuth();
   const [q, setQ] = useState("");
   const isAgent = members.find((m) => m.email.toLowerCase() === (session?.user.email ?? "").toLowerCase())?.role === "agent";
   const [owner, setOwner] = useState(isAgent ? "mine" : "all"); // all | mine | none | <email>
   const [campaign, setCampaign] = useState(""); // "" all | "none" | <campaign id>
   const [sortBy, setSortBy] = useState<"activity" | "created">("activity");
+  const [stageFilter, setStageFilter] = useState(""); // "" all | stage id | won | lost | abandoned | none
+  const [statusFilter, setStatusFilter] = useState("");
+
+  // Each lead's current deal: the open one if any, else the latest.
+  const dealOf = new Map<string, (typeof opportunities)[number]>();
+  for (const o of opportunities) {
+    const cur = dealOf.get(o.contactId);
+    if (!cur || (cur.status !== "open" && (o.status === "open" || o.createdAt > cur.createdAt))) dealOf.set(o.contactId, o);
+  }
+  const stageName = new Map(pipelines.flatMap((p) => p.stages.map((st) => [st.id, st.name] as const)));
+  const OUTCOME: Record<string, string> = { won: "נסגרה עסקה", lost: "לא נסגרה עסקה", abandoned: "בוטלה עסקה" };
+  const stageLabel = (contactId: string) => {
+    const d = dealOf.get(contactId);
+    if (!d) return "";
+    return d.status === "open" ? stageName.get(d.stageId) ?? "" : OUTCOME[d.status];
+  };
   const [visible, setVisible] = useState(PAGE_SIZE);
 
   const myEmail = session?.user.email?.toLowerCase() ?? "";
@@ -31,6 +47,15 @@ export default function ContactsPage() {
       if (!["all", "mine", "none"].includes(owner) && ownerEmail !== owner) return false;
       if (campaign === "none" && c.campaignId) return false;
       if (campaign && campaign !== "none" && c.campaignId !== campaign) return false;
+      if (statusFilter && (c.handlingStatus ?? "") !== (statusFilter === "none" ? "" : statusFilter)) return false;
+      if (stageFilter) {
+        const d = dealOf.get(c.id);
+        if (stageFilter === "none") {
+          if (d) return false;
+        } else if (["won", "lost", "abandoned"].includes(stageFilter)) {
+          if (d?.status !== stageFilter) return false;
+        } else if (d?.status !== "open" || d.stageId !== stageFilter) return false;
+      }
       if (!needle) return true;
       return (
         c.name.toLowerCase().includes(needle) ||
@@ -122,6 +147,45 @@ export default function ContactsPage() {
               ))}
           </select>
           <select
+            value={stageFilter}
+            onChange={(e) => {
+              setStageFilter(e.target.value);
+              setVisible(PAGE_SIZE);
+            }}
+            className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+          >
+            <option value="">כל השלבים</option>
+            {pipelines.flatMap((p) =>
+              p.stages.map((st) => (
+                <option key={st.id} value={st.id}>
+                  {pipelines.length > 1 ? `${p.name} · ` : ""}
+                  {st.name}
+                </option>
+              ))
+            )}
+            <option value="won">נסגרה עסקה</option>
+            <option value="lost">לא נסגרה עסקה</option>
+            <option value="abandoned">בוטלה עסקה</option>
+          </select>
+          {leadStatuses.length > 0 && (
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setVisible(PAGE_SIZE);
+              }}
+              className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+            >
+              <option value="">כל סטטוסי הטיפול</option>
+              {leadStatuses.map((st) => (
+                <option key={st.id} value={st.name}>
+                  {st.name}
+                </option>
+              ))}
+              <option value="none">ללא סטטוס</option>
+            </select>
+          )}
+          <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as "activity" | "created")}
             className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
@@ -139,6 +203,8 @@ export default function ContactsPage() {
             <tr>
               <th className="text-start px-4 py-2 font-medium">שם</th>
               <th className="text-start px-4 py-2 font-medium">טלפון</th>
+              <th className="text-start px-4 py-2 font-medium hidden md:table-cell">שלב</th>
+              <th className="text-start px-4 py-2 font-medium hidden md:table-cell">סטטוס טיפול</th>
               <th className="text-start px-4 py-2 font-medium hidden md:table-cell">מקור</th>
               <th className="text-start px-4 py-2 font-medium hidden md:table-cell">בעלים</th>
               <th className="text-start px-4 py-2 font-medium hidden md:table-cell">תגיות</th>
@@ -164,6 +230,8 @@ export default function ContactsPage() {
                     "—"
                   )}
                 </td>
+                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell whitespace-nowrap">{stageLabel(c.id) || "—"}</td>
+                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell whitespace-nowrap">{c.handlingStatus ?? "—"}</td>
                 <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell">{c.source ?? "—"}</td>
                 <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell">{ownerName(c.ownerEmail) || "—"}</td>
                 <td className="px-4 py-3 hidden md:table-cell">
@@ -182,7 +250,7 @@ export default function ContactsPage() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-neutral-400">
                   אין תוצאות.
                 </td>
               </tr>

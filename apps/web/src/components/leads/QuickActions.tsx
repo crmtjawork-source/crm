@@ -8,16 +8,17 @@ import type { Appointment, Contact } from "@/lib/types";
 import { WhatsAppSheet } from "./WhatsAppSheet";
 import { MeetingSheet } from "./MeetingSheet";
 
-// Stage each action moves the lead's open deal to, when the pipeline has a
-// stage by that name. "No answer" only moves a deal still in the first stage.
-const STAGE_FOR = { noAnswer: "ללא מענה", meeting: "נקבעה פגישה", afterMeeting: "בתהליך אחרי פגישה" };
+// Stage each action moves the lead's open deal to: the first stage whose
+// name contains this. "No answer" only moves a deal still in the first stage.
+const STAGE_FOR = { noAnswer: "ללא מענה", meeting: "נקבעה פגישה", afterMeeting: "אחרי פגישה" };
 
 const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 type Composer = { templateId?: string; appointment?: Appointment } | null;
 
 export function QuickActions({ contact }: { contact: Contact }) {
-  const { opportunities, pipelines, messageTemplates, members, currentMemberId, moveOpportunity, updateContact, addTask, addNote } = useStore();
+  const { opportunities, pipelines, messageTemplates, members, currentMemberId, leadStatuses, automations, moveOpportunity, updateContact, addTask, addNote, setHandlingStatus } =
+    useStore();
   const [composer, setComposer] = useState<Composer>(null);
   const [scheduling, setScheduling] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
@@ -28,7 +29,7 @@ export function QuickActions({ contact }: { contact: Contact }) {
   async function moveTo(stageName: string, onlyFromFirst = false) {
     const opp = opportunities.find((o) => o.contactId === contact.id && o.status === "open");
     const pipeline = opp && pipelines.find((p) => p.id === opp.pipelineId);
-    const target = pipeline?.stages.find((s) => s.name === stageName);
+    const target = pipeline?.stages.find((s) => s.name.includes(stageName));
     if (!opp || !pipeline || !target || opp.stageId === target.id) return;
     if (onlyFromFirst && pipeline.stages[0]?.id !== opp.stageId) return;
     await moveOpportunity(opp.id, target.id);
@@ -53,13 +54,26 @@ export function QuickActions({ contact }: { contact: Contact }) {
   }
 
   async function noAnswer() {
-    const attempt = contact.noAnswerCount + 1;
+    // Continue from the current "no answer N" status too (e.g. imported leads).
+    const fromStatus = Number(contact.handlingStatus?.match(/ללא מענה (\d)/)?.[1] ?? 0);
+    const attempt = Math.max(contact.noAnswerCount, fromStatus) + 1;
     await updateContact(contact.id, { noAnswerCount: attempt });
     await addNote(contact.id, `📵 ללא מענה — ניסיון ${attempt}${agentName ? ` (${agentName})` : ""}`);
     await moveTo(STAGE_FOR.noAnswer, true);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     await addTask({ title: `לחייג שוב ל${contact.name} (ניסיון ${attempt + 1})`, contactId: contact.id, assignee: agentName, dueDate: localDay(tomorrow) });
+    // If the business keeps a "no answer N" handling status, set it — and if an
+    // automation sends a message on that status, let it do the sending.
+    const statusName = leadStatuses.find((st) => st.name === `ללא מענה ${attempt}`)?.name;
+    if (statusName) await setHandlingStatus(contact.id, statusName);
+    const automated =
+      statusName &&
+      automations.some((a) => a.active && a.trigger.type === "status_changed" && a.trigger.status === statusName && a.steps.some((st) => st.type === "send_message"));
+    if (automated && autoSend) {
+      setNotice({ ok: true, text: `הסטטוס עודכן ל"${statusName}" — ההודעה נשלחת באוטומציה` });
+      return;
+    }
     await deliver(templateFor(`no_answer_${Math.min(attempt, 4)}`));
   }
 

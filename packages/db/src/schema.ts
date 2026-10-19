@@ -45,7 +45,7 @@ export const invitations = pgTable("invitations", {
 // ============================= Leads (contacts) =============================
 
 export const activityType = pgEnum("activity_type", ["note", "stage_change"]);
-export const automationTriggerType = pgEnum("automation_trigger_type", ["new_contact", "stage_change", "tag_added", "appointment_booked"]);
+export const automationTriggerType = pgEnum("automation_trigger_type", ["new_contact", "stage_change", "tag_added", "appointment_booked", "status_changed"]);
 export const automationStepType = pgEnum("automation_step_type", ["send_message", "wait", "add_tag", "notify"]);
 export const opportunityStatus = pgEnum("opportunity_status", ["open", "won", "lost", "abandoned"]);
 export const formFieldType = pgEnum("form_field_type", ["text", "phone", "email", "textarea"]);
@@ -70,6 +70,7 @@ export const contacts = pgTable("contacts", {
   noAnswerCount: integer("no_answer_count").notNull().default(0),
   // Arrived, left details again, or wrote on WhatsApp — the leads list sorts by it.
   lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
+  handlingStatus: text("handling_status"), // one of lead_statuses.name
   attribution: jsonb("attribution").notNull().default({}),
   // Record this row was imported from, e.g. "fireberry:<guid>"; unique per org.
   externalRef: text("external_ref"),
@@ -466,5 +467,14 @@ export const calendarConnections = pgTable("calendar_connections", {
   accountEmail: text("account_email"),
   calendarId: text("calendar_id").notNull().default("primary"),
   lastError: text("last_error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Per-business handling statuses ("no answer 1", "handled"…); first = default.
+export const leadStatuses = pgTable("lead_statuses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull(),
+  name: text("name").notNull(),
+  position: integer("position").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

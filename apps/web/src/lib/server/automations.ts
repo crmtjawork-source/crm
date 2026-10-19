@@ -1,11 +1,12 @@
 import "server-only";
 import type { Db } from "./supabaseAdmin";
-import { sendToContact, type OutgoingContent } from "./whatsapp";
+import { sendToContact, userGatewayChannel, type OutgoingContent } from "./whatsapp";
+import { composeForLead, sendLeadMessage } from "./leadMessages";
 
-export type TriggerType = "new_contact" | "stage_change" | "tag_added" | "appointment_booked";
+export type TriggerType = "new_contact" | "stage_change" | "tag_added" | "appointment_booked" | "status_changed";
 // source: where the lead came from, matched against automations.trigger_source
 // (e.g. "meta_lead_ads"). Leads created by hand or by import pass none.
-export type TriggerCtx = { pipelineId?: string; stageId?: string; tag?: string; source?: string };
+export type TriggerCtx = { pipelineId?: string; stageId?: string; tag?: string; source?: string; status?: string };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
@@ -43,6 +44,7 @@ export async function triggerAutomations(
     if (a.trigger_stage_id && a.trigger_stage_id !== ctx.stageId) return false;
     if (a.trigger_tag && a.trigger_tag !== ctx.tag) return false;
     if (a.trigger_source && a.trigger_source !== ctx.source) return false;
+    if (a.trigger_status && a.trigger_status !== ctx.status) return false;
     return true;
   });
 
@@ -63,6 +65,38 @@ export async function triggerAutomations(
 async function executeStep(db: Db, automation: Row, step: Row, contact: Row): Promise<{ entry: string; contact: Row }> {
   switch (step.type) {
     case "send_message": {
+      // From the lead owner's own WhatsApp and/or with a ready-made message.
+      if (step.sender === "owner" || step.message_template_id) {
+        try {
+          let ownerUserId: string | null = null;
+          if (contact.owner_email) {
+            const { data: u } = await db.from("users").select("id").ilike("email", contact.owner_email).maybeSingle();
+            ownerUserId = u?.id ?? null;
+          }
+          let channelId: string | null = step.channel_id ?? null;
+          if (step.sender === "owner") {
+            const own = ownerUserId ? await userGatewayChannel(db, automation.org_id, ownerUserId) : null;
+            if (!own) throw new Error(contact.owner_email ? "לבעל הליד אין וואטסאפ מחובר" : "לליד אין בעלים");
+            channelId = own.id;
+          }
+          if (!channelId) {
+            const { data: def } = await db.from("channels").select("id").eq("org_id", automation.org_id).eq("active", true).eq("is_default", true).limit(1).maybeSingle();
+            channelId = def?.id ?? null;
+          }
+          if (!channelId) throw new Error("לא הוגדר ערוץ וואטסאפ לשליחה");
+          const { text, templateName } = await composeForLead(db, {
+            orgId: automation.org_id,
+            contactId: contact.id,
+            userId: ownerUserId,
+            templateId: step.message_template_id,
+            text: step.message_template_id ? null : renderPlaceholders(step.message ?? "", contact),
+          });
+          await sendLeadMessage(db, { orgId: automation.org_id, channelId, contactId: contact.id, text, label: `אוטומציה "${automation.name}"`, userId: ownerUserId, origin: "automation" });
+          return { entry: `נשלחה הודעה${templateName ? ` "${templateName}"` : ""}`, contact };
+        } catch (err) {
+          return { entry: `❌ שליחת הודעה נכשלה: ${err instanceof Error ? err.message : String(err)}`, contact };
+        }
+      }
       const content: OutgoingContent = step.template_name
         ? {
             kind: "template",

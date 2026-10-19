@@ -14,6 +14,7 @@ export type Contact = {
   campaignId?: string; // campaign that brought the lead (first touch)
   noAnswerCount: number; // "no answer" attempts so far
   bookingToken?: string; // the lead's personal booking link: /book/<token>
+  handlingStatus?: string; // per-business list (lead_statuses), e.g. "ללא מענה 1"
   lastActivityAt: string; // arrived, left details again, or wrote on WhatsApp
   attribution: Record<string, string>; // raw tracking data: utm_*, click ids, ad/adset names…
   createdAt: string;
@@ -120,7 +121,7 @@ export type Member = {
   createdAt: string;
 };
 
-export type AutomationTriggerType = "new_contact" | "stage_change" | "tag_added" | "appointment_booked";
+export type AutomationTriggerType = "new_contact" | "stage_change" | "tag_added" | "appointment_booked" | "status_changed";
 
 export type AutomationTrigger = {
   type: AutomationTriggerType;
@@ -128,6 +129,7 @@ export type AutomationTrigger = {
   stageId?: string; // stage_change
   tag?: string; // tag_added
   source?: "meta_lead_ads"; // new_contact: only leads from this source; empty = any
+  status?: string; // status_changed: fires when the handling status becomes this
 };
 
 export type AutomationStepType = "send_message" | "wait" | "add_tag" | "notify";
@@ -137,6 +139,8 @@ export type AutomationStep = {
   type: AutomationStepType;
   message?: string; // send_message (free text, only inside the 24h window)
   channelId?: string; // send_message: which number sends it; empty = org default
+  sender?: "channel" | "owner"; // owner = the lead owner's linked WhatsApp
+  messageTemplateId?: string; // send_message: a ready-made message (message_templates)
   templateName?: string; // send_message: approved WhatsApp template
   templateLanguage?: string;
   templateParams?: string[]; // body {{1}}, {{2}}… — may use {{name}}, {{first_name}}, {{field:X}}
@@ -287,3 +291,6 @@ export type ScheduledMessage = {
   status: "pending" | "sending" | "sent" | "failed" | "cancelled";
   error?: string;
 };
+
+// One option of the business's handling-status list.
+export type LeadStatus = { id: string; name: string; position: number };

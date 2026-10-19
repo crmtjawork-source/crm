@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { supabase } from "./supabaseClient";
 import { apiPost } from "./api";
 import type {
+  LeadStatus,
   ScheduledMessage,
   MessageTemplate,
   Campaign,
@@ -66,6 +67,7 @@ type State = {
   leadSources: LeadSource[];
   messageTemplates: MessageTemplate[];
   scheduledMessages: ScheduledMessage[];
+  leadStatuses: LeadStatus[];
 };
 
 const emptyState: State = {
@@ -91,6 +93,7 @@ const emptyState: State = {
   leadSources: [],
   messageTemplates: [],
   scheduledMessages: [],
+  leadStatuses: [],
 };
 
 type ContactPatch = Partial<Pick<Contact, "name" | "phone" | "email" | "source" | "ownerEmail" | "campaignId" | "noAnswerCount">>;
@@ -177,6 +180,12 @@ type Store = State & {
 
   addScheduledMessages: (rows: Row[]) => void;
   cancelScheduledMessage: (id: string) => Promise<void>;
+
+  setHandlingStatus: (contactId: string, status: string | null) => Promise<void>;
+  addLeadStatus: (name: string) => Promise<void>;
+  renameLeadStatus: (id: string, name: string) => Promise<void>;
+  deleteLeadStatus: (id: string) => Promise<void>;
+  moveLeadStatus: (id: string, direction: -1 | 1) => Promise<void>;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -200,6 +209,7 @@ function mapContact(r: Row): Contact {
     noAnswerCount: r.no_answer_count ?? 0,
     bookingToken: r.booking_token ?? undefined,
     lastActivityAt: r.last_activity_at ?? r.created_at,
+    handlingStatus: r.handling_status ?? undefined,
     attribution: r.attribution ?? {},
     createdAt: r.created_at,
   };
@@ -334,6 +344,8 @@ function mapAutomationStep(r: Row): AutomationStep {
     type: r.type,
     message: r.message ?? undefined,
     channelId: r.channel_id ?? undefined,
+    sender: r.sender ?? "channel",
+    messageTemplateId: r.message_template_id ?? undefined,
     templateName: r.template_name ?? undefined,
     templateLanguage: r.template_language ?? undefined,
     templateParams: r.template_params ?? [],
@@ -356,6 +368,7 @@ function mapAutomation(r: Row, stepRows: Row[]): Automation {
       stageId: r.trigger_stage_id ?? undefined,
       tag: r.trigger_tag ?? undefined,
       source: r.trigger_source ?? undefined,
+      status: r.trigger_status ?? undefined,
     },
     steps: stepRows
       .filter((s) => s.automation_id === r.id)
@@ -487,6 +500,7 @@ export function StoreProvider({
         leadSourcesRes,
         templatesRes,
         scheduledRes,
+        leadStatusesRes,
       ] = await Promise.all([
         fetchAll("contacts"),
         supabase.from("pipelines").select("*").order("created_at"),
@@ -516,6 +530,7 @@ export function StoreProvider({
         supabase.from("message_templates").select("*").order("position"),
         // Upcoming and recently failed reminders; sent ones live in the timeline.
         supabase.from("scheduled_messages").select("*").in("status", ["pending", "sending", "failed"]).order("send_at").limit(1000),
+        supabase.from("lead_statuses").select("*").order("position"),
       ]);
 
       if (cancelled) return;
@@ -571,6 +586,7 @@ export function StoreProvider({
         leadSources: (leadSourcesRes.data ?? []).map(mapLeadSource),
         messageTemplates: (templatesRes.data ?? []).map(mapMessageTemplate),
         scheduledMessages: (scheduledRes.data ?? []).map(mapScheduledMessage),
+        leadStatuses: (leadStatusesRes.data ?? []).map((r: Row) => ({ id: r.id, name: r.name, position: r.position })),
       });
       setLoading(false);
     }
@@ -654,7 +670,7 @@ export function StoreProvider({
   async function runAutomations(
     type: AutomationTriggerType,
     contactId: string,
-    ctx: { pipelineId?: string; stageId?: string; tag?: string } = {}
+    ctx: { pipelineId?: string; stageId?: string; tag?: string; status?: string } = {}
   ): Promise<void> {
     const hasCandidate = state.automations.some((a) => a.active && a.trigger.type === type);
     if (!hasCandidate) return;
@@ -1118,6 +1134,7 @@ export function StoreProvider({
         trigger_stage_id: a.trigger.stageId,
         trigger_tag: a.trigger.tag,
         trigger_source: a.trigger.source ?? null,
+        trigger_status: a.trigger.status ?? null,
       })
       .select()
       .single();
@@ -1138,6 +1155,7 @@ export function StoreProvider({
       payload.trigger_stage_id = patch.trigger.stageId ?? null;
       payload.trigger_tag = patch.trigger.tag ?? null;
       payload.trigger_source = patch.trigger.source ?? null;
+      payload.trigger_status = patch.trigger.status ?? null;
     }
     await supabase.from("automations").update(payload).eq("id", id);
     setState((s) => ({ ...s, automations: s.automations.map((a) => (a.id === id ? { ...a, ...patch } : a)) }));
@@ -1162,6 +1180,8 @@ export function StoreProvider({
         template_language: step.templateLanguage || null,
         template_params: step.templateParams ?? [],
         template_button_param: step.templateButtonParam || null,
+        sender: step.sender ?? "channel",
+        message_template_id: step.messageTemplateId || null,
         wait_minutes: step.waitMinutes,
         tag: step.tag,
         notify_text: step.notifyText,
@@ -1355,6 +1375,53 @@ export function StoreProvider({
     if (data) setState((s) => ({ ...s, scheduledMessages: upsertById(s.scheduledMessages, mapScheduledMessage(data)) }));
   };
 
+
+  // Handling status. Changing it is what "status changed to X" automations
+  // fire on (e.g. "no answer 2" → send the second no-answer message).
+  const setHandlingStatus: Store["setHandlingStatus"] = async (contactId, status) => {
+    const { data } = await supabase.from("contacts").update({ handling_status: status }).eq("id", contactId).select().single();
+    if (!data) return;
+    setState((s) => ({ ...s, contacts: s.contacts.map((c) => (c.id === contactId ? mapContact(data) : c)) }));
+    if (status) await runAutomations("status_changed", contactId, { status });
+  };
+
+  const reloadLeadStatuses = async () => {
+    const { data } = await supabase.from("lead_statuses").select("*").order("position");
+    setState((s) => ({ ...s, leadStatuses: (data ?? []).map((r: Row) => ({ id: r.id, name: r.name, position: r.position })) }));
+  };
+
+  const addLeadStatus: Store["addLeadStatus"] = async (name) => {
+    const position = Math.max(-1, ...state.leadStatuses.map((x) => x.position)) + 1;
+    await supabase.from("lead_statuses").insert({ org_id: orgId, name, position });
+    await reloadLeadStatuses();
+  };
+
+  const renameLeadStatus: Store["renameLeadStatus"] = async (id, name) => {
+    const old = state.leadStatuses.find((x) => x.id === id);
+    await supabase.from("lead_statuses").update({ name }).eq("id", id);
+    // Leads in the old status move with it.
+    if (old) await supabase.from("contacts").update({ handling_status: name }).eq("org_id", orgId).eq("handling_status", old.name);
+    setState((s) => ({ ...s, contacts: s.contacts.map((c) => (old && c.handlingStatus === old.name ? { ...c, handlingStatus: name } : c)) }));
+    await reloadLeadStatuses();
+  };
+
+  const deleteLeadStatus: Store["deleteLeadStatus"] = async (id) => {
+    await supabase.from("lead_statuses").delete().eq("id", id);
+    await reloadLeadStatuses();
+  };
+
+  const moveLeadStatus: Store["moveLeadStatus"] = async (id, direction) => {
+    const list = [...state.leadStatuses].sort((a, b) => a.position - b.position);
+    const i = list.findIndex((x) => x.id === id);
+    const j = i + direction;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    await Promise.all([
+      supabase.from("lead_statuses").update({ position: list[j].position }).eq("id", list[i].id),
+      supabase.from("lead_statuses").update({ position: list[i].position }).eq("id", list[j].id),
+    ]);
+    await reloadLeadStatuses();
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -1420,6 +1487,11 @@ export function StoreProvider({
         deleteMessageTemplate,
         addScheduledMessages,
         cancelScheduledMessage,
+        setHandlingStatus,
+        addLeadStatus,
+        renameLeadStatus,
+        deleteLeadStatus,
+        moveLeadStatus,
       }}
     >
       {children}

@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import type { Automation, AutomationStep, AutomationStepType, AutomationTriggerType, Channel } from "@/lib/types";
+import type { Automation, AutomationStep, AutomationStepType, AutomationTriggerType, Channel, MessageTemplate } from "@/lib/types";
 
 const TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
   new_contact: "ליד חדש נוצר",
   stage_change: "הזדמנות עברה לשלב",
   tag_added: "תגית נוספה",
   appointment_booked: "ליד קבע שיחה בקישור האישי",
+  status_changed: "סטטוס טיפול השתנה",
 };
 
 const STEP_LABELS: Record<AutomationStepType, string> = {
@@ -21,7 +22,7 @@ const STEP_LABELS: Record<AutomationStepType, string> = {
 const inputClass = "px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 export default function AutomationsPage() {
-  const { automations, pipelines, addAutomation, updateAutomation, deleteAutomation } = useStore();
+  const { automations, pipelines, leadStatuses, addAutomation, updateAutomation, deleteAutomation } = useStore();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [triggerType, setTriggerType] = useState<AutomationTriggerType>("new_contact");
@@ -29,6 +30,7 @@ export default function AutomationsPage() {
   const [stageId, setStageId] = useState("");
   const [tag, setTag] = useState("");
   const [onlyMetaLeads, setOnlyMetaLeads] = useState(false);
+  const [status, setStatus] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const selectedPipeline = pipelines.find((p) => p.id === pipelineId);
@@ -43,6 +45,8 @@ export default function AutomationsPage() {
         ? { type: "tag_added", tag: tag.trim() || undefined }
         : triggerType === "appointment_booked"
         ? { type: "appointment_booked" }
+        : triggerType === "status_changed"
+        ? { type: "status_changed", status: status || undefined }
         : { type: "new_contact", source: onlyMetaLeads ? "meta_lead_ads" : undefined };
     const automation = await addAutomation({ name: name.trim(), trigger });
     setName("");
@@ -136,6 +140,19 @@ export default function AutomationsPage() {
               רק לידים מטפסי פייסבוק / אינסטגרם (לא לידים שנוספו ידנית או מיובאים)
             </label>
           )}
+          {triggerType === "status_changed" && (
+            <label className="block text-sm">
+              <span className="block text-xs text-neutral-500 mb-1">כשהסטטוס משתנה ל־</span>
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent">
+                <option value="">כל שינוי סטטוס</option>
+                {leadStatuses.map((st) => (
+                  <option key={st.id} value={st.name}>
+                    {st.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {triggerType === "tag_added" && (
             <label className="block text-sm">
               <span className="block text-xs text-neutral-500 mb-1">תגית (ריק = כל תגית)</span>
@@ -179,6 +196,7 @@ function triggerSummary(automation: Automation, pipelines: ReturnType<typeof use
   const t = automation.trigger;
   if (t.type === "new_contact") return t.source === "meta_lead_ads" ? `${TRIGGER_LABELS.new_contact} — מטפסי מטא בלבד` : TRIGGER_LABELS.new_contact;
   if (t.type === "appointment_booked") return TRIGGER_LABELS.appointment_booked;
+  if (t.type === "status_changed") return `${TRIGGER_LABELS.status_changed}${t.status ? ` ל"${t.status}"` : ""}`;
   if (t.type === "stage_change") {
     const pipeline = pipelines.find((p) => p.id === t.pipelineId);
     const stage = pipeline?.stages.find((s) => s.id === t.stageId);
@@ -187,11 +205,12 @@ function triggerSummary(automation: Automation, pipelines: ReturnType<typeof use
   return `${TRIGGER_LABELS.tag_added}${t.tag ? ` — "${t.tag}"` : ""}`;
 }
 
-function stepSummary(step: AutomationStep, channels: Channel[]): string {
+function stepSummary(step: AutomationStep, channels: Channel[], templates: MessageTemplate[]): string {
   switch (step.type) {
     case "send_message": {
       const channel = channels.find((c) => c.id === step.channelId);
-      const from = ` · מ${channel ? channel.name : "מספר ברירת המחדל"}`;
+      const from = step.sender === "owner" ? " · מהוואטסאפ של בעל הליד" : ` · מ${channel ? channel.name : "מספר ברירת המחדל"}`;
+      if (step.messageTemplateId) return `: "${templates.find((t) => t.id === step.messageTemplateId)?.name ?? "הודעה מוכנה"}"${from}`;
       if (step.templateName) {
         const params = step.templateParams?.length ? ` (${step.templateParams.join(", ")})` : "";
         const button = step.templateButtonParam ? ` · קישור: ${step.templateButtonParam}` : "";
@@ -223,12 +242,13 @@ function AutomationRow({
   onToggleStopOnReply: () => void;
   onDelete: () => void;
 }) {
-  const { pipelines, channels, automationRuns, addAutomationStep, removeAutomationStep } = useStore();
+  const { pipelines, channels, automationRuns, messageTemplates, addAutomationStep, removeAutomationStep } = useStore();
   const [stepType, setStepType] = useState<AutomationStepType>("send_message");
   const [stepValue, setStepValue] = useState("");
   const [waitMinutes, setWaitMinutes] = useState("60");
   const [channelId, setChannelId] = useState("");
-  const [messageMode, setMessageMode] = useState<"template" | "text">("template");
+  const [messageMode, setMessageMode] = useState<"saved" | "template" | "text">("saved");
+  const [savedTemplateId, setSavedTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [templateLanguage, setTemplateLanguage] = useState("he");
   const [templateParams, setTemplateParams] = useState("");
@@ -242,11 +262,17 @@ function AutomationRow({
     if (stepType === "wait") {
       addAutomationStep(automation.id, { type: "wait", waitMinutes: Number(waitMinutes) || 0 });
     } else if (stepType === "send_message") {
-      if (messageMode === "template") {
+      const owner = channelId === "__owner__";
+      const sendFrom = owner ? { sender: "owner" as const } : { channelId: channelId || undefined };
+      if (messageMode === "saved") {
+        if (!savedTemplateId) return;
+        addAutomationStep(automation.id, { type: "send_message", ...sendFrom, messageTemplateId: savedTemplateId });
+        setSavedTemplateId("");
+      } else if (messageMode === "template") {
         if (!templateName.trim()) return;
         addAutomationStep(automation.id, {
           type: "send_message",
-          channelId: channelId || undefined,
+          ...sendFrom,
           templateName: templateName.trim(),
           templateLanguage: templateLanguage.trim() || "he",
           templateParams: templateParams
@@ -260,7 +286,7 @@ function AutomationRow({
         setTemplateButtonParam("");
       } else {
         if (!stepValue.trim()) return;
-        addAutomationStep(automation.id, { type: "send_message", channelId: channelId || undefined, message: stepValue.trim() });
+        addAutomationStep(automation.id, { type: "send_message", ...sendFrom, message: stepValue.trim() });
       }
     } else if (stepType === "add_tag") {
       if (!stepValue.trim()) return;
@@ -304,7 +330,7 @@ function AutomationRow({
               <li key={step.id} className="flex items-center justify-between gap-2 text-sm bg-neutral-50 dark:bg-neutral-900 rounded-md px-3 py-2">
                 <span>
                   {i + 1}. {STEP_LABELS[step.type]}
-                  {stepSummary(step, channels)}
+                  {stepSummary(step, channels, messageTemplates)}
                 </span>
                 <button onClick={() => removeAutomationStep(automation.id, step.id)} className="text-neutral-400 hover:text-red-500 text-xs shrink-0">
                   הסרה
@@ -345,20 +371,34 @@ function AutomationRow({
                 <>
                   <select value={channelId} onChange={(e) => setChannelId(e.target.value)} className={inputClass} title="מאיזה מספר ההודעה יוצאת">
                     <option value="">מספר ברירת המחדל</option>
+                    <option value="__owner__">הוואטסאפ של בעל הליד</option>
                     {activeChannels.map((ch) => (
                       <option key={ch.id} value={ch.id}>
                         {ch.name}
                       </option>
                     ))}
                   </select>
-                  <select value={messageMode} onChange={(e) => setMessageMode(e.target.value as "template" | "text")} className={inputClass}>
-                    <option value="template">תבנית מאושרת</option>
+                  <select value={messageMode} onChange={(e) => setMessageMode(e.target.value as "saved" | "template" | "text")} className={inputClass}>
+                    <option value="saved">הודעה מוכנה</option>
+                    <option value="template">תבנית מאושרת של מטא</option>
                     <option value="text">טקסט חופשי (רק בתוך 24 שעות)</option>
                   </select>
                 </>
               )}
             </div>
 
+            {stepType === "send_message" && messageMode === "saved" && (
+              <select value={savedTemplateId} onChange={(e) => setSavedTemplateId(e.target.value)} className={`w-full ${inputClass}`}>
+                <option value="">בחירת הודעה מוכנה…</option>
+                {[...messageTemplates]
+                  .sort((a, b) => a.position - b.position)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+              </select>
+            )}
             {stepType === "send_message" && messageMode === "template" && (
               <div className="flex flex-wrap gap-2">
                 <input

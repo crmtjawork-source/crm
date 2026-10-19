@@ -2,7 +2,7 @@ import { errorResponse, HttpError, requireUser } from "@/lib/server/auth";
 import { supabaseAdmin } from "@/lib/server/supabaseAdmin";
 import { triggerAutomations, type TriggerType } from "@/lib/server/automations";
 
-const TYPES: TriggerType[] = ["new_contact", "stage_change", "tag_added"];
+const TYPES: TriggerType[] = ["new_contact", "stage_change", "tag_added", "status_changed"];
 
 // Called by the browser after it creates a lead / adds a tag / moves a deal,
 // so UI-originated events run through the same server engine as webhook
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       type?: TriggerType;
       contactId?: string;
-      ctx?: { pipelineId?: string; stageId?: string; tag?: string };
+      ctx?: { pipelineId?: string; stageId?: string; tag?: string; status?: string };
     };
     if (!body.type || !TYPES.includes(body.type)) throw new HttpError(400, "טריגר לא מוכר");
     if (!body.contactId) throw new HttpError(400, "חסר contactId");

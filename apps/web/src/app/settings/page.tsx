@@ -7,6 +7,7 @@ import { MessageTemplatesSettings } from "@/components/settings/MessageTemplates
 import { PersonalWhatsAppSettings } from "@/components/settings/PersonalWhatsAppSettings";
 import { PushSettings } from "@/components/settings/PushSettings";
 import { GoogleCalendarSettings } from "@/components/settings/GoogleCalendarSettings";
+import { LeadStatusesSettings } from "@/components/settings/LeadStatusesSettings";
 
 export default function SettingsPage() {
   const { fieldDefs, addFieldDef, removeFieldDef, members, currentMemberId } = useStore();
@@ -29,6 +30,7 @@ export default function SettingsPage() {
         <GoogleCalendarSettings />
       </Suspense>
       <PersonalWhatsAppSettings isAdmin={isAdmin} />
+      <LeadStatusesSettings isAdmin={isAdmin} />
       <MessageTemplatesSettings isAdmin={isAdmin} />
       <IntegrationsSettings />
 

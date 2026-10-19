@@ -32,6 +32,8 @@ export default function ContactDetailPage() {
     appointments,
     scheduledMessages,
     cancelScheduledMessage,
+    leadStatuses,
+    setHandlingStatus,
   } = useStore();
   const contact = getContact(id);
 
@@ -227,6 +229,25 @@ export default function ContactDetailPage() {
           </section>
         );
       })()}
+
+      {leadStatuses.length > 0 && (
+        <label className="flex items-center gap-2 mb-2 text-sm">
+          <span className="text-neutral-500">סטטוס טיפול:</span>
+          <select
+            value={contact.handlingStatus ?? ""}
+            onChange={(e) => setHandlingStatus(contact.id, e.target.value || null)}
+            className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+          >
+            <option value="">—</option>
+            {leadStatuses.map((st) => (
+              <option key={st.id} value={st.name}>
+                {st.name}
+              </option>
+            ))}
+            {contact.handlingStatus && !leadStatuses.some((st) => st.name === contact.handlingStatus) && <option value={contact.handlingStatus}>{contact.handlingStatus}</option>}
+          </select>
+        </label>
+      )}
 
       <label className="flex items-center gap-2 mb-4 text-sm">
         <span className="text-neutral-500">בעלים:</span>
