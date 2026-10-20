@@ -125,8 +125,8 @@ function Thread({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  // A linked personal WhatsApp (gateway) has no 24-hour rule.
-  const windowOpen = channel?.provider === "green_api" || isWindowOpen(conversation.lastInboundAt);
+  // A linked WhatsApp (gateway) has no 24-hour rule — only Meta's official API does.
+  const windowOpen = isGateway(channel) || isWindowOpen(conversation.lastInboundAt);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
@@ -216,17 +216,23 @@ function Thread({
   );
 }
 
+// Linked WhatsApp numbers (Green-API / our Evolution server) send freely;
+// Meta's official API needs approved templates outside the 24-hour window.
+const isGateway = (channel?: Channel) => Boolean(channel && channel.provider !== "whatsapp_cloud");
+
 function StartConversation({ contact, channels }: { contact: Contact; channels: Channel[] }) {
   const router = useRouter();
   const [channelId, setChannelId] = useState(channels.find((c) => c.isDefault)?.id ?? channels[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [text, setText] = useState("");
+  const gateway = isGateway(channels.find((c) => c.id === channelId));
 
-  async function handleSend(template: TemplateInput) {
+  async function handleSend(template?: TemplateInput) {
     setBusy(true);
     setError(null);
     try {
-      const { message } = await apiPost<{ message: Row }>("/api/messages/send", { contactId: contact.id, channelId, template });
+      const { message } = await apiPost<{ message: Row }>("/api/messages/send", { contactId: contact.id, channelId, ...(template ? { template } : { text }) });
       router.replace(`/inbox?c=${message.conversation_id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "השליחה נכשלה");
@@ -247,9 +253,11 @@ function StartConversation({ contact, channels }: { contact: Contact; channels: 
         <p className="text-sm text-red-500">לליד הזה אין מספר טלפון — צריך להוסיף אחד בכרטיס הליד.</p>
       ) : (
         <>
-          <p className="text-sm text-neutral-500">
-            פתיחת שיחה יזומה בוואטסאפ אפשרית רק עם תבנית שאושרה על ידי מטא (WhatsApp Manager ← Message templates).
-          </p>
+          {!gateway && (
+            <p className="text-sm text-neutral-500">
+              במספר הרשמי של וואטסאפ, פתיחת שיחה יזומה אפשרית רק עם תבנית שאושרה על ידי מטא (WhatsApp Manager ← Message templates).
+            </p>
+          )}
           {channels.length > 1 && (
             <label className="block text-sm">
               <span className="block text-xs text-neutral-500 mb-1">שליחה מהמספר</span>
@@ -267,7 +275,29 @@ function StartConversation({ contact, channels }: { contact: Contact; channels: 
             </label>
           )}
           {error && <p className="text-xs text-red-500">{error}</p>}
-          <TemplateForm submitLabel="שליחת תבנית ופתיחת שיחה" busy={busy} onSubmit={handleSend} />
+          {gateway ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (text.trim()) handleSend();
+              }}
+              className="space-y-2"
+            >
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={4}
+                dir="auto"
+                placeholder="כתיבת הודעה…"
+                className="w-full px-3 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              />
+              <button type="submit" disabled={busy || !text.trim()} className="px-4 py-2 text-sm rounded-md bg-emerald-600 text-white disabled:opacity-50">
+                {busy ? "שולח…" : "שליחה"}
+              </button>
+            </form>
+          ) : (
+            <TemplateForm submitLabel="שליחת תבנית ופתיחת שיחה" busy={busy} onSubmit={handleSend} />
+          )}
         </>
       )}
     </div>
