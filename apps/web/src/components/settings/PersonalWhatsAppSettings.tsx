@@ -20,7 +20,9 @@ const STATE_LABELS: Record<string, string> = {
 export function PersonalWhatsAppSettings({ isAdmin }: { isAdmin: boolean }) {
   const { channels, members, reloadIntegrations } = useStore();
   const { channel } = useMyGateway();
-  const others = channels.filter((c) => (c.provider === "green_api" || c.provider === "evolution") && c.id !== channel?.id);
+  const linked = channels.filter((c) => c.provider === "green_api" || c.provider === "evolution");
+  const business = linked.filter((c) => !c.ownerMembershipId && c.active);
+  const others = linked.filter((c) => c.ownerMembershipId && c.id !== channel?.id);
   const ownerName = (c: Channel) => members.find((m) => m.id === `mem:${c.ownerMembershipId}`)?.name ?? "—";
 
   return (
@@ -31,11 +33,35 @@ export function PersonalWhatsAppSettings({ isAdmin }: { isAdmin: boolean }) {
         תזכורות ואחרי פגישה — נשלחות לבד מהמספר שלך, והתשובות של הלידים נכנסות למסך השיחות. שיחות עם מי שאינו ליד במערכת לא נשמרות.
       </p>
       <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 rounded-md p-2 mb-4 leading-relaxed">
-        זה חיבור לא רשמי (Green-API). וואטסאפ עלולה לחסום מספר ששולח הרבה הודעות אוטומטיות לאנשים שלא שמרו אותו — כדאי להתחיל בנפח
-        קטן.
+        זה חיבור לא רשמי (כמו וואטסאפ ווב). וואטסאפ עלולה לחסום מספר ששולח הרבה הודעות אוטומטיות לאנשים שלא שמרו אותו — כדאי להתחיל
+        בנפח קטן.
       </p>
 
       {channel ? <Connected channel={channel} onChange={reloadIntegrations} /> : <ConnectForm onDone={reloadIntegrations} />}
+
+      <div className="mt-6">
+        <h3 className="text-sm font-semibold mb-1">מספר העסק</h3>
+        <p className="text-xs text-neutral-500 mb-2 leading-relaxed">
+          מספר משותף לכל הצוות: כל אחד יכול לשלוח ממנו מכרטיס הליד (בחירה בין &quot;הוואטסאפ שלי&quot; ל&quot;מספר העסק&quot;), והוא משמש
+          להודעות לעסק כולו — וולקאם, תזכורות ולידים בלי בעלים.
+        </p>
+        {business.length > 0 ? (
+          business.map((c) =>
+            isAdmin ? (
+              <Connected key={c.id} channel={c} onChange={reloadIntegrations} />
+            ) : (
+              <p key={c.id} className="text-sm border border-neutral-200 dark:border-neutral-800 rounded-md px-3 py-2">
+                {c.displayPhone ? <span dir="ltr">+{c.displayPhone}</span> : c.name} ·{" "}
+                <span className={c.status === "authorized" ? "text-emerald-600" : "text-amber-600"}>{STATE_LABELS[c.status ?? ""] ?? c.status ?? "—"}</span>
+              </p>
+            )
+          )
+        ) : isAdmin ? (
+          <ConnectForm onDone={reloadIntegrations} shared />
+        ) : (
+          <p className="text-xs text-neutral-400">מנהל עוד לא חיבר את מספר העסק.</p>
+        )}
+      </div>
 
       {isAdmin && others.length > 0 && (
         <div className="mt-5">
@@ -56,7 +82,7 @@ export function PersonalWhatsAppSettings({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
-function ConnectForm({ onDone }: { onDone: () => Promise<void> }) {
+function ConnectForm({ onDone, shared }: { onDone: () => Promise<void>; shared?: boolean }) {
   // The platform's own WhatsApp server (Evolution) → one click; otherwise
   // the member brings a Green-API instance.
   const [evolution, setEvolution] = useState<boolean | null>(null);
@@ -79,7 +105,7 @@ function ConnectForm({ onDone }: { onDone: () => Promise<void> }) {
     setBusy(true);
     setError("");
     try {
-      await apiPost("/api/channels/gateway", { action: "connect_evolution" });
+      await apiPost("/api/channels/gateway", { action: "connect_evolution", shared });
       await onDone();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "החיבור נכשל");
@@ -93,7 +119,7 @@ function ConnectForm({ onDone }: { onDone: () => Promise<void> }) {
     return (
       <div className="space-y-2">
         <button onClick={connectEvolution} disabled={busy} className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-50">
-          {busy ? "מכין…" : "חיבור הוואטסאפ שלי"}
+          {busy ? "מכין…" : shared ? "חיבור מספר העסק" : "חיבור הוואטסאפ שלי"}
         </button>
         {error && <p className="text-xs text-red-500">{error}</p>}
       </div>
@@ -178,7 +204,7 @@ function Connected({ channel, onChange }: { channel: Channel; onChange: () => Pr
   }, [channel.status, refresh, onChange]);
 
   async function disconnect() {
-    if (!confirm("לנתק את הוואטסאפ שלך מהמערכת? ההודעות האוטומטיות יפסיקו להישלח.")) return;
+    if (!confirm(channel.ownerMembershipId ? "לנתק את הוואטסאפ שלך מהמערכת? ההודעות האוטומטיות יפסיקו להישלח." : "לנתק את מספר העסק? הוולקאם, התזכורות וההודעות ממספר העסק יפסיקו להישלח.")) return;
     await apiPost("/api/channels/gateway", { action: "disconnect", id: channel.id });
     await onChange();
   }
@@ -187,7 +213,7 @@ function Connected({ channel, onChange }: { channel: Channel; onChange: () => Pr
     <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 space-y-3">
       <div className="flex items-center justify-between text-sm">
         <span>
-          {channel.displayPhone ? <span dir="ltr">+{channel.displayPhone}</span> : "הוואטסאפ שלי"} ·{" "}
+          {channel.displayPhone ? <span dir="ltr">+{channel.displayPhone}</span> : channel.ownerMembershipId ? "הוואטסאפ שלי" : "מספר העסק"} ·{" "}
           <span className={state === "authorized" ? "text-emerald-600" : "text-amber-600"}>{STATE_LABELS[state] ?? state ?? "—"}</span>
         </span>
         <button onClick={disconnect} className="text-xs text-neutral-400 hover:text-red-500">

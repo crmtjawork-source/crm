@@ -8,7 +8,7 @@ import * as evo from "@/lib/server/evolution";
 // own number; admins may manage anyone's. Credentials are write-only.
 type Body =
   | { action: "config" }
-  | { action: "connect_evolution"; name?: string }
+  | { action: "connect_evolution"; name?: string; shared?: boolean }
   | { action: "connect"; name?: string; idInstance?: string; apiToken?: string; apiUrl?: string; ownerMembershipId?: string }
   | { action: "status"; id: string }
   | { action: "disconnect"; id: string };
@@ -28,9 +28,12 @@ export async function POST(request: Request) {
 
     // One click: the platform's Evolution server gets an instance for this
     // member, and the QR shows up in the settings screen.
+    // shared = the business's own number (no single owner; admins manage it,
+    // the whole team can send from it).
     if (body.action === "connect_evolution") {
       if (!evo.evolutionConfigured()) throw new HttpError(503, "שרת הוואטסאפ עוד לא הוגדר");
-      const instance = `crm-${me.id}`;
+      if (body.shared && !isAdmin) throw new HttpError(403, "רק מנהלים מחברים את מספר העסק");
+      const instance = body.shared ? `crm-org-${orgId.slice(0, 8)}-${randomBytes(3).toString("hex")}` : `crm-${me.id}`;
       const { data: existing } = await db.from("channels").select("*").eq("provider", "evolution").eq("external_id", instance).maybeSingle();
       const { data: oldCreds } = existing ? await db.from("channel_credentials").select("webhook_secret").eq("channel_id", existing.id).maybeSingle() : { data: null };
       const secret = oldCreds?.webhook_secret ?? randomBytes(24).toString("hex");
@@ -41,7 +44,19 @@ export async function POST(request: Request) {
         // Already exists on the server (re-linking) — just point it at us.
         await evo.setWebhook(instance, webhookUrl);
       }
-      const row = { org_id: orgId, provider: "evolution", name: body.name?.trim() || "וואטסאפ אישי", external_id: instance, owner_membership_id: me.id, active: true, is_default: false, status: "connecting", status_checked_at: new Date().toISOString() };
+      const { data: currentDefault } = await db.from("channels").select("id").eq("org_id", orgId).eq("is_default", true).eq("active", true).maybeSingle();
+      const row = {
+        org_id: orgId,
+        provider: "evolution",
+        name: body.name?.trim() || (body.shared ? "מספר העסק" : "וואטסאפ אישי"),
+        external_id: instance,
+        owner_membership_id: body.shared ? null : me.id,
+        active: true,
+        // The business number is where messages go out when nobody else applies.
+        is_default: body.shared ? !currentDefault || currentDefault.id === existing?.id : false,
+        status: "connecting",
+        status_checked_at: new Date().toISOString(),
+      };
       const { data: channel, error } = existing
         ? await db.from("channels").update(row).eq("id", existing.id).select().single()
         : await db.from("channels").insert(row).select().single();

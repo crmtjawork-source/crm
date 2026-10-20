@@ -109,6 +109,33 @@ export async function userGatewayChannel(db: Db, orgId: string, userId: string):
   return data;
 }
 
+// Which linked WhatsApp a member sends from: a requested one they may use
+// (their own or the business's shared number), else their own, else the
+// business's shared default.
+export async function senderChannel(db: Db, orgId: string, userId: string, requestedId?: string | null): Promise<Row | null> {
+  const { data: membership } = await db.from("memberships").select("id").eq("org_id", orgId).eq("user_id", userId).maybeSingle();
+  if (!membership) return null;
+  if (requestedId) {
+    const { data } = await db.from("channels").select("*").eq("id", requestedId).eq("org_id", orgId).eq("active", true).in("provider", ["green_api", "evolution"]).maybeSingle();
+    if (!data) return null;
+    if (data.owner_membership_id && data.owner_membership_id !== membership.id) throw new Error("אפשר לשלוח רק מהמספר שלך או ממספר העסק");
+    return data;
+  }
+  const own = await userGatewayChannel(db, orgId, userId);
+  if (own) return own;
+  const { data: shared } = await db
+    .from("channels")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("active", true)
+    .is("owner_membership_id", null)
+    .in("provider", ["green_api", "evolution"])
+    .order("is_default", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return shared;
+}
+
 async function gatewayCreds(db: Db, channel: Row) {
   const { data } = await db.from("channel_credentials").select("access_token, api_url").eq("channel_id", channel.id).maybeSingle();
   if (!data) throw new Error("לחיבור הוואטסאפ הזה אין פרטי גישה שמורים");

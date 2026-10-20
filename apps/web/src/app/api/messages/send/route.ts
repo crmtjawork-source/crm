@@ -58,8 +58,13 @@ export async function POST(request: Request) {
     }
 
     if (channelId) {
-      const { data: channel } = await user.db.from("channels").select("id").eq("id", channelId).eq("org_id", orgId).maybeSingle();
+      const { data: channel } = await user.db.from("channels").select("id, owner_membership_id").eq("id", channelId).eq("org_id", orgId).maybeSingle();
       if (!channel) throw new HttpError(404, "הערוץ לא נמצא");
+      // A colleague's personal WhatsApp is theirs to write from.
+      if (channel.owner_membership_id) {
+        const { data: me } = await user.db.from("memberships").select("id").eq("org_id", orgId).eq("user_id", user.userId).maybeSingle();
+        if (channel.owner_membership_id !== me?.id) throw new HttpError(403, "זו שיחה מהוואטסאפ האישי של איש צוות אחר — אפשר לקרוא אותה, לא לשלוח ממנה");
+      }
     }
 
     const message = await sendToContact(supabaseAdmin(), {

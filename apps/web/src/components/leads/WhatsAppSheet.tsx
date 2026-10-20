@@ -3,7 +3,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { useStore } from "@/lib/store";
 import { apiPost, ApiError } from "@/lib/api";
-import { useMyGateway } from "@/lib/useMyGateway";
+import { useSendChannels } from "@/lib/useMyGateway";
 import { renderTemplate, whatsappLink } from "@/lib/templates";
 import type { Appointment, Contact } from "@/lib/types";
 import { Sheet } from "@/components/ui/Sheet";
@@ -40,7 +40,12 @@ export function WhatsAppSheet({
   const [selected, setSelected] = useState(templateId ?? "");
   const template = messageTemplates.find((t) => t.id === selected);
   const [text, setText] = useState(() => (template ? renderTemplate(template.body, ctx) : documentUrl ? `היי ${contact.name.split(" ")[0]}, מצרף כאן את המסמך לעיון ולחתימה:\n${documentUrl}` : ""));
-  const { ready: canSendDirect } = useMyGateway();
+  // Send from my own WhatsApp or the business number.
+  const { mine, all: senders } = useSendChannels();
+  const canSendDirect = senders.length > 0;
+  const [senderId, setSenderId] = useState<string>("");
+  const sender = senders.find((c) => c.id === senderId) ?? mine ?? senders[0];
+  const senderLabel = (c: (typeof senders)[number]) => (c.ownerMembershipId ? "הוואטסאפ שלי" : c.name || "מספר העסק");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
 
@@ -49,7 +54,7 @@ export function WhatsAppSheet({
     setSending(true);
     setError("");
     try {
-      await apiPost(`/api/leads/${contact.id}/whatsapp`, { text, templateId: selected || undefined });
+      await apiPost(`/api/leads/${contact.id}/whatsapp`, { text, templateId: selected || undefined, channelId: sender?.id });
       onOpened?.();
       onClose();
     } catch (err) {
@@ -113,8 +118,23 @@ export function WhatsAppSheet({
           {error && <p className="text-xs text-red-500">{error}</p>}
           {canSendDirect ? (
             <>
+              {senders.length > 1 && (
+                <div className="flex rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden text-sm">
+                  {senders.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setSenderId(c.id)}
+                      className={`flex-1 py-1.5 ${sender?.id === c.id ? "bg-emerald-600 text-white" : ""}`}
+                    >
+                      {senderLabel(c)}
+                      {c.displayPhone && <span className="block text-[10px] opacity-75" dir="ltr">+{c.displayPhone}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
               <button onClick={sendNow} disabled={sending || (!text.trim() && !template?.attachment)} className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium disabled:opacity-50">
-                {sending ? "שולח…" : "שליחה עכשיו מהוואטסאפ שלי"}
+                {sending ? "שולח…" : `שליחה עכשיו מ${sender ? (sender.ownerMembershipId ? "הוואטסאפ שלי" : "מספר העסק") : "הוואטסאפ"}`}
               </button>
               <button onClick={open} className="w-full text-xs text-neutral-500 hover:underline">
                 או פתיחה בוואטסאפ (למשל כדי לצרף קובץ)
