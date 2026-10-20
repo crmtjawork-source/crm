@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -55,7 +56,8 @@ function Panel({ title, onClose, children }: { title: React.ReactNode; onClose: 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-  return (
+  // Rendered on <body>: the blurred top bar would otherwise trap a fixed panel inside it.
+  return createPortal(
     <div className="fixed inset-0 z-50">
       <button aria-label="סגירה" onClick={onClose} className="absolute inset-0 bg-black/20" />
       <aside className="absolute inset-y-0 end-0 w-full sm:w-[380px] bg-white dark:bg-neutral-950 shadow-2xl flex flex-col">
@@ -67,7 +69,8 @@ function Panel({ title, onClose, children }: { title: React.ReactNode; onClose: 
         </div>
         <div className="flex-1 overflow-y-auto">{children}</div>
       </aside>
-    </div>
+    </div>,
+    document.body
   );
 }
 

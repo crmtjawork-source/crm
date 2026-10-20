@@ -184,7 +184,7 @@ export default function ContactsPage() {
               }}
               className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
             >
-              <option value="">כל סטטוסי הטיפול</option>
+              <option value="">כל סטטוסי הליד</option>
               {leadStatuses.map((st) => (
                 <option key={st.id} value={st.name}>
                   {st.name}
