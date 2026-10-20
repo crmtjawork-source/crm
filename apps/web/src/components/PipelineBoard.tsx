@@ -290,8 +290,24 @@ function AddStageColumn({ pipelineId }: { pipelineId: string }) {
   );
 }
 
-export function PipelineBoard({ pipeline }: { pipeline: Pipeline }) {
-  const { opportunities, contacts, moveOpportunity } = useStore();
+// Deals shown on the board: the latest moved first, optionally filtered by a
+// search over the lead's name / phone.
+export function PipelineBoard({ pipeline, search = "" }: { pipeline: Pipeline; search?: string }) {
+  const { opportunities: all, contacts, moveOpportunity } = useStore();
+  const needle = search.trim().toLowerCase();
+  const digits = needle.replace(/\D/g, "");
+  const contactById = new Map(contacts.map((c) => [c.id, c]));
+  const opportunities = all
+    .filter((o) => {
+      if (!needle) return true;
+      const c = contactById.get(o.contactId);
+      return (
+        (c?.name ?? "").toLowerCase().includes(needle) ||
+        o.title.toLowerCase().includes(needle) ||
+        (digits.length >= 3 && (c?.phone ?? "").replace(/\D/g, "").includes(digits))
+      );
+    })
+    .sort((a, b) => b.stageChangedAt.localeCompare(a.stageChangedAt));
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;

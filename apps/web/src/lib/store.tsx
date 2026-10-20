@@ -481,6 +481,7 @@ function mapOpportunity(r: Row): Opportunity {
     lostReason: r.lost_reason ?? undefined,
     closedAt: r.closed_at ?? undefined,
     createdAt: r.created_at,
+    stageChangedAt: r.stage_changed_at ?? r.created_at,
   };
 }
 

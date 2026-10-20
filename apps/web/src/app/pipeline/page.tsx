@@ -24,6 +24,7 @@ export default function PipelinePage() {
   const pipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelines[0];
 
   const [view, setView] = useState<"board" | "table">("board");
+  const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [contactId, setContactId] = useState("");
   const [title, setTitle] = useState("");
@@ -183,7 +184,13 @@ export default function PipelinePage() {
         </form>
       )}
 
-      {view === "board" ? <PipelineBoard pipeline={pipeline} /> : <PipelineTable pipeline={pipeline} />}
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="חיפוש בפייפליין לפי שם או טלפון…"
+        className="w-full sm:w-72 px-3 py-1.5 mb-3 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+      />
+      {view === "board" ? <PipelineBoard pipeline={pipeline} search={search} /> : <PipelineTable pipeline={pipeline} search={search} />}
     </div>
   );
 }

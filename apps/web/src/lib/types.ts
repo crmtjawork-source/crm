@@ -46,6 +46,7 @@ export type Opportunity = {
   lostReason?: string;
   closedAt?: string;
   createdAt: string;
+  stageChangedAt: string; // last stage move — the board lists the latest first
 };
 
 // Unified per-contact timeline — matches the plan's "events, append-only"

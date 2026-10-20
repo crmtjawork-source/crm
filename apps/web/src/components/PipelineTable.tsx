@@ -6,10 +6,19 @@ import type { Pipeline } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { colorAt } from "@/components/ui/ColorChip";
 
-export function PipelineTable({ pipeline }: { pipeline: Pipeline }) {
+export function PipelineTable({ pipeline, search = "" }: { pipeline: Pipeline; search?: string }) {
   const { opportunities, contacts, moveOpportunity, updateOpportunity, deleteOpportunity, members, currentMemberId } = useStore();
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
-  const rows = opportunities.filter((o) => o.pipelineId === pipeline.id && o.status === "open");
+  const needle = search.trim().toLowerCase();
+  const digits = needle.replace(/\D/g, "");
+  const rows = opportunities
+    .filter((o) => o.pipelineId === pipeline.id && o.status === "open")
+    .filter((o) => {
+      if (!needle) return true;
+      const c = contacts.find((x) => x.id === o.contactId);
+      return (c?.name ?? "").toLowerCase().includes(needle) || (digits.length >= 3 && (c?.phone ?? "").replace(/\D/g, "").includes(digits));
+    })
+    .sort((a, b) => b.stageChangedAt.localeCompare(a.stageChangedAt));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [value, setValue] = useState("");
