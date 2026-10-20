@@ -168,6 +168,38 @@ async function executeStep(
     return { entry: `❌ ${step.type === "send_message" ? "לא נשלחה הודעה" : "דילוג"}: אין ליד מקושר לרשומה (או ליד עם אותו טלפון)`, contact };
   }
   switch (step.type) {
+    // Changes to the lead itself. They don't re-trigger automations, so two
+    // rules can't loop.
+    case "set_status": {
+      const status = String(step.field_value ?? "").trim();
+      if (!status) return { entry: "שינוי סטטוס: לא נבחר סטטוס", contact };
+      const { data } = await db.from("contacts").update({ handling_status: status }).eq("id", contact.id).select().single();
+      return { entry: `סטטוס ליד ← "${status}"`, contact: data ?? contact };
+    }
+    case "set_owner": {
+      const email = String(step.field_value ?? "").trim() || null;
+      const { data } = await db.from("contacts").update({ owner_email: email }).eq("id", contact.id).select().single();
+      return { entry: email ? `בעל הליד ← ${email}` : "הליד הוסר מבעלים", contact: data ?? contact };
+    }
+    case "move_stage": {
+      const { data: stage } = await db.from("stages").select("id, name, pipeline_id").eq("id", step.field_value).maybeSingle();
+      if (!stage) return { entry: "❌ העברת שלב: השלב נמחק", contact };
+      const { data: opp } = await db
+        .from("opportunities")
+        .select("id, stage_id")
+        .eq("contact_id", contact.id)
+        .eq("pipeline_id", stage.pipeline_id)
+        .eq("status", "open")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!opp) {
+        await db.from("opportunities").insert({ org_id: automation.org_id, contact_id: contact.id, pipeline_id: stage.pipeline_id, stage_id: stage.id, title: contact.name, value: 0 });
+      } else if (opp.stage_id !== stage.id) {
+        await db.from("opportunities").update({ stage_id: stage.id }).eq("id", opp.id);
+      }
+      return { entry: `הועבר לשלב "${stage.name}"`, contact };
+    }
     case "send_message": {
       // From the lead owner's own WhatsApp and/or with a ready-made message.
       if (step.sender === "owner" || step.message_template_id) {

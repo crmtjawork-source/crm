@@ -22,11 +22,27 @@ const RECORD_TRIGGERS: AutomationTriggerType[] = ["record_created", "record_stag
 const STEP_LABELS: Record<AutomationStepType, string> = {
   send_message: "שליחת הודעת וואטסאפ",
   wait: "המתנה",
-  add_tag: "הוספת תגית",
-  notify: "התראה פנימית",
+  set_status: "שינוי סטטוס ליד",
+  move_stage: "העברה לשלב בפייפליין",
+  set_owner: "שינוי בעל הליד",
   create_task: "יצירת משימה",
+  notify: "התראה לצוות",
+  add_tag: "הוספת תגית",
   update_field: "עדכון שדה ברשומה",
 };
+
+const STEP_ICONS: Record<AutomationStepType, string> = {
+  send_message: "💬",
+  wait: "⏱",
+  set_status: "🔄",
+  move_stage: "➡️",
+  set_owner: "👤",
+  create_task: "✅",
+  notify: "🔔",
+  add_tag: "🏷",
+  update_field: "✏️",
+};
+
 
 const inputClass = "px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
@@ -75,6 +91,7 @@ export default function AutomationsPage() {
     setName("");
     setCreating(false);
     setExpandedId(automation.id);
+    setTimeout(() => document.getElementById(`auto-${automation.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }
 
   return (
@@ -88,19 +105,16 @@ export default function AutomationsPage() {
           + אוטומציה חדשה
         </button>
       </div>
-      <p className="text-sm text-neutral-500 mb-6">
-        רצפים לינאריים: טריגר ואז שרשרת צעדים שרצים בשרת. הודעה ראשונה לליד (או אחרי 24 שעות בלי תגובה ממנו) חייבת להיות
-        תבנית מאושרת של וואטסאפ; טקסט חופשי עובד רק בתוך 24 שעות מההודעה האחרונה שלו. אפשר לבחור מאיזה מספר כל הודעה יוצאת.
-        אפשר להשתמש ב-{"{{first_name}}"}, {"{{name}}"}, {"{{field:שם שדה}}"} בתוכן ובפרמטרים, וב-{"{{booking_token}}"} כסיומת לכפתור
-        קישור אישי לקביעת שיחה.
-        {objectTypes.length > 0 && (
-          <>
-            {" "}
-            אוטומציות על טבלאות (לקוחות, נכסים…) רצות כשרשומה נוצרת, עוברת שלב או ששדה בה משתנה; הודעות נשלחות לליד המקושר לרשומה (או לליד
-            עם אותו טלפון), ואפשר לשלב בהן {"{{record_title}}"} ו-{"{{record:שם שדה}}"}.
-          </>
-        )}
-      </p>
+      <div className="text-sm text-neutral-500 mb-6 leading-relaxed space-y-1">
+        <p>
+          אוטומציה = <b>מתי</b> (טריגר) + <b>מה לעשות</b> (פעולות לפי הסדר). יוצרים עם שם וטריגר, ואז מוסיפים פעולות: הודעת וואטסאפ, המתנה,
+          שינוי סטטוס או שלב, משימה, התראה לצוות ועוד.
+        </p>
+        <p className="text-xs">
+          בטקסטים אפשר לשלב {"{{first_name}}"}, {"{{name}}"}, {"{{field:שם שדה}}"}
+          {objectTypes.length > 0 && <>, ובאוטומציות על טבלאות גם {"{{record_title}}"} ו-{"{{record:שם שדה}}"}</>}.
+        </p>
+      </div>
 
       {creating && (
         <form onSubmit={handleCreate} className="mb-6 space-y-3 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
@@ -283,7 +297,7 @@ export default function AutomationsPage() {
       )}
 
       <ul className="space-y-2">
-        {automations.map((a) => (
+        {[...automations].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((a) => (
           <AutomationRow
             key={a.id}
             automation={a}
@@ -345,6 +359,12 @@ function stepSummary(step: AutomationStep, channels: Channel[], templates: Messa
       return `: "${step.taskTitle}"${step.taskDueDays != null ? ` · יעד בעוד ${step.taskDueDays} ימים` : ""}`;
     case "update_field":
       return `: ${step.fieldKey} ← ${step.fieldValue ?? ""}`;
+    case "set_status":
+      return `: "${step.fieldValue ?? ""}"`;
+    case "set_owner":
+      return `: ${step.fieldValue || "ללא בעלים"}`;
+    case "move_stage":
+      return "";
   }
 }
 
@@ -363,7 +383,8 @@ function AutomationRow({
   onToggleStopOnReply: () => void;
   onDelete: () => void;
 }) {
-  const { pipelines, channels, automationRuns, messageTemplates, objectTypes, addAutomationStep, removeAutomationStep } = useStore();
+  const { pipelines, channels, automationRuns, messageTemplates, objectTypes, leadStatuses, members, addAutomationStep, removeAutomationStep } = useStore();
+  const [actionValue, setActionValue] = useState("");
   const recordType = RECORD_TRIGGERS.includes(automation.trigger.type) ? objectTypes.find((t) => t.id === automation.trigger.objectTypeId) : undefined;
   const [fieldKey, setFieldKey] = useState("");
   const [fieldValue, setFieldValue] = useState("");
@@ -425,6 +446,13 @@ function AutomationRow({
       if (!taskTitle.trim()) return;
       addAutomationStep(automation.id, { type: "create_task", taskTitle: taskTitle.trim(), taskDueDays: taskDays === "" ? undefined : Number(taskDays) });
       setTaskTitle("");
+    } else if (stepType === "set_status" || stepType === "move_stage") {
+      if (!actionValue) return;
+      addAutomationStep(automation.id, { type: stepType, fieldValue: actionValue });
+      setActionValue("");
+    } else if (stepType === "set_owner") {
+      addAutomationStep(automation.id, { type: "set_owner", fieldValue: actionValue });
+      setActionValue("");
     } else if (stepType === "update_field") {
       if (!fieldKey) return;
       addAutomationStep(automation.id, { type: "update_field", fieldKey, fieldValue });
@@ -435,7 +463,7 @@ function AutomationRow({
   }
 
   return (
-    <li className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+    <li id={`auto-${automation.id}`} className={`border rounded-lg p-4 scroll-mt-16 ${expanded ? "border-neutral-400 dark:border-neutral-600" : "border-neutral-200 dark:border-neutral-800"}`}>
       <div className="flex items-center justify-between">
         <button onClick={onToggle} className="text-start flex-1">
           <p className="font-medium text-sm">{automation.name}</p>
@@ -465,7 +493,8 @@ function AutomationRow({
             {automation.steps.map((step, i) => (
               <li key={step.id} className="flex items-center justify-between gap-2 text-sm bg-neutral-50 dark:bg-neutral-900 rounded-md px-3 py-2">
                 <span>
-                  {i + 1}. {STEP_LABELS[step.type]}
+                  {i + 1}. {STEP_ICONS[step.type]} {STEP_LABELS[step.type]}
+                  {step.type === "move_stage" && `: "${pipelines.flatMap((p) => p.stages).find((st) => st.id === step.fieldValue)?.name ?? "?"}"`}
                   {step.type === "update_field" && recordType
                     ? (() => {
                         const f = recordType.fields.find((x) => x.key === step.fieldKey);
@@ -479,20 +508,64 @@ function AutomationRow({
                 </button>
               </li>
             ))}
-            {automation.steps.length === 0 && <p className="text-sm text-neutral-400">אין עדיין צעדים.</p>}
+            {automation.steps.length === 0 && <p className="text-sm text-amber-600">עוד אין פעולות — בחרו למטה מה האוטומציה תעשה.</p>}
           </ol>
 
           <form onSubmit={handleAddStep} className="space-y-2">
             <div className="flex flex-wrap gap-2">
-              <select value={stepType} onChange={(e) => setStepType(e.target.value as AutomationStepType)} className={inputClass}>
-                {Object.entries(STEP_LABELS)
-                  .filter(([v]) => v !== "update_field" || recordType)
-                  .map(([v, label]) => (
-                    <option key={v} value={v}>
-                      {label}
+              <div className="w-full">
+                <p className="text-xs text-neutral-500 mb-1.5">מה לעשות? בחרו פעולה:</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {(Object.keys(STEP_LABELS) as AutomationStepType[])
+                    .filter((v) => v !== "update_field" || recordType)
+                    .map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => (setStepType(v), setActionValue(""))}
+                        className={`text-start text-xs px-2 py-2 rounded-md border ${stepType === v ? "border-neutral-900 dark:border-white bg-neutral-100 dark:bg-neutral-900 font-medium" : "border-neutral-200 dark:border-neutral-800"}`}
+                      >
+                        {STEP_ICONS[v]} {STEP_LABELS[v]}
+                      </button>
+                    ))}
+                </div>
+              </div>
+              {stepType === "set_status" && (
+                <select value={actionValue} onChange={(e) => setActionValue(e.target.value)} className={inputClass}>
+                  <option value="">סטטוס…</option>
+                  {leadStatuses.map((st) => (
+                    <option key={st.id} value={st.name}>
+                      {st.name}
                     </option>
                   ))}
-              </select>
+                </select>
+              )}
+              {stepType === "move_stage" && (
+                <select value={actionValue} onChange={(e) => setActionValue(e.target.value)} className={inputClass}>
+                  <option value="">שלב…</option>
+                  {pipelines.map((p) => (
+                    <optgroup key={p.id} label={p.name}>
+                      {p.stages.map((st) => (
+                        <option key={st.id} value={st.id}>
+                          {st.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              )}
+              {stepType === "set_owner" && (
+                <select value={actionValue} onChange={(e) => setActionValue(e.target.value)} className={inputClass}>
+                  <option value="">ללא בעלים</option>
+                  {members
+                    .filter((m) => m.status === "active" || m.status === "invited")
+                    .map((m) => (
+                      <option key={m.id} value={m.email}>
+                        {m.name}
+                      </option>
+                    ))}
+                </select>
+              )}
               {stepType === "wait" && (
                 <input
                   value={waitMinutes}
@@ -623,8 +696,8 @@ function AutomationRow({
               />
             )}
 
-            <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
-              הוספת צעד
+            <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+              + הוספת הפעולה
             </button>
           </form>
         </div>

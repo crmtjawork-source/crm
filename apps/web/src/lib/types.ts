@@ -151,7 +151,16 @@ export type AutomationTrigger = {
   value?: string; // record_stage_changed / record_field_changed: the new value (empty = any change)
 };
 
-export type AutomationStepType = "send_message" | "wait" | "add_tag" | "notify" | "update_field" | "create_task";
+export type AutomationStepType =
+  | "send_message"
+  | "wait"
+  | "add_tag"
+  | "notify"
+  | "update_field"
+  | "create_task"
+  | "set_status"
+  | "move_stage"
+  | "set_owner";
 
 export type AutomationStep = {
   id: string;
