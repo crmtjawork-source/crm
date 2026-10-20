@@ -12,7 +12,7 @@ export const FEATURES: { id: string; href: string; label: string }[] = [
   { id: "forms", href: "/forms", label: "טפסים" },
   { id: "tasks", href: "/tasks", label: "משימות" },
   { id: "team", href: "/team", label: "צוות" },
-  { id: "settings", href: "/settings", label: "הגדרות" },
+  { id: "settings", href: "/settings", label: "הגדרות העסק" },
 ];
 
 export const LEAD_SCOPES: { id: Role["leadsScope"]; label: string }[] = [
@@ -36,6 +36,9 @@ export function effectiveRole(member: Member | undefined, roles: Role[]): Role |
 
 export function canSeeHref(role: Role | undefined, href: string): boolean {
   if (!role) return true;
+  // Everyone has personal settings (their WhatsApp, notifications); the page
+  // hides the business's settings from roles without them.
+  if (href === "/settings") return true;
   if (href === "/contacts") return role.leadsScope !== "none";
   if (href.startsWith("/o/")) return role.objectAccess[href.slice(3)] !== "none";
   const feature = FEATURES.find((f) => f.href === href);
