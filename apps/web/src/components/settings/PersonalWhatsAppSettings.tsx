@@ -82,7 +82,7 @@ export function PersonalWhatsAppSettings({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
-function ConnectForm({ onDone, shared }: { onDone: () => Promise<void>; shared?: boolean }) {
+export function ConnectForm({ onDone, shared }: { onDone: () => Promise<void>; shared?: boolean }) {
   // The platform's own WhatsApp server (Evolution) → one click; otherwise
   // the member brings a Green-API instance.
   const [evolution, setEvolution] = useState<boolean | null>(null);
@@ -165,7 +165,7 @@ function ConnectForm({ onDone, shared }: { onDone: () => Promise<void>; shared?:
   );
 }
 
-function Connected({ channel, onChange }: { channel: Channel; onChange: () => Promise<void> }) {
+export function Connected({ channel, onChange }: { channel: Channel; onChange: () => Promise<void> }) {
   const [state, setState] = useState(channel.status ?? "");
   const [qr, setQr] = useState<string | null>(null);
   const [error, setError] = useState("");

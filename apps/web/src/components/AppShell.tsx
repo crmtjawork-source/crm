@@ -13,7 +13,8 @@ const ROLE_LABELS = { owner: "בעלים", admin: "מנהל", agent: "נציג" 
 const NAV = [
   { href: "/dashboard", label: "לוח בקרה" },
   { href: "/contacts", label: "לידים" },
-  { href: "/inbox", label: "שיחות" },
+  { href: "/inbox", label: "וואטסאפ חברה" },
+  { href: "/my-whatsapp", label: "וואטסאפ אישי" },
   { href: "/pipeline", label: "פייפליין" },
   { href: "/documents", label: "הצעות והסכמים" },
   { href: "/campaigns", label: "קמפיינים" },

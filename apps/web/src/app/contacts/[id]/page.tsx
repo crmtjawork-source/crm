@@ -226,7 +226,7 @@ export default function ContactDetailPage() {
 
       {leadStatuses.length > 0 && (
         <label className="flex items-center gap-2 mb-2 text-sm">
-          <span className="text-neutral-500">סטטוס טיפול:</span>
+          <span className="text-neutral-500">סטטוס ליד:</span>
           <select
             value={contact.handlingStatus ?? ""}
             onChange={(e) => setHandlingStatus(contact.id, e.target.value || null)}

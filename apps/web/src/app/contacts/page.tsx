@@ -212,7 +212,7 @@ export default function ContactsPage() {
               <th className="text-start px-4 py-2 font-medium">שם</th>
               <th className="text-start px-4 py-2 font-medium">טלפון</th>
               <th className="text-start px-4 py-2 font-medium hidden md:table-cell">שלב</th>
-              <th className="text-start px-4 py-2 font-medium hidden md:table-cell">סטטוס טיפול</th>
+              <th className="text-start px-4 py-2 font-medium hidden md:table-cell">סטטוס ליד</th>
               <th className="text-start px-4 py-2 font-medium hidden md:table-cell">מקור</th>
               <th className="text-start px-4 py-2 font-medium hidden md:table-cell">בעלים</th>
               <th className="text-start px-4 py-2 font-medium hidden md:table-cell">תגיות</th>

@@ -19,9 +19,9 @@ export function LeadStatusesSettings({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <section className="mb-10">
-      <h2 className="text-base font-semibold mb-1">סטטוסי טיפול</h2>
+      <h2 className="text-base font-semibold mb-1">סטטוסי ליד</h2>
       <p className="text-sm text-neutral-500 mb-3 leading-relaxed">
-        מצב הטיפול בליד, בנוסף לשלב בפייפליין — למשל &quot;ממתין לטיפול&quot;, &quot;ללא מענה 1&quot;, &quot;טופל&quot;. ליד חדש מקבל את
+        הסטטוס של הליד, בנוסף לשלב בפייפליין — למשל &quot;ממתין לטיפול&quot;, &quot;ללא מענה 1&quot;, &quot;טופל&quot;. ליד חדש מקבל את
         הסטטוס הראשון ברשימה. אפשר להגדיר אוטומציה שרצה כשהסטטוס משתנה (מסך אוטומציות).
       </p>
       <ul className="space-y-1 mb-3">

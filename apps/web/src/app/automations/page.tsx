@@ -9,7 +9,7 @@ const TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
   stage_change: "הזדמנות עברה לשלב",
   tag_added: "תגית נוספה",
   appointment_booked: "ליד קבע שיחה בקישור האישי",
-  status_changed: "סטטוס טיפול השתנה",
+  status_changed: "סטטוס ליד השתנה",
   document_viewed: "ליד פתח הצעה / הסכם (בפעם הראשונה)",
   document_signed: "ליד חתם על הצעה / הסכם",
   record_created: "רשומה חדשה נוצרה (לקוח, נכס…)",

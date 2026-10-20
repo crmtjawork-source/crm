@@ -3,7 +3,7 @@ import type { Member, Role } from "./types";
 // Menu screens a role can show or hide (leads are governed by the lead scope).
 export const FEATURES: { id: string; href: string; label: string }[] = [
   { id: "dashboard", href: "/dashboard", label: "לוח בקרה" },
-  { id: "inbox", href: "/inbox", label: "שיחות וואטסאפ" },
+  { id: "inbox", href: "/inbox", label: "וואטסאפ חברה" },
   { id: "pipeline", href: "/pipeline", label: "פייפליין" },
   { id: "documents", href: "/documents", label: "הצעות והסכמים" },
   { id: "campaigns", href: "/campaigns", label: "קמפיינים" },
@@ -38,7 +38,7 @@ export function canSeeHref(role: Role | undefined, href: string): boolean {
   if (!role) return true;
   // Everyone has personal settings (their WhatsApp, notifications); the page
   // hides the business's settings from roles without them.
-  if (href === "/settings") return true;
+  if (href === "/settings" || href === "/my-whatsapp") return true;
   if (href === "/contacts") return role.leadsScope !== "none";
   if (href.startsWith("/o/")) return role.objectAccess[href.slice(3)] !== "none";
   const feature = FEATURES.find((f) => f.href === href);
