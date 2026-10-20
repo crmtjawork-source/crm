@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { TopBarButtons } from "./TopBar";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { canSeeHref, effectiveRole } from "@/lib/permissions";
+import { canSeeHref, effectiveRole, screenOf } from "@/lib/permissions";
 
 const ROLE_LABELS = { owner: "בעלים", admin: "מנהל", agent: "נציג" } as const;
 
@@ -144,7 +144,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="hidden md:flex sticky top-0 z-20 h-12 items-center justify-end px-4 border-b border-neutral-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-950/90 backdrop-blur">
           <TopBarButtons />
         </div>
-        {loading ? <div className="p-6 text-sm text-neutral-400">טוען…</div> : children}
+        {loading ? (
+          <div className="p-6 text-sm text-neutral-400">טוען…</div>
+        ) : !canSeeHref(role, screenOf(pathname)) ? (
+          <div className="p-6 text-sm text-neutral-500">אין לך הרשאה למסך הזה. אפשר לפנות למנהל המערכת.</div>
+        ) : (
+          children
+        )}
       </div>
 
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-4 border-t border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-950/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">

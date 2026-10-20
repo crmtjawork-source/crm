@@ -44,3 +44,11 @@ export function canSeeHref(role: Role | undefined, href: string): boolean {
   const feature = FEATURES.find((f) => f.href === href);
   return !feature || !role.features || role.features.includes(feature.id);
 }
+
+// The menu screen a URL belongs to ("/o/<type>/<record>" → "/o/<type>",
+// "/contacts/123" → "/contacts").
+export function screenOf(pathname: string): string {
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts[0] === "o" && parts[1]) return `/o/${parts[1]}`;
+  return `/${parts[0] ?? ""}`;
+}
