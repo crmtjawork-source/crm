@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { NotificationsBell } from "./NotificationsBell";
+import { TopBarButtons } from "./TopBar";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { canSeeHref, effectiveRole } from "@/lib/permissions";
@@ -97,7 +97,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const footer = (
     <div className="mt-auto px-2 pb-3 pt-2 border-t border-neutral-200 dark:border-neutral-800 space-y-1">
-      <NotificationsBell />
       <div className="flex items-center justify-between px-3 py-1">
         <span className="text-xs text-neutral-400 truncate">
           {currentMember ? `${currentMember.name} · ${ROLE_LABELS[currentMember.role]}` : session?.user.email}
@@ -125,6 +124,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ☰
         </button>
         <span className="font-bold">CRM</span>
+        <div className="ms-auto">
+          <TopBarButtons />
+        </div>
       </header>
       {menuOpen && (
         <div className="md:hidden fixed inset-0 z-40">
@@ -137,7 +139,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <div className="flex-1 min-w-0 pb-16 md:pb-0">{loading ? <div className="p-6 text-sm text-neutral-400">טוען…</div> : children}</div>
+      <div className="flex-1 min-w-0 pb-16 md:pb-0">
+        {/* Desktop top bar: agenda + notifications */}
+        <div className="hidden md:flex sticky top-0 z-20 h-12 items-center justify-end px-4 border-b border-neutral-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-950/90 backdrop-blur">
+          <TopBarButtons />
+        </div>
+        {loading ? <div className="p-6 text-sm text-neutral-400">טוען…</div> : children}
+      </div>
 
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-4 border-t border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-950/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
         {MOBILE_TABS.filter((item) => canSeeHref(role, item.href)).map((item) => {

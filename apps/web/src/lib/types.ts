@@ -67,6 +67,7 @@ export type Task = {
   assignee?: string;
   dueDate?: string; // yyyy-mm-dd
   done: boolean;
+  recordId?: string; // a task on a custom-object record (client, property…)
   templateId?: string; // a message to send when doing the task (e.g. a meeting reminder)
   appointmentId?: string; // the meeting the message refers to
   createdAt: string;
@@ -88,6 +89,7 @@ export type Appointment = {
   startAt: string; // ISO
   endAt: string; // ISO
   notes?: string;
+  ownerUserId?: string; // whose calendar the meeting is on
   createdAt: string;
 };
 
@@ -250,6 +252,7 @@ export type Notification = {
   id: string;
   text: string;
   contactId?: string;
+  url?: string; // where it leads (e.g. a record page)
   createdAt: string;
   read: boolean;
 };

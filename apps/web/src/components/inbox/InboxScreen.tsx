@@ -390,7 +390,7 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
   const canWrite = box === "business" || viewing === currentMemberId;
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-[calc(100dvh-3rem)]">
       <div className="flex flex-col min-h-0">
         {box === "personal" && isAdmin && colleagues.length > 0 && (
           <div className="p-3 border-b border-e border-neutral-200 dark:border-neutral-800 w-80">

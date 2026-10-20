@@ -494,6 +494,7 @@ function mapTask(r: Row): Task {
     id: r.id,
     title: r.title,
     contactId: r.contact_id ?? undefined,
+    recordId: r.record_id ?? undefined,
     assignee: r.assignee ?? undefined,
     dueDate: r.due_date ?? undefined,
     done: r.done,
@@ -522,6 +523,7 @@ function mapAppointment(r: Row): Appointment {
     startAt: r.start_at,
     endAt: r.end_at,
     notes: r.notes ?? undefined,
+    ownerUserId: r.owner_user_id ?? undefined,
     createdAt: r.created_at,
   };
 }
@@ -607,7 +609,7 @@ function mapAutomationRun(r: Row): AutomationRun {
 }
 
 function mapNotification(r: Row): Notification {
-  return { id: r.id, text: r.text, contactId: r.contact_id ?? undefined, createdAt: r.created_at, read: r.read };
+  return { id: r.id, text: r.text, contactId: r.contact_id ?? undefined, url: r.url ?? undefined, createdAt: r.created_at, read: r.read };
 }
 
 function mapChannel(r: Row): Channel {
