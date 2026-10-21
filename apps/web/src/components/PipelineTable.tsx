@@ -10,7 +10,7 @@ import { ColumnPicker } from "@/components/ColumnPicker";
 import { buildLeadCols, formatEntered, useColumnPrefs, type LeadCol } from "@/lib/leadColumns";
 
 export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pipeline; search?: string; filter?: (o: Opportunity) => boolean }) {
-  const { opportunities, contacts, moveOpportunity, updateOpportunity, deleteOpportunity, members, currentMemberId, leadFields, campaigns, leadStatuses } = useStore();
+  const { opportunities, contacts, moveOpportunity, updateOpportunity, updateContact, deleteOpportunity, members, currentMemberId, leadFields, campaigns, leadStatuses } = useStore();
   const stagePrompt = useStageMovePrompt();
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
   const needle = search.trim().toLowerCase();
@@ -42,16 +42,25 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
   const [title, setTitle] = useState("");
   const [value, setValue] = useState("");
 
-  function startEdit(id: string, currentTitle: string, currentValue: number) {
+  function startEdit(id: string, currentName: string, currentValue: number) {
     setEditingId(id);
-    setTitle(currentTitle);
+    setTitle(currentName);
     setValue(String(currentValue || ""));
   }
 
   function save(e: React.FormEvent) {
     e.preventDefault();
     if (!editingId) return;
-    updateOpportunity(editingId, { title: title.trim(), value: Number(value) || 0 });
+    const opp = opportunities.find((o) => o.id === editingId);
+    const lead = contacts.find((c) => c.id === opp?.contactId);
+    const newName = title.trim();
+    // Renames the lead (that's what the row shows); the deal's title follows
+    // when it was just the lead's name.
+    if (opp && lead && newName && newName !== lead.name) {
+      updateContact(lead.id, { name: newName });
+      if (opp.title === lead.name) updateOpportunity(opp.id, { title: newName });
+    }
+    updateOpportunity(editingId, { value: Number(value) || 0 });
     setEditingId(null);
   }
 
@@ -87,6 +96,8 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
                   <form onSubmit={save} className="flex items-center gap-2">
                     <input
                       autoFocus
+                      aria-label="שם הליד"
+                      placeholder="שם הליד"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       className="flex-1 px-2 py-1 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
@@ -141,7 +152,7 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
                   </td>
                 ))}
                 <td className="px-4 py-3 text-left opacity-0 group-hover:opacity-100">
-                  <button onClick={() => startEdit(o.id, o.title, o.value)} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-xs me-2">
+                  <button onClick={() => startEdit(o.id, lead?.name ?? o.title, o.value)} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-xs me-2">
                     עריכה
                   </button>
                   {canDelete && (

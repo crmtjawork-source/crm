@@ -53,7 +53,7 @@ function CloseForm({ opp, onDone }: { opp: Opportunity; onDone: () => void }) {
 }
 
 function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contactName: string; color?: string }) {
-  const { updateOpportunity, deleteOpportunity, members, currentMemberId } = useStore();
+  const { updateOpportunity, updateContact, deleteOpportunity, members, currentMemberId } = useStore();
   const [closing, setClosing] = useState(false);
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: opp.id });
@@ -62,13 +62,20 @@ function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contac
     : undefined;
 
   const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(opp.title);
+  const [name, setName] = useState(contactName);
   const [value, setValue] = useState(String(opp.value || ""));
 
   function save(e: React.FormEvent) {
     e.preventDefault();
     e.stopPropagation();
-    updateOpportunity(opp.id, { title: title.trim() || contactName, value: Number(value) || 0 });
+    const newName = name.trim() || contactName;
+    // The card shows the lead's name, so that's what gets renamed (the deal's
+    // title follows when it was just the lead's name).
+    if (newName !== contactName) {
+      updateContact(opp.contactId, { name: newName });
+      if (opp.title === contactName) updateOpportunity(opp.id, { title: newName });
+    }
+    updateOpportunity(opp.id, { value: Number(value) || 0 });
     setEditing(false);
   }
 
@@ -86,8 +93,10 @@ function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contac
       >
         <input
           autoFocus
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="שם הליד"
+          aria-label="שם הליד"
           className="w-full px-2 py-1 text-sm rounded border border-neutral-200 dark:border-neutral-800 bg-transparent"
         />
         <input
@@ -132,7 +141,7 @@ function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contac
           >
             ⚑
           </button>
-          <button onClick={(e) => { e.stopPropagation(); setEditing(true); }} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-xs">
+          <button onClick={(e) => { e.stopPropagation(); setName(contactName); setValue(String(opp.value || "")); setEditing(true); }} title="עריכת שם ושווי" className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-xs">
             ✎
           </button>
           {canDelete && (
