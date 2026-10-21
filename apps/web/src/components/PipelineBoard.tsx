@@ -5,6 +5,7 @@ import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-
 import Link from "next/link";
 import type { Pipeline, Opportunity, Contact } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { colorAt } from "@/components/ui/ColorChip";
 
 function CloseForm({ opp, onDone }: { opp: Opportunity; onDone: () => void }) {
@@ -294,6 +295,7 @@ function AddStageColumn({ pipelineId }: { pipelineId: string }) {
 // search over the lead's name / phone.
 export function PipelineBoard({ pipeline, search = "" }: { pipeline: Pipeline; search?: string }) {
   const { opportunities: all, contacts, moveOpportunity } = useStore();
+  const stagePrompt = useStageMovePrompt();
   const needle = search.trim().toLowerCase();
   const digits = needle.replace(/\D/g, "");
   const contactById = new Map(contacts.map((c) => [c.id, c]));
@@ -312,6 +314,7 @@ export function PipelineBoard({ pipeline, search = "" }: { pipeline: Pipeline; s
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over) return;
+    stagePrompt.afterMove(String(active.id), String(over.id));
     moveOpportunity(String(active.id), String(over.id));
   }
 
@@ -334,6 +337,7 @@ export function PipelineBoard({ pipeline, search = "" }: { pipeline: Pipeline; s
         ))}
         <AddStageColumn pipelineId={pipeline.id} />
       </div>
+      {stagePrompt.element}
     </DndContext>
   );
 }

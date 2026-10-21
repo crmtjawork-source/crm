@@ -4,10 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Pipeline } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { colorAt } from "@/components/ui/ColorChip";
 
 export function PipelineTable({ pipeline, search = "" }: { pipeline: Pipeline; search?: string }) {
   const { opportunities, contacts, moveOpportunity, updateOpportunity, deleteOpportunity, members, currentMemberId } = useStore();
+  const stagePrompt = useStageMovePrompt();
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
   const needle = search.trim().toLowerCase();
   const digits = needle.replace(/\D/g, "");
@@ -89,7 +91,10 @@ export function PipelineTable({ pipeline, search = "" }: { pipeline: Pipeline; s
                 <td className="px-4 py-3">
                   <select
                     value={o.stageId}
-                    onChange={(e) => moveOpportunity(o.id, e.target.value)}
+                    onChange={(e) => {
+                      stagePrompt.afterMove(o.id, e.target.value);
+                      moveOpportunity(o.id, e.target.value);
+                    }}
                     className="text-xs font-medium px-2 py-0.5 rounded-full border-none outline-none cursor-pointer"
                     style={(() => {
                       const i = pipeline.stages.findIndex((st) => st.id === o.stageId);
@@ -129,6 +134,7 @@ export function PipelineTable({ pipeline, search = "" }: { pipeline: Pipeline; s
           )}
         </tbody>
       </table>
+      {stagePrompt.element}
     </div>
   );
 }
