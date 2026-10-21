@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ColorChip, colorAt } from "@/components/ui/ColorChip";
+import { StatusSelect } from "@/components/leads/StatusSelect";
 import { useAuth } from "@/lib/auth";
-import type { Campaign, Contact, LeadStatus, Member, ObjectField, Opportunity } from "@/lib/types";
+import type { Campaign, Contact, Member, ObjectField, Opportunity } from "@/lib/types";
 
 // A table column the user can show / hide / reorder. `cell` gets the lead (and
 // the deal, on the pipeline table).
@@ -48,17 +48,14 @@ export function buildLeadCols({
   leadFields,
   members,
   campaigns,
-  leadStatuses,
   extra = [],
 }: {
   leadFields: ObjectField[];
   members: Member[];
   campaigns: Campaign[];
-  leadStatuses: LeadStatus[];
   extra?: LeadCol[]; // table-specific columns (e.g. the lead's stage), listed first
 }): LeadCol[] {
   const base = "פרטי ליד";
-  const statusColor = new Map(leadStatuses.map((st, i) => [st.name, colorAt(st.color, i)] as const));
   const campaignName = new Map(campaigns.map((c) => [c.id, c.name] as const));
   const ownerName = (email?: string) => (email ? members.find((m) => m.email.toLowerCase() === email.toLowerCase())?.name ?? email : "");
   const text = (s?: string) => (s ? <span className={muted}>{s}</span> : dash);
@@ -79,7 +76,7 @@ export function buildLeadCols({
           dash
         ),
     },
-    { id: "handlingStatus", label: "סטטוס ליד", group: base, nowrap: true, cell: (c) => <ColorChip label={c.handlingStatus ?? ""} color={statusColor.get(c.handlingStatus ?? "")} /> },
+    { id: "handlingStatus", label: "סטטוס ליד", group: base, nowrap: true, cell: (c) => <StatusSelect contact={c} /> },
     { id: "createdAt", label: "תאריך כניסה", group: base, nowrap: true, cell: (c) => <span dir="ltr" className={muted}>{formatEntered(c.createdAt)}</span> },
     { id: "lastActivityAt", label: "פעילות אחרונה", group: base, nowrap: true, cell: (c) => <span dir="ltr" className={muted}>{formatEntered(c.lastActivityAt)}</span> },
     { id: "owner", label: "בעלים", group: base, cell: (c) => text(ownerName(c.ownerEmail)) },

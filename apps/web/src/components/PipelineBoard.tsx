@@ -5,6 +5,7 @@ import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-
 import Link from "next/link";
 import type { Pipeline, Opportunity, Contact } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { StatusSelect } from "@/components/leads/StatusSelect";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { colorAt } from "@/components/ui/ColorChip";
 
@@ -53,7 +54,8 @@ function CloseForm({ opp, onDone }: { opp: Opportunity; onDone: () => void }) {
 }
 
 function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contactName: string; color?: string }) {
-  const { updateOpportunity, updateContact, deleteOpportunity, members, currentMemberId } = useStore();
+  const { updateOpportunity, updateContact, deleteOpportunity, members, currentMemberId, contacts, leadStatuses } = useStore();
+  const contact = contacts.find((c) => c.id === opp.contactId);
   const [closing, setClosing] = useState(false);
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: opp.id });
@@ -153,6 +155,11 @@ function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contac
       </div>
       {opp.value > 0 && (
         <div className="text-xs text-neutral-500 mt-1">₪{opp.value.toLocaleString("he-IL")}</div>
+      )}
+      {contact && leadStatuses.length > 0 && (
+        <div className="mt-1.5">
+          <StatusSelect contact={contact} />
+        </div>
       )}
       {closing && <CloseForm opp={opp} onDone={() => setClosing(false)} />}
     </div>

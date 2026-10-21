@@ -29,7 +29,6 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
     leadFields,
     members,
     campaigns,
-    leadStatuses,
     extra: [
       {
         id: "stage",

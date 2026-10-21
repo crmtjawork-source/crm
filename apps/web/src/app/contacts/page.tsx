@@ -48,7 +48,6 @@ export default function ContactsPage() {
     leadFields,
     members,
     campaigns,
-    leadStatuses,
     extra: [
       {
         id: "stage",
