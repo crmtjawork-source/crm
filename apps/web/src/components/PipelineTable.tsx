@@ -10,7 +10,7 @@ import { ColumnPicker } from "@/components/ColumnPicker";
 import { buildLeadCols, formatEntered, useColumnPrefs, type LeadCol } from "@/lib/leadColumns";
 
 export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pipeline; search?: string; filter?: (o: Opportunity) => boolean }) {
-  const { opportunities, contacts, moveOpportunity, updateOpportunity, updateContact, deleteOpportunity, members, currentMemberId, leadFields, campaigns, leadStatuses } = useStore();
+  const { opportunities, contacts, moveOpportunity, updateOpportunity, updateContact, deleteOpportunity, members, currentMemberId, leadFields, campaigns } = useStore();
   const stagePrompt = useStageMovePrompt();
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
   const needle = search.trim().toLowerCase();
