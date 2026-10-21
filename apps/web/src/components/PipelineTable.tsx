@@ -31,13 +31,47 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
     campaigns,
     leadStatuses,
     extra: [
+      {
+        id: "stage",
+        label: "שלב",
+        group: dealGroup,
+        mobile: true,
+        nowrap: true,
+        // Same coloured pill as on the leads list — here it's also the control that moves the deal.
+        cell: (_c, o) => {
+          if (!o) return null;
+          const i = pipeline.stages.findIndex((st) => st.id === o.stageId);
+          const color = colorAt(pipeline.stages[i]?.color, i);
+          return (
+            <span className="relative inline-flex items-center gap-1 rounded-full ps-2 pe-1 py-0.5 text-xs" style={{ backgroundColor: `${color}1f`, color }}>
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+              <select
+                value={o.stageId}
+                aria-label="שלב"
+                onChange={(e) => {
+                  stagePrompt.afterMove(o.id, e.target.value);
+                  moveOpportunity(o.id, e.target.value);
+                }}
+                className="appearance-none bg-transparent outline-none cursor-pointer pe-1 py-0.5 text-xs"
+                style={{ color }}
+              >
+                {pipeline.stages.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name}
+                  </option>
+                ))}
+              </select>
+            </span>
+          );
+        },
+      },
       { id: "value", label: "שווי", group: dealGroup, mobile: true, cell: (_c, o) => (o && o.value > 0 ? <span className="text-neutral-600 dark:text-neutral-400">₪{o.value.toLocaleString("he-IL")}</span> : <span className="text-neutral-400">—</span>) },
       { id: "dealCreated", label: "נפתחה ב", group: dealGroup, nowrap: true, cell: (_c, o) => (o ? <span dir="ltr" className="text-neutral-600 dark:text-neutral-400">{formatEntered(o.createdAt)}</span> : null) },
       { id: "stageChangedAt", label: "עברה שלב ב", group: dealGroup, nowrap: true, cell: (_c, o) => (o ? <span dir="ltr" className="text-neutral-600 dark:text-neutral-400">{formatEntered(o.stageChangedAt)}</span> : null) },
     ] satisfies LeadCol[],
   });
-  const colPrefs = useColumnPrefs(`pipeline:${pipeline.id}`, catalog, ["value"]);
-  const colSpan = colPrefs.columns.length + 3;
+  const colPrefs = useColumnPrefs(`pipeline:${pipeline.id}`, catalog, ["phone", "stage", "handlingStatus", "createdAt", "owner", "tags", "value"]);
+  const colSpan = colPrefs.columns.length + 2;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [value, setValue] = useState("");
@@ -70,15 +104,15 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
 
   return (
     <div>
-      <div className="flex justify-end mb-2">
-        <ColumnPicker catalog={catalog} ids={colPrefs.ids} onChange={colPrefs.setIds} onReset={colPrefs.reset} isDefault={colPrefs.isDefault} fixed="ליד ושלב" />
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm text-neutral-500">{rows.length} עסקאות פתוחות</span>
+        <ColumnPicker catalog={catalog} ids={colPrefs.ids} onChange={colPrefs.setIds} onReset={colPrefs.reset} isDefault={colPrefs.isDefault} fixed="ליד" />
       </div>
       <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-neutral-50 dark:bg-neutral-900 text-neutral-500">
           <tr>
             <th className="text-start px-4 py-2 font-medium">ליד</th>
-            <th className="text-start px-4 py-2 font-medium">שלב</th>
             {colPrefs.columns.map((col) => (
               <th key={col.id} className={`text-start px-4 py-2 font-medium ${col.mobile ? "" : "hidden md:table-cell"}`}>
                 {col.label}
@@ -119,39 +153,18 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
                 </td>
               </tr>
             ) : (
-              <tr key={o.id} className="border-t border-neutral-200 dark:border-neutral-800 group">
+              <tr key={o.id} className="border-t border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 group">
                 <td className="px-4 py-3">
                   <Link href={`/contacts/${o.contactId}`} className="font-medium hover:underline">
-                    {contacts.find((c) => c.id === o.contactId)?.name ?? "—"}
+                    {lead?.name ?? "—"}
                   </Link>
                 </td>
-                <td className="px-4 py-3">
-                  <select
-                    value={o.stageId}
-                    onChange={(e) => {
-                      stagePrompt.afterMove(o.id, e.target.value);
-                      moveOpportunity(o.id, e.target.value);
-                    }}
-                    className="text-xs font-medium px-2 py-0.5 rounded-full border-none outline-none cursor-pointer"
-                    style={(() => {
-                      const i = pipeline.stages.findIndex((st) => st.id === o.stageId);
-                      const c = colorAt(pipeline.stages[i]?.color, i);
-                      return { color: c, backgroundColor: `${c}1f` };
-                    })()}
-                  >
-                    {pipeline.stages.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
                 {colPrefs.columns.map((col) => (
-                  <td key={col.id} className={`px-4 py-3 ${col.mobile ? "" : "hidden md:table-cell"} ${col.nowrap ? "whitespace-nowrap" : ""}`}>
+                  <td key={col.id} className={`px-4 py-3 ${col.mobile ? "text-end md:text-start" : "hidden md:table-cell"} ${col.nowrap ? "whitespace-nowrap" : ""}`}>
                     {lead ? col.cell(lead, o) : null}
                   </td>
                 ))}
-                <td className="px-4 py-3 text-left opacity-0 group-hover:opacity-100">
+                <td className="px-4 py-3 text-left whitespace-nowrap md:opacity-0 md:group-hover:opacity-100">
                   <button onClick={() => startEdit(o.id, lead?.name ?? o.title, o.value)} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-xs me-2">
                     עריכה
                   </button>
