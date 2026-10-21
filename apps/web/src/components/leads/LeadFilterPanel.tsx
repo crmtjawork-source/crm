@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Sheet } from "@/components/ui/Sheet";
-import { OPS, condComplete, type FilterCond, type FilterField, type FilterOp, type LeadFilter } from "@/lib/leadFilters";
+import { OPS, condComplete, type AnyFilterField as FilterField, type FilterCond, type FilterOp, type LeadFilter } from "@/lib/leadFilters";
 
 const input = "px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
 const NO_VALUE: FilterOp[] = ["empty", "not_empty", "is_true", "is_false", "today", "yesterday", "last_7", "last_30", "this_month", "last_month"];
@@ -13,10 +13,12 @@ const newId = () => Math.random().toString(36).slice(2, 10);
 export function LeadFilterPanel({
   fields,
   filter,
+  title = "סינון לידים",
   onApply,
   onClose,
 }: {
   fields: FilterField[];
+  title?: string;
   filter: LeadFilter;
   onApply: (f: LeadFilter) => void;
   onClose: () => void;
@@ -29,7 +31,7 @@ export function LeadFilterPanel({
   const remove = (id: string) => setDraft((d) => ({ ...d, conds: d.conds.filter((c) => c.id !== id) }));
 
   return (
-    <Sheet title="סינון לידים" onClose={onClose} wide>
+    <Sheet title={title} onClose={onClose} wide>
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-sm">
           <span>להציג לידים שעומדים ב</span>

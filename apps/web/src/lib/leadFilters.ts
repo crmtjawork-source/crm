@@ -1,7 +1,8 @@
-import type { Campaign, Contact, LeadStatus, Member, ObjectField, Opportunity, Pipeline } from "./types";
+import type { Campaign, Contact, CrmRecord, LeadStatus, Member, ObjectField, ObjectType, Opportunity, Pipeline, Task } from "./types";
 
-// Advanced lead filter: a list of conditions on any lead field (built-in or
-// custom), joined by "all" (AND) or "any" (OR).
+// Advanced filter: a list of conditions on any field of a record (built-in or
+// custom), joined by "all" (AND) or "any" (OR). Works for leads, deals,
+// custom-object records and tasks — each supplies its own list of fields.
 
 export type FieldKind = "enum" | "date" | "number" | "text" | "bool";
 
@@ -30,14 +31,17 @@ export type LeadFilter = { match: "all" | "any"; conds: FilterCond[] };
 
 type Value = string | string[] | undefined;
 
-export type FilterField = {
+export type FilterField<T = Contact> = {
   key: string;
   label: string;
   group: string;
   kind: FieldKind;
   options?: { value: string; label: string }[];
-  get: (c: Contact) => Value;
+  get: (record: T) => Value;
 };
+
+// A field of any record type, for code that only reads its description.
+export type AnyFilterField = FilterField<never>;
 
 export const OPS: Record<FieldKind, { op: FilterOp; label: string }[]> = {
   enum: [
@@ -208,15 +212,15 @@ function dateRange(op: FilterOp, values: string[], now = new Date()): [Date | nu
 
 const isEmpty = (v: Value) => (Array.isArray(v) ? v.length === 0 : !v || !v.trim());
 
-export function condComplete(field: FilterField | undefined, cond: FilterCond): boolean {
+export function condComplete(field: AnyFilterField | undefined, cond: FilterCond): boolean {
   if (!field) return false;
   if (["empty", "not_empty", "is_true", "is_false", "today", "yesterday", "last_7", "last_30", "this_month", "last_month"].includes(cond.op)) return true;
   if (cond.op === "between") return Boolean(cond.values[0] || cond.values[1]);
   return cond.values.some((v) => v.trim());
 }
 
-function test(field: FilterField, cond: FilterCond, c: Contact): boolean {
-  const v = field.get(c);
+function test<T>(field: FilterField<T>, cond: FilterCond, record: T): boolean {
+  const v = field.get(record);
   if (cond.op === "empty") return isEmpty(v);
   if (cond.op === "not_empty") return !isEmpty(v);
   const list = Array.isArray(v) ? v : v ? [v] : [];
@@ -242,7 +246,8 @@ function test(field: FilterField, cond: FilterCond, c: Contact): boolean {
     case "date": {
       const range = dateRange(cond.op, cond.values);
       if (!range || isEmpty(v)) return false;
-      const t = new Date(String(v)).getTime();
+      const raw = String(v);
+      const t = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00` : raw).getTime();
       if (Number.isNaN(t)) return false;
       return (!range[0] || t >= range[0].getTime()) && (!range[1] || t < range[1].getTime());
     }
@@ -259,7 +264,7 @@ function test(field: FilterField, cond: FilterCond, c: Contact): boolean {
 
 // Compiles a filter once into a fast per-lead predicate. Incomplete
 // conditions (no value picked yet) are ignored.
-export function compileFilter(filter: LeadFilter, fields: FilterField[]): (c: Contact) => boolean {
+export function compileFilter<T>(filter: LeadFilter, fields: FilterField<T>[]): (record: T) => boolean {
   const byKey = new Map(fields.map((f) => [f.key, f]));
   const active = filter.conds.flatMap((cond) => {
     const field = byKey.get(cond.field);
@@ -274,7 +279,7 @@ export function compileFilter(filter: LeadFilter, fields: FilterField[]): (c: Co
 const fmtDay = (s: string) => (s ? s.split("-").reverse().join("/") : "");
 
 // Short human label for a condition chip, e.g. "סטטוס ליד: ללא מענה 1, טופל".
-export function describeCond(field: FilterField | undefined, cond: FilterCond): string {
+export function describeCond(field: AnyFilterField | undefined, cond: FilterCond): string {
   if (!field) return "";
   const opLabel = OPS[field.kind].find((o) => o.op === cond.op)?.label ?? "";
   if (field.kind === "enum" && (cond.op === "in" || cond.op === "not_in")) {
@@ -290,3 +295,84 @@ export function describeCond(field: FilterField | undefined, cond: FilterCond): 
 }
 
 export const EMPTY_FILTER: LeadFilter = { match: "all", conds: [] };
+
+// ── Other record types ───────────────────────────────────────────────────────
+
+// Deals on one pipeline: the lead's own fields plus the deal's.
+export function buildDealFilterFields(
+  leadFields: FilterField[],
+  contactOf: (o: Opportunity) => Contact | undefined,
+  pipeline: Pipeline
+): FilterField<Opportunity>[] {
+  const group = "פרטי העסקה";
+  const viaLead = leadFields
+    .filter((f) => f.key !== "stage")
+    .map((f): FilterField<Opportunity> => ({ ...f, get: (o) => { const c = contactOf(o); return c ? f.get(c) : undefined; } }));
+  return [
+    { key: "deal:stage", label: "שלב", group, kind: "enum", options: pipeline.stages.map((st) => ({ value: st.id, label: st.name })), get: (o) => o.stageId },
+    { key: "deal:value", label: "שווי", group, kind: "number", get: (o) => (o.value ? String(o.value) : undefined) },
+    { key: "deal:createdAt", label: "נפתחה ב", group, kind: "date", get: (o) => o.createdAt },
+    { key: "deal:stageChangedAt", label: "עברה שלב ב", group, kind: "date", get: (o) => o.stageChangedAt },
+    { key: "deal:title", label: "כותרת העסקה", group, kind: "text", get: (o) => o.title },
+    ...viaLead,
+  ];
+}
+
+const norm = (v: CrmRecord["data"][string] | undefined): Value => {
+  if (v === null || v === undefined || v === "") return undefined;
+  if (Array.isArray(v)) return v;
+  return typeof v === "boolean" ? (v ? "true" : "false") : String(v);
+};
+
+// Records of a custom object (clients, properties…): every field the
+// business defined on it.
+export function buildRecordFilterFields(type: ObjectType, members: Member[]): FilterField<CrmRecord>[] {
+  const memberOptions = members.filter((m) => m.status === "active").map((m) => ({ value: m.email, label: m.name }));
+  const fields: FilterField<CrmRecord>[] = [];
+  for (const f of [...type.fields].sort((a, b) => a.position - b.position)) {
+    const key = `data:${f.key}`;
+    const group = f.section || "פרטים";
+    const get = (r: CrmRecord) => norm(r.data[f.key]);
+    switch (f.type) {
+      case "select":
+      case "multi_select":
+        fields.push({ key, label: f.label, group, kind: "enum", options: f.options.map((o) => ({ value: o.value, label: o.label })), get });
+        break;
+      case "user":
+        fields.push({ key, label: f.label, group, kind: "enum", options: memberOptions, get });
+        break;
+      case "number":
+      case "currency":
+        fields.push({ key, label: f.label, group, kind: "number", get });
+        break;
+      case "date":
+      case "datetime":
+        fields.push({ key, label: f.label, group, kind: "date", get });
+        break;
+      case "checkbox":
+        fields.push({ key, label: f.label, group, kind: "bool", get });
+        break;
+      case "relation":
+      case "contact":
+        break;
+      default:
+        fields.push({ key, label: f.label, group, kind: "text", get });
+    }
+  }
+  fields.push({ key: "createdAt", label: "נוצר ב", group: "כללי", kind: "date", get: (r) => r.createdAt });
+  fields.push({ key: "updatedAt", label: "עודכן ב", group: "כללי", kind: "date", get: (r) => r.updatedAt });
+  return fields;
+}
+
+export function buildTaskFilterFields(contacts: Contact[], members: Member[]): FilterField<Task>[] {
+  const group = "משימה";
+  const nameOf = new Map(contacts.map((c) => [c.id, c.name]));
+  return [
+    { key: "state", label: "מצב", group, kind: "enum", options: [{ value: "open", label: "פתוחה" }, { value: "done", label: "הושלמה" }], get: (t) => (t.done ? "done" : "open") },
+    { key: "dueDate", label: "תאריך יעד", group, kind: "date", get: (t) => t.dueDate },
+    { key: "assignee", label: "אחראי", group, kind: "enum", options: members.map((m) => ({ value: m.name, label: m.name })), get: (t) => t.assignee },
+    { key: "title", label: "כותרת", group, kind: "text", get: (t) => t.title },
+    { key: "lead", label: "ליד", group, kind: "text", get: (t) => (t.contactId ? nameOf.get(t.contactId) : undefined) },
+    { key: "createdAt", label: "נוצרה ב", group, kind: "date", get: (t) => t.createdAt },
+  ];
+}

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useStore } from "@/lib/store";
 import { PipelineTable } from "@/components/PipelineTable";
 import { downloadCsv } from "@/lib/exportCsv";
+import { buildDealFilterFields, buildFilterFields } from "@/lib/leadFilters";
+import { useRecordFilter } from "@/components/FilterBar";
 
 // @dnd-kit's internal id generator (useUniqueId) is a module-level counter
 // that never resets between requests on a long-lived server process, so
@@ -19,7 +21,7 @@ const PipelineBoard = dynamic(() => import("@/components/PipelineBoard").then((m
 });
 
 export default function PipelinePage() {
-  const { pipelines, contacts, opportunities, addOpportunity, addPipeline } = useStore();
+  const { pipelines, contacts, opportunities, addOpportunity, addPipeline, members, campaigns, leadStatuses, leadFields } = useStore();
   const [pipelineId, setPipelineId] = useState(pipelines[0]?.id ?? "");
   const pipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelines[0];
 
@@ -32,6 +34,13 @@ export default function PipelinePage() {
 
   const [showNewPipeline, setShowNewPipeline] = useState(false);
   const [newPipelineName, setNewPipelineName] = useState("");
+
+  const filterFields = useMemo(() => {
+    const leadSide = buildFilterFields({ contacts, leadFields, leadStatuses, pipelines, campaigns, members, dealOf: new Map() });
+    const byId = new Map(contacts.map((c) => [c.id, c]));
+    return buildDealFilterFields(leadSide, (o) => byId.get(o.contactId), pipeline ?? { id: "", name: "", stages: [] });
+  }, [contacts, leadFields, leadStatuses, pipelines, campaigns, members, pipeline]);
+  const dealFilter = useRecordFilter(`pipeline:${pipeline?.id ?? ""}`, filterFields, "סינון עסקאות");
 
   if (!pipeline) return null;
 
@@ -184,13 +193,21 @@ export default function PipelinePage() {
         </form>
       )}
 
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="חיפוש בפייפליין לפי שם או טלפון…"
-        className="w-full sm:w-72 px-3 py-1.5 mb-3 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
-      />
-      {view === "board" ? <PipelineBoard pipeline={pipeline} search={search} /> : <PipelineTable pipeline={pipeline} search={search} />}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="חיפוש בפייפליין לפי שם או טלפון…"
+          className="w-full sm:w-72 px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+        />
+        {dealFilter.controls}
+      </div>
+      {dealFilter.chips}
+      {view === "board" ? (
+        <PipelineBoard pipeline={pipeline} search={search} filter={dealFilter.matches} />
+      ) : (
+        <PipelineTable pipeline={pipeline} search={search} filter={dealFilter.matches} />
+      )}
     </div>
   );
 }

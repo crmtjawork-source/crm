@@ -293,7 +293,7 @@ function AddStageColumn({ pipelineId }: { pipelineId: string }) {
 
 // Deals shown on the board: the latest moved first, optionally filtered by a
 // search over the lead's name / phone.
-export function PipelineBoard({ pipeline, search = "" }: { pipeline: Pipeline; search?: string }) {
+export function PipelineBoard({ pipeline, search = "", filter }: { pipeline: Pipeline; search?: string; filter?: (o: Opportunity) => boolean }) {
   const { opportunities: all, contacts, moveOpportunity } = useStore();
   const stagePrompt = useStageMovePrompt();
   const needle = search.trim().toLowerCase();
@@ -301,6 +301,7 @@ export function PipelineBoard({ pipeline, search = "" }: { pipeline: Pipeline; s
   const contactById = new Map(contacts.map((c) => [c.id, c]));
   const opportunities = all
     .filter((o) => {
+      if (filter && !filter(o)) return false;
       if (!needle) return true;
       const c = contactById.get(o.contactId);
       return (

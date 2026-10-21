@@ -6,46 +6,20 @@ import { useStore } from "@/lib/store";
 import { ColorChip, colorAt } from "@/components/ui/ColorChip";
 import { useAuth } from "@/lib/auth";
 import { downloadCsv } from "@/lib/exportCsv";
-import { buildFilterFields, compileFilter, condComplete, describeCond, EMPTY_FILTER, type LeadFilter } from "@/lib/leadFilters";
-import { LeadFilterPanel } from "@/components/leads/LeadFilterPanel";
+import { buildFilterFields } from "@/lib/leadFilters";
+import { useRecordFilter } from "@/components/FilterBar";
 import { ColumnPicker } from "@/components/ColumnPicker";
 import { buildLeadCols, formatEntered, useColumnPrefs, type LeadCol } from "@/lib/leadColumns";
 
 const PAGE_SIZE = 100;
 
-type SavedView = { name: string; filter: LeadFilter };
-
-// The active filter survives leaving the list (per tab); saved views are kept
-// per browser for each business.
-function readJson<T>(storage: "local" | "session", key: string, fallback: T): T {
-  try {
-    const raw = (storage === "local" ? localStorage : sessionStorage).getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-function writeJson(storage: "local" | "session", key: string, value: unknown) {
-  try {
-    (storage === "local" ? localStorage : sessionStorage).setItem(key, JSON.stringify(value));
-  } catch {
-    // storage unavailable (private mode) — the filter just isn't remembered
-  }
-}
-
 export default function ContactsPage() {
   const { contacts, members, campaigns, opportunities, pipelines, leadStatuses, leadFields } = useStore();
-  const { session, membership } = useAuth();
-  const orgKey = membership?.orgId ?? "";
+  const { session } = useAuth();
   const [q, setQ] = useState("");
   const isAgent = members.find((m) => m.email.toLowerCase() === (session?.user.email ?? "").toLowerCase())?.role === "agent";
   const [owner, setOwner] = useState(isAgent ? "mine" : "all"); // all | mine | none | <email>
   const [sortBy, setSortBy] = useState<"activity" | "created">("activity");
-  const [filter, setFilterState] = useState<LeadFilter>(() => readJson("session", `crm-lead-filter:${orgKey}`, EMPTY_FILTER));
-  const [views, setViewsState] = useState<SavedView[]>(() => readJson("local", `crm-lead-views:${orgKey}`, []));
-  const [viewName, setViewName] = useState("");
-  const [panelOpen, setPanelOpen] = useState(false);
-
   // Each lead's current deal: the open one if any, else the latest.
   const dealOf = useMemo(() => {
     const m = new Map<string, (typeof opportunities)[number]>();
@@ -91,26 +65,7 @@ export default function ContactsPage() {
     () => buildFilterFields({ contacts, leadFields, leadStatuses, pipelines, campaigns, members, dealOf }),
     [contacts, leadFields, leadStatuses, pipelines, campaigns, members, dealOf]
   );
-  const fieldsByKey = new Map(fields.map((f) => [f.key, f]));
-  const matches = useMemo(() => compileFilter(filter, fields), [filter, fields]);
-  const activeConds = filter.conds.filter((c) => condComplete(fieldsByKey.get(c.field), c));
-
-  function setFilter(f: LeadFilter, name = "") {
-    setFilterState(f);
-    setViewName(name);
-    setVisible(PAGE_SIZE);
-    writeJson("session", `crm-lead-filter:${orgKey}`, f);
-  }
-  function setViews(v: SavedView[]) {
-    setViewsState(v);
-    writeJson("local", `crm-lead-views:${orgKey}`, v);
-  }
-  function saveView() {
-    const name = window.prompt("שם לתצוגה (למשל: לידים חדשים מהשבוע)", viewName)?.trim();
-    if (!name) return;
-    setViews([...views.filter((v) => v.name !== name), { name, filter }]);
-    setViewName(name);
-  }
+  const { matches, controls: filterControls, chips: filterChips } = useRecordFilter("leads", fields, "סינון לידים");
 
   const myEmail = session?.user.email?.toLowerCase() ?? "";
   const ownerName = (email?: string) =>
@@ -196,31 +151,7 @@ export default function ContactsPage() {
               </option>
             ))}
           </select>
-          <button
-            onClick={() => setPanelOpen(true)}
-            className={`px-3 py-1.5 text-sm rounded-md border ${
-              activeConds.length ? "border-neutral-900 dark:border-white font-medium" : "border-neutral-200 dark:border-neutral-800"
-            }`}
-          >
-            ⚲ סינון{activeConds.length ? ` (${activeConds.length})` : ""}
-          </button>
-          {views.length > 0 && (
-            <select
-              value={viewName}
-              onChange={(e) => {
-                const v = views.find((x) => x.name === e.target.value);
-                setFilter(v?.filter ?? EMPTY_FILTER, v?.name ?? "");
-              }}
-              className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent max-w-48"
-            >
-              <option value="">תצוגות שמורות</option>
-              {views.map((v) => (
-                <option key={v.name} value={v.name}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
-          )}
+          {filterControls}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as "activity" | "created")}
@@ -233,50 +164,7 @@ export default function ContactsPage() {
         <span className="text-sm text-neutral-500">{filtered.length} מתוך {contacts.length}</span>
       </div>
 
-      {activeConds.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-4 -mt-1 text-xs">
-          {activeConds.map((c, i) => (
-            <span key={c.id} className="inline-flex items-center gap-1">
-              {i > 0 && <span className="text-neutral-400">{filter.match === "all" ? "וגם" : "או"}</span>}
-              <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-neutral-800 ps-2.5 pe-1 py-1">
-                <button onClick={() => setPanelOpen(true)} className="hover:underline">
-                  {describeCond(fieldsByKey.get(c.field), c)}
-                </button>
-                <button
-                  onClick={() => setFilter({ ...filter, conds: filter.conds.filter((x) => x.id !== c.id) })}
-                  aria-label="הסרת התנאי"
-                  className="text-neutral-400 hover:text-red-500 px-1"
-                >
-                  ×
-                </button>
-              </span>
-            </span>
-          ))}
-          <button onClick={saveView} className="text-neutral-500 hover:underline ms-1">
-            {viewName ? "עדכון התצוגה" : "שמירה כתצוגה"}
-          </button>
-          {viewName && (
-            <button onClick={() => window.confirm(`למחוק את התצוגה "${viewName}"?`) && (setViews(views.filter((v) => v.name !== viewName)), setViewName(""))} className="text-neutral-400 hover:text-red-500 hover:underline">
-              מחיקת התצוגה
-            </button>
-          )}
-          <button onClick={() => setFilter(EMPTY_FILTER)} className="text-neutral-400 hover:underline">
-            ניקוי
-          </button>
-        </div>
-      )}
-
-      {panelOpen && (
-        <LeadFilterPanel
-          fields={fields}
-          filter={filter}
-          onClose={() => setPanelOpen(false)}
-          onApply={(f) => {
-            setFilter(f, viewName);
-            setPanelOpen(false);
-          }}
-        />
-      )}
+      {filterChips}
 
       <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden">
         <table className="w-full text-sm">

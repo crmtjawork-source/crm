@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { TaskRow } from "@/components/leads/TaskRow";
 import type { Task } from "@/lib/types";
+import { buildTaskFilterFields } from "@/lib/leadFilters";
+import { useRecordFilter } from "@/components/FilterBar";
 
 const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -17,7 +19,9 @@ export default function TasksPage() {
   const [showDone, setShowDone] = useState(false);
 
   const today = localDay(new Date());
-  const visible = tasks.filter((t) => !mine || !myName || t.assignee === myName);
+  const filterFields = useMemo(() => buildTaskFilterFields(contacts, members), [contacts, members]);
+  const taskFilter = useRecordFilter("tasks", filterFields, "סינון משימות");
+  const visible = tasks.filter((t) => (!mine || !myName || t.assignee === myName) && taskFilter.matches(t));
   const open = visible.filter((t) => !t.done).sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
   const groups: [string, Task[]][] = [
     ["באיחור", open.filter((t) => t.dueDate && t.dueDate < today)],
@@ -82,6 +86,9 @@ export default function TasksPage() {
           הוספה
         </button>
       </form>
+
+      <div className="flex flex-wrap items-center gap-2 mb-3">{taskFilter.controls}</div>
+      {taskFilter.chips}
 
       {open.length === 0 && <p className="text-sm text-neutral-400 mb-6">אין משימות פתוחות.</p>}
       {groups

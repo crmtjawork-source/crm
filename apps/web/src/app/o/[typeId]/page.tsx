@@ -9,6 +9,8 @@ import { recordTitles, updateRecord, useRecords } from "@/lib/useRecords";
 import { FieldValue } from "@/components/objects/FieldValue";
 import { NewRecordSheet } from "@/components/objects/NewRecordSheet";
 import type { CrmRecord } from "@/lib/types";
+import { buildRecordFilterFields } from "@/lib/leadFilters";
+import { useRecordFilter } from "@/components/FilterBar";
 
 const field = "px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
@@ -28,6 +30,8 @@ export default function ObjectListPage() {
   const ownerField = type?.fields.find((f) => f.type === "user");
 
   const columns = useMemo(() => (type ? type.fields.filter((f) => f.showInList && f.key !== type.titleField) : []), [type]);
+  const filterFields = useMemo(() => (type ? buildRecordFilterFields(type, members) : []), [type, members]);
+  const recordFilter = useRecordFilter(`object:${typeId}`, filterFields, `סינון ${type?.name ?? ""}`);
   const contactNames = useMemo(() => Object.fromEntries(contacts.map((c) => [c.id, c.name])), [contacts]);
 
   useEffect(() => {
@@ -42,6 +46,7 @@ export default function ObjectListPage() {
   const filtered = (records ?? []).filter(
     (r) =>
       matchesSearch(type, r, q.trim()) &&
+      recordFilter.matches(r) &&
       (!stageFilter || r.data[stage!.key] === stageFilter) &&
       (!ownerFilter || r.data[ownerField!.key] === ownerFilter)
   );
@@ -84,6 +89,7 @@ export default function ObjectListPage() {
             ))}
           </select>
         )}
+        {recordFilter.controls}
         {ownerField && (
           <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)} className={field}>
             <option value="">{ownerField.label}: כולם</option>
@@ -97,6 +103,8 @@ export default function ObjectListPage() {
           </select>
         )}
       </div>
+
+      {recordFilter.chips}
 
       {!records ? (
         <p className="text-sm text-neutral-400">טוען…</p>

@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { Pipeline } from "@/lib/types";
+import type { Opportunity, Pipeline } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { colorAt } from "@/components/ui/ColorChip";
 import { ColumnPicker } from "@/components/ColumnPicker";
 import { buildLeadCols, formatEntered, useColumnPrefs, type LeadCol } from "@/lib/leadColumns";
 
-export function PipelineTable({ pipeline, search = "" }: { pipeline: Pipeline; search?: string }) {
+export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pipeline; search?: string; filter?: (o: Opportunity) => boolean }) {
   const { opportunities, contacts, moveOpportunity, updateOpportunity, deleteOpportunity, members, currentMemberId, leadFields, campaigns, leadStatuses } = useStore();
   const stagePrompt = useStageMovePrompt();
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
@@ -18,6 +18,7 @@ export function PipelineTable({ pipeline, search = "" }: { pipeline: Pipeline; s
   const rows = opportunities
     .filter((o) => o.pipelineId === pipeline.id && o.status === "open")
     .filter((o) => {
+      if (filter && !filter(o)) return false;
       if (!needle) return true;
       const c = contacts.find((x) => x.id === o.contactId);
       return (c?.name ?? "").toLowerCase().includes(needle) || (digits.length >= 3 && (c?.phone ?? "").replace(/\D/g, "").includes(digits));
