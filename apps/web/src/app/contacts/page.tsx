@@ -8,6 +8,8 @@ import { useAuth } from "@/lib/auth";
 import { downloadCsv } from "@/lib/exportCsv";
 import { buildFilterFields, compileFilter, condComplete, describeCond, EMPTY_FILTER, type LeadFilter } from "@/lib/leadFilters";
 import { LeadFilterPanel } from "@/components/leads/LeadFilterPanel";
+import { ColumnPicker } from "@/components/ColumnPicker";
+import { buildLeadCols, formatEntered, useColumnPrefs, type LeadCol } from "@/lib/leadColumns";
 
 const PAGE_SIZE = 100;
 
@@ -30,9 +32,6 @@ function writeJson(storage: "local" | "session", key: string, value: unknown) {
     // storage unavailable (private mode) — the filter just isn't remembered
   }
 }
-
-const formatEntered = (iso: string) =>
-  new Date(iso).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 export default function ContactsPage() {
   const { contacts, members, campaigns, opportunities, pipelines, leadStatuses, leadFields } = useStore();
@@ -58,7 +57,6 @@ export default function ContactsPage() {
   }, [opportunities]);
   const stageName = new Map(pipelines.flatMap((p) => p.stages.map((st) => [st.id, st.name] as const)));
   const stageColor = new Map(pipelines.flatMap((p) => p.stages.map((st, i) => [st.id, colorAt(st.color, i)] as const)));
-  const statusColor = new Map(leadStatuses.map((st, i) => [st.name, colorAt(st.color, i)] as const));
   const OUTCOME_COLOR: Record<string, string> = { won: "#16a34a", lost: "#64748b", abandoned: "#94a3b8" };
   const stageChipColor = (contactId: string) => {
     const d = dealOf.get(contactId);
@@ -71,6 +69,23 @@ export default function ContactsPage() {
     return d.status === "open" ? stageName.get(d.stageId) ?? "" : OUTCOME[d.status];
   };
   const [visible, setVisible] = useState(PAGE_SIZE);
+
+  const catalog = buildLeadCols({
+    leadFields,
+    members,
+    campaigns,
+    leadStatuses,
+    extra: [
+      {
+        id: "stage",
+        label: "שלב",
+        group: "פרטי ליד",
+        nowrap: true,
+        cell: (c) => <ColorChip label={stageLabel(c.id)} color={stageChipColor(c.id)} />,
+      } satisfies LeadCol,
+    ],
+  });
+  const colPrefs = useColumnPrefs("leads", catalog, ["phone", "stage", "handlingStatus", "createdAt", "owner", "tags"]);
 
   const fields = useMemo(
     () => buildFilterFields({ contacts, leadFields, leadStatuses, pipelines, campaigns, members, dealOf }),
@@ -131,6 +146,7 @@ export default function ContactsPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">לידים</h1>
         <div className="flex gap-2">
+          <ColumnPicker catalog={catalog} ids={colPrefs.ids} onChange={colPrefs.setIds} onReset={colPrefs.reset} isDefault={colPrefs.isDefault} fixed="שם" />
           <button
             onClick={handleExport}
             className="hidden md:inline-block text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800"
@@ -267,12 +283,11 @@ export default function ContactsPage() {
           <thead className="bg-neutral-50 dark:bg-neutral-900 text-neutral-500">
             <tr>
               <th className="text-start px-4 py-2 font-medium">שם</th>
-              <th className="text-start px-4 py-2 font-medium">טלפון</th>
-              <th className="text-start px-4 py-2 font-medium hidden md:table-cell">שלב</th>
-              <th className="text-start px-4 py-2 font-medium hidden md:table-cell">סטטוס ליד</th>
-              <th className="text-start px-4 py-2 font-medium hidden md:table-cell">תאריך כניסה</th>
-              <th className="text-start px-4 py-2 font-medium hidden md:table-cell">בעלים</th>
-              <th className="text-start px-4 py-2 font-medium hidden md:table-cell">תגיות</th>
+              {colPrefs.columns.map((col) => (
+                <th key={col.id} className={`text-start px-4 py-2 font-medium ${col.mobile ? "" : "hidden md:table-cell"}`}>
+                  {col.label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -286,42 +301,16 @@ export default function ContactsPage() {
                     {c.name}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 text-end md:text-start" dir="ltr">
-                  {c.phone ? (
-                    <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`} className="hover:underline">
-                      {c.phone}
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td className="px-4 py-3 hidden md:table-cell whitespace-nowrap">
-                  <ColorChip label={stageLabel(c.id)} color={stageChipColor(c.id)} />
-                </td>
-                <td className="px-4 py-3 hidden md:table-cell whitespace-nowrap">
-                  <ColorChip label={c.handlingStatus ?? ""} color={statusColor.get(c.handlingStatus ?? "")} />
-                </td>
-                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell whitespace-nowrap" dir="ltr">
-                  {formatEntered(c.createdAt)}
-                </td>
-                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell">{ownerName(c.ownerEmail) || "—"}</td>
-                <td className="px-4 py-3 hidden md:table-cell">
-                  <div className="flex gap-1">
-                    {c.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </td>
+                {colPrefs.columns.map((col) => (
+                  <td key={col.id} className={`px-4 py-3 ${col.mobile ? "text-end md:text-start" : "hidden md:table-cell"} ${col.nowrap ? "whitespace-nowrap" : ""}`}>
+                    {col.cell(c)}
+                  </td>
+                ))}
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={colPrefs.columns.length + 1} className="px-4 py-6 text-center text-neutral-400">
                   אין תוצאות.
                 </td>
               </tr>
