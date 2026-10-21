@@ -373,7 +373,7 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
           {isAdmin ? (
             <>
               עוד לא מחובר מספר עסקי. מחברים אותו ב
-              <Link href="/settings" className="underline mx-1">
+              <Link href="/settings/integrations" className="underline mx-1">
                 הגדרות ← מספר העסק
               </Link>
               ואז כל השיחות שלו יופיעו כאן.

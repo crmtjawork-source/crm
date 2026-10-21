@@ -4,7 +4,7 @@ import { exchangeCode, readState } from "@/lib/server/googleCalendar";
 // Google redirects here after consent. The signed state says who started it.
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const back = (result: string) => Response.redirect(`${url.origin}/settings?google=${result}`, 302);
+  const back = (result: string) => Response.redirect(`${url.origin}/settings/calendar?google=${result}`, 302);
   const state = readState(url.searchParams.get("state") ?? "");
   const code = url.searchParams.get("code");
   if (!state || !code) return back(url.searchParams.get("error") === "access_denied" ? "denied" : "error");

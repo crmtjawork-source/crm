@@ -67,7 +67,7 @@ export default function DocumentsPage() {
     <div className="max-w-6xl">
       <div className="flex flex-wrap items-center gap-2 mb-1">
         <h1 className="text-2xl font-bold me-auto">הצעות והסכמים</h1>
-        <Link href="/settings#documents" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+        <Link href="/settings/documents" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
           ניהול תבניות
         </Link>
         <button onClick={() => setPicking(true)} className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
