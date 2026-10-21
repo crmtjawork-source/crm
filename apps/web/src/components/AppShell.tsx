@@ -75,7 +75,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     canSeeHref(role, item.href)
   );
   const navLinks = (
-    <nav className="flex flex-col gap-1 px-2">
+    // Scrolls on its own when the menu is taller than the screen.
+    <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-1 px-2 pb-2">
       {nav.map((item) => {
         const active = pathname.startsWith(item.href);
         return (

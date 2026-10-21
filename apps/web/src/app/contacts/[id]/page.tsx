@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
+import { useLeadChatHref } from "@/lib/useMyGateway";
 import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
 import { QuickActions } from "@/components/leads/QuickActions";
 import { LeadDocuments } from "@/components/documents/LeadDocuments";
@@ -40,6 +41,7 @@ export default function ContactDetailPage() {
     setHandlingStatus,
   } = useStore();
   const contact = getContact(id);
+  const chatHref = useLeadChatHref(id);
 
   useEffect(() => {
     loadActivitiesFor(id);
@@ -50,7 +52,6 @@ export default function ContactDetailPage() {
   const [name, setName] = useState(contact?.name ?? "");
   const [phone, setPhone] = useState(contact?.phone ?? "");
   const [email, setEmail] = useState(contact?.email ?? "");
-  const [source, setSource] = useState(contact?.source ?? "");
 
   const [newTag, setNewTag] = useState("");
   const [noteText, setNoteText] = useState("");
@@ -67,7 +68,6 @@ export default function ContactDetailPage() {
     setName(contact.name);
     setPhone(contact.phone ?? "");
     setEmail(contact.email ?? "");
-    setSource(contact.source ?? "");
     setEditingInfo(true);
   }
 
@@ -78,7 +78,6 @@ export default function ContactDetailPage() {
       name: name.trim(),
       phone: phone.trim() || undefined,
       email: email.trim() || undefined,
-      source: source.trim() || undefined,
     });
     setEditingInfo(false);
   }
@@ -131,12 +130,6 @@ export default function ContactDetailPage() {
                 placeholder="אימייל"
                 className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
               />
-              <input
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                placeholder="מקור"
-                className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
-              />
             </div>
             <div className="flex gap-2">
               <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
@@ -152,7 +145,9 @@ export default function ContactDetailPage() {
             <h1 className="text-xl font-bold mb-1">{contact.name}</h1>
             <p className="text-sm text-neutral-500">
               <span dir="ltr">{contact.phone ?? "אין טלפון"}</span> · {contact.email ?? "אין אימייל"}
-              {contact.source && <> · {contact.source}</>}
+            </p>
+            <p className="text-xs text-neutral-400 mt-0.5">
+              נכנס ב־{new Date(contact.createdAt).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
             </p>
           </div>
         )}
@@ -161,7 +156,7 @@ export default function ContactDetailPage() {
       {!editingInfo && (
         <div className="flex gap-3 mb-4 text-xs">
           {contact.phone && (
-            <Link href={`/inbox?contact=${contact.id}`} className="text-emerald-600 hover:underline">
+            <Link href={chatHref} className="text-emerald-600 hover:underline">
               שיחה בוואטסאפ
             </Link>
           )}

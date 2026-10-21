@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { apiPost, ApiError } from "@/lib/api";
-import { useMyGateway } from "@/lib/useMyGateway";
+import { useLeadChatHref, useMyGateway } from "@/lib/useMyGateway";
 import type { Appointment, Contact } from "@/lib/types";
 import { WhatsAppSheet } from "./WhatsAppSheet";
 import { MeetingSheet } from "./MeetingSheet";
@@ -23,6 +24,7 @@ export function QuickActions({ contact }: { contact: Contact }) {
   const [scheduling, setScheduling] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const { ready: autoSend } = useMyGateway();
+  const chatHref = useLeadChatHref(contact.id);
   const agentName = members.find((m) => m.id === currentMemberId)?.name;
   const templateFor = (action: string) => messageTemplates.find((t) => t.quickAction === action)?.id;
 
@@ -104,10 +106,10 @@ export function QuickActions({ contact }: { contact: Contact }) {
           <span className="text-lg">📞</span>
           התקשרות
         </a>
-        <button onClick={() => setComposer({})} disabled={!contact.phone} className={btn}>
+        <Link href={chatHref} aria-disabled={!contact.phone} className={`${btn} ${contact.phone ? "" : "pointer-events-none opacity-40"}`}>
           <span className="text-lg">💬</span>
           וואטסאפ
-        </button>
+        </Link>
         <button onClick={noAnswer} className={btn}>
           <span className="text-lg">📵</span>
           ללא מענה{contact.noAnswerCount ? ` (${contact.noAnswerCount})` : ""}

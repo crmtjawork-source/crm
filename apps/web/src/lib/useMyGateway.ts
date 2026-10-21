@@ -18,3 +18,13 @@ export function useSendChannels() {
   const business = linked.filter((c) => !c.ownerMembershipId);
   return { mine, business, all: [...(mine ? [mine] : []), ...business] };
 }
+
+// Where "WhatsApp" on a lead leads: the member's own chat with that lead when
+// their WhatsApp is linked, else the business number's chat, else the
+// personal page (which offers to link it first).
+export function useLeadChatHref(contactId: string) {
+  const { channels } = useStore();
+  const { ready } = useMyGateway();
+  const business = channels.some((c) => !c.ownerMembershipId && c.active);
+  return `${ready || !business ? "/my-whatsapp" : "/inbox"}?contact=${contactId}`;
+}
