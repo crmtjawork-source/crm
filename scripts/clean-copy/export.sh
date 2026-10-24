@@ -45,7 +45,7 @@ sed -i '' -e 's#// Invested stopped using this stage (2026-10-20); its deals sit
 
 echo "3) scanning for secrets / production / tenant references"
 fail=0
-PATTERNS='sbp_[A-Za-z0-9]{20,}|vcp_[A-Za-z0-9]{10,}|sb_secret_|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}|ghp_|gho_|github_pat_|GOCSPX-|AIza[0-9A-Za-z_-]{30}|BEGIN [A-Z ]*PRIVATE KEY|tpwdunomjelmpgxkmuqx|91\.98\.44\.94|sslip\.io|crm-crmtja|crmtja|investedgroup|אינווסטד|[Ii]nvested|claude\.ai/code/artifact|More-Than|Malia'
+PATTERNS='sbp_[A-Za-z0-9]{20,}|vcp_[A-Za-z0-9]{10,}|sb_secret_|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}|ghp_|gho_|github_pat_|GOCSPX-|AIza[0-9A-Za-z_-]{30}|BEGIN [A-Z ]*PRIVATE KEY|tpwdunomjelmpgxkmuqx|91[.-]98[.-]44[.-]94|crm-crmtja|crmtja|investedgroup|אינווסטד|[Ii]nvested|claude\.ai/code/artifact|More-Than|Malia'
 if grep -rInE --exclude-dir=.git -- "$PATTERNS" "$DEST"; then
   echo "!! pattern hits above" >&2; fail=1
 fi
