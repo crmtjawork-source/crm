@@ -1,0 +1,4 @@
+# Automatic HTTPS (Let's Encrypt). Replace with your hostname.
+evo.example.com {
+  reverse_proxy evolution:8080
+}

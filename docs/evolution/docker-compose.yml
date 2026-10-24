@@ -1,0 +1,49 @@
+# Self-hosted Evolution API (WhatsApp gateway) for the CRM.
+# A 2 GB / 2 vCPU VPS (e.g. Hetzner CX22/CPX12, Ubuntu 24.04) is enough.
+#
+#   1. Point a DNS name at the server (or use <ip-with-dashes>.sslip.io).
+#   2. cp evolution.env.example .env  and fill it in.
+#   3. Edit the hostname in Caddyfile.
+#   4. docker compose up -d
+#
+# Then in the CRM's env: EVOLUTION_URL=https://<host>  EVOLUTION_API_KEY=<AUTHENTICATION_API_KEY>
+services:
+  evolution:
+    image: evoapicloud/evolution-api:v2.3.7
+    restart: unless-stopped
+    env_file: .env
+    depends_on: [postgres, redis]
+    volumes:
+      - evolution_instances:/evolution/instances
+      # GIF playback patch (optional, see HANDOVER.md §6):
+      # - ./patches/main.js:/evolution/dist/main.js:ro
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: evolution
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+
+volumes:
+  evolution_instances:
+  pg_data:
+  redis_data:
+  caddy_data:
