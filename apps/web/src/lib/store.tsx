@@ -1085,6 +1085,8 @@ export function StoreProvider({
     if (error || !data) throw error;
     const opp = mapOpportunity(data);
     setState((s) => ({ ...s, opportunities: [...s.opportunities, opp] }));
+    // A deal entering a stage is a stage change too (same as moving into it).
+    await runAutomations("stage_change", o.contactId, { pipelineId: o.pipelineId, stageId: o.stageId });
     return opp;
   };
 

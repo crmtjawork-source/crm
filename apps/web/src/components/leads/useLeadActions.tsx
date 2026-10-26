@@ -72,7 +72,7 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
     const attempt = Math.max(contact.noAnswerCount, fromStatus) + 1;
     await updateContact(contact.id, { noAnswerCount: attempt });
     await addNote(contact.id, `📵 ללא מענה — ניסיון ${attempt}${agentName ? ` (${agentName})` : ""}`);
-    if (!moved) await moveTo(STAGE_FOR.noAnswer, true);
+    const movedNow = moved || (await moveTo(STAGE_FOR.noAnswer, true));
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     await addTask({ title: `לחייג שוב ל${contact.name} (ניסיון ${attempt + 1})`, contactId: contact.id, assignee: agentName, dueDate: localDay(tomorrow) });
@@ -80,11 +80,13 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
     // automation sends a message on that status, let it do the sending.
     const statusName = leadStatuses.find((st) => st.name === `ללא מענה ${attempt}`)?.name;
     if (statusName) await setHandlingStatus(contact.id, statusName);
+    // Either the new status or the "no answer" stage the deal just entered may have an automation that sends.
     const automated =
-      statusName &&
-      automations.some((a) => a.active && a.trigger.type === "status_changed" && a.trigger.status === statusName && a.steps.some((st) => st.type === "send_message"));
+      (statusName &&
+        automations.some((a) => a.active && a.trigger.type === "status_changed" && a.trigger.status === statusName && a.steps.some((st) => st.type === "send_message"))) ||
+      (movedNow && stageAutomated(STAGE_FOR.noAnswer));
     if (automated) {
-      setNotice({ ok: true, text: `הסטטוס עודכן ל"${statusName}" — ההודעה נשלחת באוטומציה` });
+      setNotice({ ok: true, text: statusName ? `הסטטוס עודכן ל"${statusName}" — ההודעה נשלחת באוטומציה` : 'הליד עבר לשלב "ללא מענה" — ההודעה נשלחת באוטומציה' });
       return;
     }
     await deliver(templateFor(`no_answer_${Math.min(attempt, 4)}`));
