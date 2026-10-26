@@ -12,17 +12,24 @@ export default function NewContactPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [source, setSource] = useState("");
+  const [busy, setBusy] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
-    const contact = await addContact({
-      name: name.trim(),
-      phone: phone.trim() || undefined,
-      email: email.trim() || undefined,
-      source: source.trim() || undefined,
-    });
-    router.push(`/contacts/${contact.id}`);
+    if (!name.trim() || busy) return; // a double click must not create the lead twice
+    setBusy(true);
+    try {
+      const contact = await addContact({
+        name: name.trim(),
+        phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
+        source: source.trim() || undefined,
+      });
+      router.push(`/contacts/${contact.id}`);
+    } catch (err) {
+      setBusy(false);
+      throw err;
+    }
   }
 
   return (
@@ -36,9 +43,10 @@ export default function NewContactPage() {
         <Field label="מקור" value={source} onChange={setSource} placeholder="פייסבוק, אתר, הפניה…" />
         <button
           type="submit"
-          className="px-4 py-2 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium"
+          disabled={busy}
+          className="px-4 py-2 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium disabled:opacity-50"
         >
-          שמירה
+          {busy ? "שומר…" : "שמירה"}
         </button>
       </form>
     </div>
