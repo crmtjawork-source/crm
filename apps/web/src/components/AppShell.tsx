@@ -27,7 +27,6 @@ const NAV = [
 ];
 
 const MOBILE_TABS = [
-  { href: "/contacts", label: "לידים", icon: "👤" },
   { href: "/tasks", label: "משימות", icon: "✓" },
   { href: "/calendar", label: "יומן", icon: "📅" },
   { href: "/pipeline", label: "פייפליין", icon: "▦" },
@@ -71,14 +70,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // The business's own objects sit right after leads.
   const role = effectiveRole(currentMember, roles);
-  const nav = [NAV[0], NAV[1], ...objectTypes.map((t) => ({ href: `/o/${t.id}`, label: `${t.icon ? `${t.icon} ` : ""}${t.name}` })), ...NAV.slice(2)].filter((item) =>
-    canSeeHref(role, item.href)
-  );
+  // The leads list isn't in the menu — the pipeline table covers it (the
+  // page itself stays reachable from the pipeline).
+  const pipelineItem = NAV.find((i) => i.href === "/pipeline")!;
+  const nav = [
+    NAV[0],
+    pipelineItem,
+    ...objectTypes.map((t) => ({ href: `/o/${t.id}`, label: `${t.icon ? `${t.icon} ` : ""}${t.name}` })),
+    ...NAV.slice(1).filter((i) => i.href !== "/contacts" && i.href !== "/pipeline"),
+  ].filter((item) => canSeeHref(role, item.href));
   const navLinks = (
     // Scrolls on its own when the menu is taller than the screen.
     <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-1 px-2 pb-2">
       {nav.map((item) => {
-        const active = pathname.startsWith(item.href);
+        // A lead's card belongs to the pipeline entry.
+        const active = pathname.startsWith(item.href) || (item.href === "/pipeline" && pathname.startsWith("/contacts"));
         return (
           <Link
             key={item.href}
@@ -154,9 +160,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </div>
 
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-4 border-t border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-950/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-3 border-t border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-950/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
         {MOBILE_TABS.filter((item) => canSeeHref(role, item.href)).map((item) => {
-          const active = pathname.startsWith(item.href);
+          const active = pathname.startsWith(item.href) || (item.href === "/pipeline" && pathname.startsWith("/contacts"));
           return (
             <Link key={item.href} href={item.href} className={`flex flex-col items-center py-2 text-[11px] ${active ? "text-neutral-900 dark:text-white font-semibold" : "text-neutral-400"}`}>
               <span className="text-lg leading-none mb-0.5">{item.icon}</span>

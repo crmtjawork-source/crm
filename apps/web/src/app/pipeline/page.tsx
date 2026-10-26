@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useStore } from "@/lib/store";
 import { PipelineTable } from "@/components/PipelineTable";
@@ -20,13 +21,33 @@ const PipelineBoard = dynamic(() => import("@/components/PipelineBoard").then((m
   loading: () => <div className="text-sm text-neutral-400 p-6">טוען…</div>,
 });
 
+const remembered = (key: string): string | null => {
+  try {
+    return sessionStorage.getItem(`crm-pipeline-${key}`);
+  } catch {
+    return null;
+  }
+};
+const remember = (key: string, value: string) => {
+  try {
+    sessionStorage.setItem(`crm-pipeline-${key}`, value);
+  } catch {
+    // storage unavailable — just not remembered
+  }
+};
+
 export default function PipelinePage() {
   const { pipelines, contacts, opportunities, addOpportunity, addPipeline, members, campaigns, leadStatuses, leadFields } = useStore();
-  const [pipelineId, setPipelineId] = useState(pipelines[0]?.id ?? "");
+  // Kanban / table, the pipeline and the search are remembered for this tab,
+  // so going back from a lead's card returns to exactly what was on screen.
+  const [pipelineId, setPipelineIdState] = useState(() => remembered("pipeline") ?? pipelines[0]?.id ?? "");
   const pipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelines[0];
 
-  const [view, setView] = useState<"board" | "table">("board");
-  const [search, setSearch] = useState("");
+  const [view, setViewState] = useState<"board" | "table">(() => (remembered("view") === "table" ? "table" : "board"));
+  const [search, setSearchState] = useState(() => remembered("search") ?? "");
+  const setPipelineId = (v: string) => (setPipelineIdState(v), remember("pipeline", v));
+  const setView = (v: "board" | "table") => (setViewState(v), remember("view", v));
+  const setSearch = (v: string) => (setSearchState(v), remember("search", v));
   const [showForm, setShowForm] = useState(false);
   const [contactId, setContactId] = useState("");
   const [title, setTitle] = useState("");
@@ -119,6 +140,12 @@ export default function PipelinePage() {
               טבלה
             </button>
           </div>
+          <Link href="/contacts" className="text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800" title="כל הלידים, כולל אלה בלי עסקה פתוחה">
+            כל הלידים
+          </Link>
+          <Link href="/contacts/new" className="text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800">
+            + ליד חדש
+          </Link>
           <button
             onClick={handleExport}
             className="text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800"
