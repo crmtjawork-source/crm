@@ -8,6 +8,7 @@ import { downloadCsv } from "@/lib/exportCsv";
 import { buildFilterFields } from "@/lib/leadFilters";
 import { useRecordFilter } from "@/components/FilterBar";
 import { BackLink } from "@/components/BackLink";
+import { needsAssignment } from "@/components/leads/OwnerSelect";
 import { StageSelect } from "@/components/leads/StageSelect";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { ColumnPicker } from "@/components/ColumnPicker";
@@ -20,7 +21,8 @@ export default function ContactsPage() {
   const { session } = useAuth();
   const [q, setQ] = useState("");
   const isAgent = members.find((m) => m.email.toLowerCase() === (session?.user.email ?? "").toLowerCase())?.role === "agent";
-  const [owner, setOwner] = useState(isAgent ? "mine" : "all"); // all | mine | none | <email>
+  // all | mine | none | <email>; "?owner=none" (from the pipeline's unassigned banner) opens on unowned leads.
+  const [owner, setOwner] = useState(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("owner") === "none" ? "none" : isAgent ? "mine" : "all"));
   const [sortBy, setSortBy] = useState<"activity" | "created">("activity");
   // Each lead's current deal: the open one if any, else the latest.
   const dealOf = useMemo(() => {
@@ -43,7 +45,6 @@ export default function ContactsPage() {
 
   const catalog = buildLeadCols({
     leadFields,
-    members,
     campaigns,
     extra: [
       {
@@ -180,7 +181,7 @@ export default function ContactsPage() {
             {filtered.slice(0, visible).map((c) => (
               <tr
                 key={c.id}
-                className="border-t border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                className={`border-t border-neutral-200 dark:border-neutral-800 ${needsAssignment(c) ? "bg-amber-50/70 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30" : "hover:bg-neutral-50 dark:hover:bg-neutral-900"}`}
               >
                 <td className="px-4 py-3">
                   <Link href={`/contacts/${c.id}`} className="font-medium hover:underline">

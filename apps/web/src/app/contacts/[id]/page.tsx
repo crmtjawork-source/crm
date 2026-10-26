@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
+import { canAssignLeads, canEditCampaign, effectiveRole } from "@/lib/permissions";
 import { BackLink } from "@/components/BackLink";
 import { useLeadChatHref } from "@/lib/useMyGateway";
 import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
@@ -31,6 +32,7 @@ export default function ContactDetailPage() {
     removeTag,
     members,
     currentMemberId,
+    roles,
     loadActivitiesFor,
     campaigns,
     leadStatuses,
@@ -44,6 +46,9 @@ export default function ContactDetailPage() {
     loadActivitiesFor(id);
   }, [id, loadActivitiesFor]);
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
+  const me = members.find((m) => m.id === currentMemberId);
+  const canAssign = canAssignLeads(me, effectiveRole(me, roles));
+  const canCampaign = canEditCampaign(me, effectiveRole(me, roles));
 
   const [editingInfo, setEditingInfo] = useState(false);
   const [name, setName] = useState(contact?.name ?? "");
@@ -211,8 +216,10 @@ export default function ContactDetailPage() {
         <span className="text-neutral-500">בעלים:</span>
         <select
           value={contact.ownerEmail?.toLowerCase() ?? ""}
+          disabled={!canAssign}
+          title={canAssign ? undefined : "אין לך הרשאה לשייך לידים"}
           onChange={(e) => updateContact(contact.id, { ownerEmail: e.target.value || undefined })}
-          className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+          className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <option value="">ללא בעלים</option>
           {members.map((m) => (
@@ -231,8 +238,10 @@ export default function ContactDetailPage() {
         <span className="text-neutral-500">קמפיין:</span>
         <select
           value={contact.campaignId ?? ""}
+          disabled={!canCampaign}
+          title={canCampaign ? undefined : "אין לך הרשאה לשנות קמפיין"}
           onChange={(e) => updateContact(contact.id, { campaignId: e.target.value || undefined })}
-          className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent max-w-80"
+          className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent max-w-80 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <option value="">ללא קמפיין</option>
           {campaigns

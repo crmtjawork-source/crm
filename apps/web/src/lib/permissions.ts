@@ -34,6 +34,18 @@ export function effectiveRole(member: Member | undefined, roles: Role[]): Role |
   return roles.find((r) => r.id === member.roleId);
 }
 
+// Assigning a lead to someone / changing its campaign. Owners and admins
+// always can; a member with a custom role follows it; a plain agent can't.
+// (The database enforces the same rule.)
+export function canAssignLeads(member: Member | undefined, role: Role | undefined): boolean {
+  if (!member || member.role === "owner" || member.role === "admin") return true;
+  return role ? role.canAssignLeads : member.role !== "agent";
+}
+export function canEditCampaign(member: Member | undefined, role: Role | undefined): boolean {
+  if (!member || member.role === "owner" || member.role === "admin") return true;
+  return role ? role.canEditCampaign : member.role !== "agent";
+}
+
 export function canSeeHref(role: Role | undefined, href: string): boolean {
   if (!role) return true;
   // Everyone has personal settings (their WhatsApp, notifications); the page

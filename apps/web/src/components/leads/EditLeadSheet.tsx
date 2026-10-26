@@ -5,14 +5,16 @@ import Link from "next/link";
 import { useStore } from "@/lib/store";
 import type { Contact, Opportunity } from "@/lib/types";
 import { Sheet } from "@/components/ui/Sheet";
+import { canAssignLeads, effectiveRole } from "@/lib/permissions";
 
 const input = "w-full px-2 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 // The pencil on a pipeline card / row: edit the lead's details and the deal's
 // value in one window, without leaving the pipeline.
 export function EditLeadSheet({ contact, opp, onClose }: { contact: Contact; opp: Opportunity; onClose: () => void }) {
-  const { updateContact, updateOpportunity, setHandlingStatus, leadStatuses, members, currentMemberId } = useStore();
-  const canAssign = members.find((m) => m.id === currentMemberId)?.role !== "agent";
+  const { updateContact, updateOpportunity, setHandlingStatus, leadStatuses, members, currentMemberId, roles } = useStore();
+  const me = members.find((m) => m.id === currentMemberId);
+  const canAssign = canAssignLeads(me, effectiveRole(me, roles));
   const [name, setName] = useState(contact.name);
   const [phone, setPhone] = useState(contact.phone ?? "");
   const [email, setEmail] = useState(contact.email ?? "");

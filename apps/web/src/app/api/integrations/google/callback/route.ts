@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     if (!t.refresh_token) return back("no_refresh");
     const { data: conn, error } = await db
       .from("calendar_connections")
-      .upsert({ org_id: state.orgId, user_id: state.userId, provider: "google", account_email: t.email, last_error: null }, { onConflict: "org_id,user_id,provider" })
+      .upsert({ org_id: state.orgId, user_id: state.userId, provider: "google", kind: state.kind, account_email: t.email, last_error: null }, { onConflict: "org_id,user_id,provider,kind" })
       .select("id")
       .single();
     if (error || !conn) throw error;
@@ -25,6 +25,13 @@ export async function GET(request: Request) {
       access_token: t.access_token,
       expires_at: new Date(Date.now() + t.expires_in * 1000).toISOString(),
     });
+    // The company calendar takes every upcoming meeting of the business.
+    if (state.kind === "company") {
+      const { data: all } = await db.from("appointments").select("id").eq("org_id", state.orgId).gt("end_at", new Date().toISOString());
+      const rows = (all ?? []).map((a) => ({ appointment_id: a.id, op: "upsert", target: "company", org_id: state.orgId }));
+      for (let i = 0; i < rows.length; i += 200) await db.from("calendar_sync_jobs").insert(rows.slice(i, i + 200));
+      return back("company_connected");
+    }
     // Upcoming meetings of this person's leads that had no owner yet are
     // theirs; the update queues them for the calendar.
     const { data: me } = await db.from("users").select("email").eq("id", state.userId).single();

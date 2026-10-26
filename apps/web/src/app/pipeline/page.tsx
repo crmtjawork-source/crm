@@ -8,6 +8,8 @@ import { PipelineTable } from "@/components/PipelineTable";
 import { downloadCsv } from "@/lib/exportCsv";
 import { buildDealFilterFields, buildFilterFields } from "@/lib/leadFilters";
 import { useRecordFilter } from "@/components/FilterBar";
+import { needsAssignment } from "@/components/leads/OwnerSelect";
+import { canAssignLeads, effectiveRole } from "@/lib/permissions";
 
 // @dnd-kit's internal id generator (useUniqueId) is a module-level counter
 // that never resets between requests on a long-lived server process, so
@@ -37,7 +39,9 @@ const remember = (key: string, value: string) => {
 };
 
 export default function PipelinePage() {
-  const { pipelines, contacts, opportunities, addOpportunity, addPipeline, members, campaigns, leadStatuses, leadFields } = useStore();
+  const { pipelines, contacts, opportunities, addOpportunity, addPipeline, members, campaigns, leadStatuses, leadFields, currentMemberId, roles } = useStore();
+  const me = members.find((m) => m.id === currentMemberId);
+  const unassigned = canAssignLeads(me, effectiveRole(me, roles)) ? contacts.filter(needsAssignment).length : 0;
   // Kanban / table, the pipeline and the search are remembered for this tab,
   // so going back from a lead's card returns to exactly what was on screen.
   const [pipelineId, setPipelineIdState] = useState(() => remembered("pipeline") ?? pipelines[0]?.id ?? "");
@@ -220,6 +224,13 @@ export default function PipelinePage() {
         </form>
       )}
 
+      {unassigned > 0 && (
+        <Link href="/contacts?owner=none" className="mb-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-sm text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-950/50">
+          <span>⚠</span>
+          <span className="flex-1">{unassigned} לידים חדשים ממתינים לשיוך לנציג</span>
+          <span className="text-xs underline">הצגה ‹</span>
+        </Link>
+      )}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <input
           value={search}

@@ -21,12 +21,12 @@ function sign(payload: string): string {
   return createHmac("sha256", env.oauthStateSecret()!).update(payload).digest("base64url");
 }
 
-export function makeState(userId: string, orgId: string): string {
-  const payload = Buffer.from(JSON.stringify({ u: userId, o: orgId, e: Date.now() + 10 * 60_000 })).toString("base64url");
+export function makeState(userId: string, orgId: string, kind: "personal" | "company" = "personal"): string {
+  const payload = Buffer.from(JSON.stringify({ u: userId, o: orgId, k: kind, e: Date.now() + 10 * 60_000 })).toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
 
-export function readState(state: string): { userId: string; orgId: string } | null {
+export function readState(state: string): { userId: string; orgId: string; kind: "personal" | "company" } | null {
   const [payload, sig] = state.split(".");
   if (!payload || !sig) return null;
   const expected = Buffer.from(sign(payload));
@@ -34,7 +34,7 @@ export function readState(state: string): { userId: string; orgId: string } | nu
   if (expected.length !== got.length || !timingSafeEqual(expected, got)) return null;
   const data = JSON.parse(Buffer.from(payload, "base64url").toString());
   if (Date.now() > data.e) return null;
-  return { userId: data.u, orgId: data.o };
+  return { userId: data.u, orgId: data.o, kind: data.k === "company" ? "company" : "personal" };
 }
 
 export function authUrl(redirectUri: string, state: string): string {
@@ -103,9 +103,10 @@ async function gcal(token: string, method: string, path: string, body?: unknown)
   return json;
 }
 
-function eventBody(a: Row, contact: Row | null, origin: string) {
+function eventBody(a: Row, contact: Row | null, origin: string, agent?: string | null) {
   const link = contact ? `${origin}/contacts/${contact.id}` : origin;
   const description = [
+    agent ? `נציג: ${agent}` : null,
     contact ? `ליד: ${contact.name}` : null,
     contact?.phone ? `טלפון: ${contact.phone}` : null,
     a.notes ? `\n${a.notes}` : null,
@@ -126,7 +127,13 @@ function eventBody(a: Row, contact: Row | null, origin: string) {
 
 async function connectionFor(db: Db, userId: string | null): Promise<Row | null> {
   if (!userId) return null;
-  const { data } = await db.from("calendar_connections").select("*").eq("user_id", userId).eq("provider", "google").maybeSingle();
+  const { data } = await db.from("calendar_connections").select("*").eq("user_id", userId).eq("provider", "google").eq("kind", "personal").maybeSingle();
+  return data;
+}
+
+async function companyConnection(db: Db, orgId: string | null): Promise<Row | null> {
+  if (!orgId) return null;
+  const { data } = await db.from("calendar_connections").select("*").eq("org_id", orgId).eq("provider", "google").eq("kind", "company").maybeSingle();
   return data;
 }
 
@@ -138,9 +145,10 @@ export async function processCalendarJobs(db: Db, origin: string): Promise<numbe
     const finish = (error: string | null) =>
       db.from("calendar_sync_jobs").update({ done_at: error ? null : new Date().toISOString(), error, attempts: job.attempts + 1 }).eq("id", job.id);
     try {
-      const conn = await connectionFor(db, job.owner_user_id);
+      const company = job.target === "company";
+      const conn = company ? await companyConnection(db, job.org_id) : await connectionFor(db, job.owner_user_id);
       if (!conn) {
-        await db.from("calendar_sync_jobs").update({ done_at: new Date().toISOString(), error: "לבעל הפגישה אין יומן גוגל מחובר" }).eq("id", job.id);
+        await db.from("calendar_sync_jobs").update({ done_at: new Date().toISOString(), error: company ? "יומן החברה לא מחובר" : "לבעל הפגישה אין יומן גוגל מחובר" }).eq("id", job.id);
         continue;
       }
       const token = await accessToken(db, conn.id);
@@ -157,8 +165,14 @@ export async function processCalendarJobs(db: Db, origin: string): Promise<numbe
         continue;
       }
       const { data: contact } = a.contact_id ? await db.from("contacts").select("id, name, phone").eq("id", a.contact_id).maybeSingle() : { data: null };
-      const body = eventBody(a, contact, origin);
-      let eventId = a.google_event_id as string | null;
+      let agent: string | null = null;
+      if (company && a.owner_user_id) {
+        const { data: u } = await db.from("users").select("full_name, email").eq("id", a.owner_user_id).maybeSingle();
+        agent = u?.full_name || u?.email || null;
+      }
+      const body = eventBody(a, contact, origin, agent);
+      const idColumn = company ? "company_google_event_id" : "google_event_id";
+      let eventId = a[idColumn] as string | null;
       if (eventId) {
         try {
           await gcal(token, "PATCH", `calendars/${cal}/events/${encodeURIComponent(eventId)}`, body);
@@ -169,7 +183,7 @@ export async function processCalendarJobs(db: Db, origin: string): Promise<numbe
       }
       if (!eventId) {
         const created = await gcal(token, "POST", `calendars/${cal}/events`, body);
-        await db.from("appointments").update({ google_event_id: created?.id ?? null }).eq("id", a.id);
+        await db.from("appointments").update({ [idColumn]: created?.id ?? null }).eq("id", a.id);
       }
       await db.from("calendar_connections").update({ last_error: null }).eq("id", conn.id);
       await finish(null);

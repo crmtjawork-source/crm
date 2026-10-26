@@ -6,6 +6,7 @@ import type { Opportunity, Pipeline } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { colorAt } from "@/components/ui/ColorChip";
+import { needsAssignment } from "@/components/leads/OwnerSelect";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import { ColumnPicker } from "@/components/ColumnPicker";
 import { buildLeadCols, formatEntered, useColumnPrefs, type LeadCol } from "@/lib/leadColumns";
@@ -28,7 +29,6 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
   const dealGroup = "פרטי העסקה";
   const catalog = buildLeadCols({
     leadFields,
-    members,
     campaigns,
     extra: [
       {
@@ -100,7 +100,7 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
           {rows.map((o) => {
             const lead = contacts.find((x) => x.id === o.contactId);
             return (
-              <tr key={o.id} className="border-t border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 group">
+              <tr key={o.id} className={`border-t border-neutral-200 dark:border-neutral-800 group ${lead && needsAssignment(lead) ? "bg-amber-50/70 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30" : "hover:bg-neutral-50 dark:hover:bg-neutral-900"}`}>
                 <td className="px-4 py-3">
                   <Link href={`/contacts/${o.contactId}`} className="font-medium hover:underline">
                     {lead?.name ?? "—"}

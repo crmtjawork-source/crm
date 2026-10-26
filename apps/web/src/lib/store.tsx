@@ -399,6 +399,8 @@ function mapRole(r: Row): Role {
     meetingsScope: r.meetings_scope ?? "all",
     tasksScope: r.tasks_scope ?? "all",
     objectAccess: r.object_access ?? {},
+    canAssignLeads: r.can_assign_leads ?? true,
+    canEditCampaign: r.can_edit_campaign ?? true,
     features: r.features ?? undefined,
     position: r.position ?? 0,
   };
@@ -1491,6 +1493,8 @@ export function StoreProvider({
       meetings_scope: r.meetingsScope,
       tasks_scope: r.tasksScope,
       object_access: r.objectAccess,
+      can_assign_leads: r.canAssignLeads,
+      can_edit_campaign: r.canEditCampaign,
       features: r.features ?? null,
       position: r.position,
     };

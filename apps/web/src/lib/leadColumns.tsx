@@ -2,8 +2,9 @@
 
 import { useState, type ReactNode } from "react";
 import { StatusSelect } from "@/components/leads/StatusSelect";
+import { OwnerSelect } from "@/components/leads/OwnerSelect";
 import { useAuth } from "@/lib/auth";
-import type { Campaign, Contact, Member, ObjectField, Opportunity } from "@/lib/types";
+import type { Campaign, Contact, ObjectField, Opportunity } from "@/lib/types";
 
 // A table column the user can show / hide / reorder. `cell` gets the lead (and
 // the deal, on the pipeline table).
@@ -46,18 +47,15 @@ function fieldText(f: ObjectField, raw: string | undefined): string {
 
 export function buildLeadCols({
   leadFields,
-  members,
   campaigns,
   extra = [],
 }: {
   leadFields: ObjectField[];
-  members: Member[];
   campaigns: Campaign[];
   extra?: LeadCol[]; // table-specific columns (e.g. the lead's stage), listed first
 }): LeadCol[] {
   const base = "פרטי ליד";
   const campaignName = new Map(campaigns.map((c) => [c.id, c.name] as const));
-  const ownerName = (email?: string) => (email ? members.find((m) => m.email.toLowerCase() === email.toLowerCase())?.name ?? email : "");
   const text = (s?: string) => (s ? <span className={muted}>{s}</span> : dash);
 
   const cols: LeadCol[] = [
@@ -79,7 +77,7 @@ export function buildLeadCols({
     { id: "handlingStatus", label: "סטטוס ליד", group: base, nowrap: true, cell: (c) => <StatusSelect contact={c} /> },
     { id: "createdAt", label: "תאריך כניסה", group: base, nowrap: true, cell: (c) => <span dir="ltr" className={muted}>{formatEntered(c.createdAt)}</span> },
     { id: "lastActivityAt", label: "פעילות אחרונה", group: base, nowrap: true, cell: (c) => <span dir="ltr" className={muted}>{formatEntered(c.lastActivityAt)}</span> },
-    { id: "owner", label: "בעלים", group: base, cell: (c) => text(ownerName(c.ownerEmail)) },
+    { id: "owner", label: "בעלים", group: base, cell: (c) => <OwnerSelect contact={c} /> },
     { id: "campaign", label: "קמפיין", group: base, cell: (c) => text(c.campaignId ? campaignName.get(c.campaignId) : undefined) },
     { id: "source", label: "מקור", group: base, cell: (c) => text(c.source) },
     { id: "email", label: "אימייל", group: base, cell: (c) => text(c.email) },

@@ -30,9 +30,9 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     label: "יומן גוגל",
     group: "אישי",
     business: false,
-    render: () => (
+    render: (isAdmin) => (
       <Suspense>
-        <GoogleCalendarSettings />
+        <GoogleCalendarSettings isAdmin={isAdmin} />
       </Suspense>
     ),
   },
