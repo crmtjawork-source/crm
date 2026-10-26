@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import type { Appointment, Task } from "@/lib/types";
+import { useTheme, type ThemeChoice } from "@/lib/theme";
 
 const TZ = "Asia/Jerusalem";
 const dayKey = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(d); // yyyy-mm-dd
@@ -241,8 +242,13 @@ function NotificationsPanel({ onClose }: { onClose: () => void }) {
 }
 
 // Agenda + notifications buttons (top bar on desktop, header on phones).
+const THEME_ICON: Record<ThemeChoice, string> = { system: "◐", light: "☀", dark: "☾" };
+const THEME_LABEL: Record<ThemeChoice, string> = { system: "לפי המכשיר", light: "בהיר", dark: "כהה" };
+const NEXT_THEME: Record<ThemeChoice, ThemeChoice> = { system: "light", light: "dark", dark: "system" };
+
 export function TopBarButtons() {
   const { notifications } = useStore();
+  const { choice, setChoice } = useTheme();
   const [open, setOpen] = useState<"agenda" | "notifications" | null>(null);
   const agenda = useAgenda(true);
   const todayCount = agenda.today.tasks.length + agenda.today.meetings.length;
@@ -257,6 +263,9 @@ export function TopBarButtons() {
     );
   return (
     <div className="flex items-center gap-1">
+      <button onClick={() => setChoice(NEXT_THEME[choice])} className={btn} title={`מראה: ${THEME_LABEL[choice]} (לחיצה להחלפה)`} aria-label="החלפת מראה בהיר / כהה">
+        {THEME_ICON[choice]}
+      </button>
       <button onClick={() => setOpen("agenda")} className={btn} title="סדר יום" aria-label="סדר יום">
         🕐{badge(overdue || todayCount, overdue > 0)}
       </button>

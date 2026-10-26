@@ -2,6 +2,7 @@
 
 import { Suspense, type ReactNode } from "react";
 import { PushSettings } from "./PushSettings";
+import { AppearanceSettings } from "./AppearanceSettings";
 import { GoogleCalendarSettings } from "./GoogleCalendarSettings";
 import { PersonalWhatsAppSettings } from "./PersonalWhatsAppSettings";
 import { ObjectsSettings } from "./ObjectsSettings";
@@ -24,6 +25,7 @@ export type SettingsSection = {
 };
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
+  { slug: "appearance", label: "מראה", group: "אישי", business: false, render: () => <AppearanceSettings /> },
   { slug: "notifications", label: "התראות", group: "אישי", business: false, render: () => <PushSettings /> },
   {
     slug: "calendar",

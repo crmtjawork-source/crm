@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Dark mode follows the `dark` class on <html> (set by the theme choice), not just the device setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -11,11 +14,10 @@
   --font-sans: var(--font-heebo);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  color-scheme: dark;
 }
 
 body {
