@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { downloadCsv } from "@/lib/exportCsv";
 import { buildFilterFields } from "@/lib/leadFilters";
 import { useRecordFilter } from "@/components/FilterBar";
+import { BackLink } from "@/components/BackLink";
 import { ColumnPicker } from "@/components/ColumnPicker";
 import { buildLeadCols, formatEntered, useColumnPrefs, type LeadCol } from "@/lib/leadColumns";
 
@@ -97,6 +98,7 @@ export default function ContactsPage() {
 
   return (
     <div className="p-4 md:p-6">
+      <BackLink to="/pipeline" fallback="/pipeline" label="חזרה לפייפליין" />
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">לידים</h1>
         <div className="flex gap-2">
