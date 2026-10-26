@@ -18,6 +18,9 @@ export type InboundLead = {
   tags?: string[];
   // contacts.source for new leads, and the channel named in the timeline.
   source: string;
+  // A lead created this recently is the same submission reaching us through
+  // a second integration: merge silently instead of logging "left details again".
+  quietWithinMinutes?: number;
 };
 
 export async function resolveCampaign(db: Db, orgId: string, c: InboundLead["campaign"]): Promise<string | null> {
@@ -80,17 +83,21 @@ export async function upsertInboundLead(db: Db, orgId: string, lead: InboundLead
         last_activity_at: new Date().toISOString(),
       })
       .eq("id", contactId);
-    await db.from("activities").insert({
-      org_id: orgId,
-      contact_id: contactId,
-      type: "note",
-      text: `📥 השאיר/ה פרטים שוב (${via})`,
-    });
-    await db.from("notifications").insert({
-      org_id: orgId,
-      contact_id: contactId,
-      text: `ליד קיים השאיר פרטים שוב (${lead.source}): ${existing.name}`,
-    });
+    const quiet =
+      lead.quietWithinMinutes && Date.now() - new Date(existing.created_at).getTime() < lead.quietWithinMinutes * 60_000;
+    if (!quiet) {
+      await db.from("activities").insert({
+        org_id: orgId,
+        contact_id: contactId,
+        type: "note",
+        text: `📥 השאיר/ה פרטים שוב (${via})`,
+      });
+      await db.from("notifications").insert({
+        org_id: orgId,
+        contact_id: contactId,
+        text: `ליד קיים השאיר פרטים שוב (${lead.source}): ${existing.name}`,
+      });
+    }
   } else {
     const displayName = lead.name || lead.phone || lead.email || `ליד מ${lead.source}`;
     const { data: contact, error } = await db

@@ -59,31 +59,43 @@ export async function handleLeadgenChange(db: Db, value: Row): Promise<string | 
 
   const { data: page } = await db.from("lead_ad_pages").select("*").eq("page_id", pageId).maybeSingle();
   if (!page) return `דף פייסבוק ${pageId} לא מחובר למערכת`;
+  if (await alreadyIngested(db, page, leadgenId, value)) return null;
 
-  // Idempotency: a submission row that already has a contact was fully
-  // processed by an earlier delivery of the same lead.
+  const token = await pageToken(db, page);
+  const lead = await fetchLead(leadgenId, token);
+  await ingestLead(db, page, leadgenId, lead, value);
+  return null;
+}
+
+// Idempotency: a submission row that already has a contact was fully
+// processed by an earlier delivery of the same lead (webhook or poll).
+async function alreadyIngested(db: Db, page: Row, leadgenId: string, raw: Row): Promise<boolean> {
   await db.from("lead_ad_submissions").upsert(
     {
       org_id: page.org_id,
       leadgen_id: leadgenId,
-      page_id: pageId,
-      form_id: value.form_id ? String(value.form_id) : null,
-      ad_id: value.ad_id ? String(value.ad_id) : null,
-      raw: value,
+      page_id: page.page_id,
+      form_id: raw.form_id ? String(raw.form_id) : null,
+      ad_id: raw.ad_id ? String(raw.ad_id) : null,
+      raw,
     },
     { onConflict: "leadgen_id", ignoreDuplicates: true }
   );
-  const { data: submission } = await db.from("lead_ad_submissions").select("*").eq("leadgen_id", leadgenId).single();
-  if (submission?.contact_id) return null;
+  const { data: submission } = await db.from("lead_ad_submissions").select("contact_id").eq("leadgen_id", leadgenId).single();
+  return Boolean(submission?.contact_id);
+}
 
+async function pageToken(db: Db, page: Row): Promise<string> {
   const { data: creds } = await db
     .from("lead_ad_page_credentials")
     .select("page_access_token")
     .eq("lead_ad_page_id", page.id)
     .maybeSingle();
-  if (!creds) throw new Error(`לדף ${page.page_name ?? pageId} אין טוקן גישה שמור`);
+  if (!creds) throw new Error(`לדף ${page.page_name ?? page.page_id} אין טוקן גישה שמור`);
+  return creds.page_access_token;
+}
 
-  const lead = await fetchLead(leadgenId, creds.page_access_token);
+async function ingestLead(db: Db, page: Row, leadgenId: string, lead: Lead, value: Row) {
   const answers = mapLeadAnswers(lead.field_data);
   const attribution: Record<string, string> = {};
   for (const key of ["ad_id", "ad_name", "adset_id", "adset_name", "campaign_id", "form_id"] as const) {
@@ -101,11 +113,98 @@ export async function handleLeadgenChange(db: Db, value: Row): Promise<string | 
     attribution,
     campaign: { name: lead.campaign_name, externalId: lead.campaign_id, platform: "meta" },
     source: `פרסומת ${lead.platform === "ig" ? "אינסטגרם" : "פייסבוק"}`,
+    // The same submission may already have arrived through another
+    // integration (e.g. a CRM forwarding its own Facebook leads).
+    quietWithinMinutes: 120,
   });
 
   // Mark processed before running automations: a crash while sending the
   // welcome message must not re-create the lead on retry.
   await db.from("lead_ad_submissions").update({ contact_id: contactId }).eq("leadgen_id", leadgenId);
   if (created) await triggerAutomations(db, page.org_id, "new_contact", contactId, { source: "meta_lead_ads" });
-  return null;
+}
+
+// Meta delivers `leadgen` webhooks only to published apps, so every
+// connected Page is also polled: each form's leads created since the last
+// poll. Runs from the cron; a Page is polled at most every POLL_EVERY_MS.
+const POLL_EVERY_MS = 2 * 60_000;
+// Overlap between polls, in case Meta exposes a lead a little after its
+// created_time. Duplicates are dropped by lead_ad_submissions.
+const OVERLAP_SECONDS = 600;
+
+type Paged<T> = { data?: T[]; paging?: { cursors?: { after?: string }; next?: string } };
+
+async function allPages<T>(path: string, token: string, query: Record<string, string>): Promise<T[]> {
+  const out: T[] = [];
+  let after: string | undefined;
+  for (let i = 0; i < 20; i++) {
+    const res = await graphFetch<Paged<T>>(path, token, { query: { ...query, limit: "100", ...(after ? { after } : {}) } });
+    out.push(...(res.data ?? []));
+    after = res.paging?.next ? res.paging.cursors?.after : undefined;
+    if (!after) break;
+  }
+  return out;
+}
+
+async function fetchFormLeads(formId: string, token: string, sinceUnix: number): Promise<(Lead & { id: string })[]> {
+  const filtering = JSON.stringify([{ field: "time_created", operator: "GREATER_THAN", value: sinceUnix }]);
+  try {
+    return await allPages(`${formId}/leads`, token, { fields: `id,${FULL_FIELDS}`, filtering });
+  } catch (err) {
+    if (err instanceof GraphError && (err.code === 100 || err.code === 200 || err.code === 10)) {
+      return allPages(`${formId}/leads`, token, { fields: `id,${BASIC_FIELDS}`, filtering });
+    }
+    throw err;
+  }
+}
+
+async function pollPage(db: Db, page: Row): Promise<number> {
+  const startedAt = new Date();
+  const token = await pageToken(db, page);
+  // A Page's first poll starts from when it was connected: older leads
+  // already reached the CRM some other way, or are imported on purpose.
+  const since = new Date(page.polled_until ?? page.created_at);
+  const sinceUnix = Math.floor(since.getTime() / 1000) - OVERLAP_SECONDS;
+
+  const forms = await allPages<{ id: string; status?: string }>(`${page.page_id}/leadgen_forms`, token, { fields: "id,status" });
+  const leads: (Lead & { id: string })[] = [];
+  for (const form of forms) {
+    if (form.status === "ARCHIVED" || form.status === "DELETED") continue;
+    for (const lead of await fetchFormLeads(form.id, token, sinceUnix)) leads.push({ ...lead, form_id: lead.form_id ?? form.id });
+  }
+  leads.sort((a, b) => (a.created_time ?? "").localeCompare(b.created_time ?? ""));
+
+  let added = 0;
+  for (const lead of leads) {
+    const value = { leadgen_id: lead.id, page_id: page.page_id, form_id: lead.form_id, ad_id: lead.ad_id, via: "poll" };
+    if (await alreadyIngested(db, page, lead.id, value)) continue;
+    await ingestLead(db, page, lead.id, lead, value);
+    added++;
+  }
+  await db
+    .from("lead_ad_pages")
+    .update({ polled_until: startedAt.toISOString(), last_poll_at: new Date().toISOString(), last_poll_error: null })
+    .eq("id", page.id);
+  return added;
+}
+
+export async function pollLeadAdPages(db: Db): Promise<{ pages: number; added: number; errors: number }> {
+  const cutoff = new Date(Date.now() - POLL_EVERY_MS + 5_000).toISOString();
+  const { data: pages } = await db.from("lead_ad_pages").select("*").or(`last_poll_at.is.null,last_poll_at.lt.${cutoff}`);
+  let added = 0;
+  let errors = 0;
+  for (const page of pages ?? []) {
+    try {
+      added += await pollPage(db, page);
+    } catch (err) {
+      errors++;
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("lead ads poll failed", page.page_id, message);
+      await db
+        .from("lead_ad_pages")
+        .update({ last_poll_at: new Date().toISOString(), last_poll_error: message.slice(0, 500) })
+        .eq("id", page.id);
+    }
+  }
+  return { pages: pages?.length ?? 0, added, errors };
 }

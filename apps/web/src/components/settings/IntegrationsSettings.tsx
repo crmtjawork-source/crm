@@ -233,11 +233,11 @@ function ConnectPageForm() {
     setBusy(true);
     setMessage(null);
     try {
-      await apiPost("/api/lead-pages", { pageId, pageAccessToken });
+      const res = await apiPost<{ warning?: string | null }>("/api/lead-pages", { pageId, pageAccessToken });
       await reloadIntegrations();
       setPageId("");
       setPageAccessToken("");
-      setMessage("הדף חובר — לידים חדשים מהטפסים ייכנסו אוטומטית");
+      setMessage(res.warning ? `הדף חובר. ${res.warning}` : "הדף חובר — לידים חדשים מהטפסים ייכנסו אוטומטית");
     } catch (err) {
       setMessage(err instanceof ApiError ? err.message : "החיבור נכשל");
     } finally {
@@ -252,7 +252,7 @@ function ConnectPageForm() {
       <input
         value={pageAccessToken}
         onChange={(e) => setPageAccessToken(e.target.value)}
-        placeholder="Page access token (עם leads_retrieval)"
+        placeholder="Access token של משתמש או של הדף (עם leads_retrieval)"
         type="password"
         required
         dir="ltr"
