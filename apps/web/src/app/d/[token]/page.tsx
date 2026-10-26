@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { DocumentView, type CoverData, type SignatureData } from "@/components/documents/DocumentView";
 import { SignaturePad } from "@/components/documents/SignaturePad";
 import { SIGNER_FIELDS } from "@/lib/documents";
-import type { DocSection } from "@/lib/types";
+import type { CompanySignature, DocSection } from "@/lib/types";
 
 type Doc = {
   title: string;
@@ -15,6 +15,7 @@ type Doc = {
   status: "sent" | "viewed" | "signed" | "declined" | "expired";
   expiresAt: string | null;
   signature: SignatureData | null;
+  companySignature: CompanySignature | null;
   contactPhone: string | null;
 };
 
@@ -122,6 +123,7 @@ export default function PublicDocumentPage() {
           cover={doc.cover}
           sections={doc.sections}
           signature={doc.signature}
+          companySignature={doc.companySignature}
           sectionRef={(id, el) => (el ? sectionEls.current.set(id, el) : sectionEls.current.delete(id))}
         />
         {open && (

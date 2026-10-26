@@ -339,6 +339,9 @@ export type LeadStatus = { id: string; name: string; position: number; color?: s
 // Proposals / contracts signed online (see lib/documents.ts).
 export type DocSection = { id: string; title: string; subtitle?: string; body: string };
 
+// The business's fixed signature, shown on every document.
+export type CompanySignature = { image: string; name?: string; title?: string };
+
 export type DocCover = {
   title: string;
   preparedFor?: string;

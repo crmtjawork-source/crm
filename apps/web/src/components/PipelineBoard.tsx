@@ -5,6 +5,7 @@ import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-
 import Link from "next/link";
 import type { Pipeline, Opportunity, Contact } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import { StatusSelect } from "@/components/leads/StatusSelect";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { colorAt } from "@/components/ui/ColorChip";
@@ -54,7 +55,7 @@ function CloseForm({ opp, onDone }: { opp: Opportunity; onDone: () => void }) {
 }
 
 function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contactName: string; color?: string }) {
-  const { updateOpportunity, updateContact, deleteOpportunity, members, currentMemberId, contacts, leadStatuses } = useStore();
+  const { deleteOpportunity, members, currentMemberId, contacts, leadStatuses } = useStore();
   const contact = contacts.find((c) => c.id === opp.contactId);
   const [closing, setClosing] = useState(false);
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
@@ -64,60 +65,10 @@ function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contac
     : undefined;
 
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(contactName);
-  const [value, setValue] = useState(String(opp.value || ""));
-
-  function save(e: React.FormEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    const newName = name.trim() || contactName;
-    // The card shows the lead's name, so that's what gets renamed (the deal's
-    // title follows when it was just the lead's name).
-    if (newName !== contactName) {
-      updateContact(opp.contactId, { name: newName });
-      if (opp.title === contactName) updateOpportunity(opp.id, { title: newName });
-    }
-    updateOpportunity(opp.id, { value: Number(value) || 0 });
-    setEditing(false);
-  }
 
   function handleDelete(e: React.MouseEvent) {
     e.stopPropagation();
     if (confirm("למחוק את ההזדמנות הזו?")) deleteOpportunity(opp.id);
-  }
-
-  if (editing) {
-    return (
-      <form
-        onSubmit={save}
-        onPointerDown={(e) => e.stopPropagation()}
-        className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 p-2 text-sm space-y-1"
-      >
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="שם הליד"
-          aria-label="שם הליד"
-          className="w-full px-2 py-1 text-sm rounded border border-neutral-200 dark:border-neutral-800 bg-transparent"
-        />
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          type="number"
-          placeholder="שווי"
-          className="w-full px-2 py-1 text-sm rounded border border-neutral-200 dark:border-neutral-800 bg-transparent"
-        />
-        <div className="flex gap-2">
-          <button type="submit" className="text-xs px-2 py-1 rounded bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
-            שמירה
-          </button>
-          <button type="button" onClick={() => setEditing(false)} className="text-xs px-2 py-1 text-neutral-400">
-            ביטול
-          </button>
-        </div>
-      </form>
-    );
   }
 
   return (
@@ -143,7 +94,7 @@ function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contac
           >
             ⚑
           </button>
-          <button onClick={(e) => { e.stopPropagation(); setName(contactName); setValue(String(opp.value || "")); setEditing(true); }} title="עריכת שם ושווי" className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-xs">
+          <button onClick={(e) => { e.stopPropagation(); setEditing(true); }} title="עריכת הליד" className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-xs">
             ✎
           </button>
           {canDelete && (
@@ -162,6 +113,7 @@ function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contac
         </div>
       )}
       {closing && <CloseForm opp={opp} onDone={() => setClosing(false)} />}
+      {editing && contact && <EditLeadSheet contact={contact} opp={opp} onClose={() => setEditing(false)} />}
     </div>
   );
 }

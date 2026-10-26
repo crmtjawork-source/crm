@@ -7,9 +7,16 @@ export async function POST(request: Request) {
     const user = await requireUser(request);
     const orgId = await requireOwnOrg(user);
     await requireOrgRole(user, orgId, ["owner", "admin"]);
-    const body = (await request.json()) as { meetingReminders?: boolean };
+    const body = (await request.json()) as { meetingReminders?: boolean; companySignature?: { image?: string; name?: string; title?: string } | null };
     const patch: Record<string, unknown> = {};
     if (typeof body.meetingReminders === "boolean") patch.meeting_reminders = body.meetingReminders;
+    if ("companySignature" in body) {
+      const sig = body.companySignature;
+      if (sig === null) patch.company_signature = null;
+      else if (sig && typeof sig.image === "string" && /^data:image\/(png|jpeg);base64,/.test(sig.image) && sig.image.length < 600_000)
+        patch.company_signature = { image: sig.image, name: sig.name?.trim().slice(0, 120) || undefined, title: sig.title?.trim().slice(0, 120) || undefined };
+      else throw new HttpError(400, "החתימה לא תקינה — יש לצייר או להעלות תמונה קטנה יותר");
+    }
     if (!Object.keys(patch).length) throw new HttpError(400, "אין מה לעדכן");
     const { error } = await supabaseAdmin().from("organizations").update(patch).eq("id", orgId);
     if (error) throw error;

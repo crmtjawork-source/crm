@@ -40,6 +40,7 @@ export async function getPublicDocument(db: Db, token: string) {
     .eq("is_default", true)
     .limit(1)
     .maybeSingle();
+  const { data: org } = await db.from("organizations").select("company_signature").eq("id", doc.org_id).maybeSingle();
   const signature = doc.signature
     ? { name: doc.signature.name, image: doc.signature.image, fields: doc.signature.fields ?? {}, signedAt: doc.signed_at, contentHash: doc.signature.content_hash }
     : null;
@@ -51,6 +52,7 @@ export async function getPublicDocument(db: Db, token: string) {
     status: isExpired(doc) ? "expired" : doc.status,
     expiresAt: doc.expires_at,
     signature,
+    companySignature: (org?.company_signature as { image: string; name?: string; title?: string } | null) ?? null,
     contactPhone: (channel?.display_phone as string | undefined) ?? null,
   };
 }

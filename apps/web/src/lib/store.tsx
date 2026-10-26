@@ -13,6 +13,7 @@ import type {
   DocSection,
   DocCover,
   DocumentView,
+  CompanySignature,
   ObjectCategory,
   ObjectType,
   ObjectField,
@@ -87,6 +88,7 @@ type State = {
   roles: Role[];
   // Business settings (organizations row).
   meetingReminders: boolean;
+  companySignature?: CompanySignature;
 };
 
 const emptyState: State = {
@@ -241,6 +243,7 @@ type Store = State & {
   ) => Promise<void>;
   loadDocumentViews: (documentId: string) => Promise<DocumentView[]>;
   setMeetingReminders: (on: boolean) => Promise<void>;
+  setCompanySignature: (sig: CompanySignature | null) => Promise<void>;
   deleteMessageTemplate: (id: string) => Promise<void>;
 
   addScheduledMessages: (rows: Row[]) => void;
@@ -767,7 +770,7 @@ export function StoreProvider({
         // Upcoming and recently failed reminders; sent ones live in the timeline.
         supabase.from("scheduled_messages").select("*").in("status", ["pending", "sending", "failed"]).order("send_at").limit(1000),
         supabase.from("lead_statuses").select("*").order("position"),
-        supabase.from("organizations").select("meeting_reminders").eq("id", orgId).maybeSingle(),
+        supabase.from("organizations").select("meeting_reminders, company_signature").eq("id", orgId).maybeSingle(),
         supabase.from("document_templates").select("*").order("position"),
         fetchAll("documents", "sent_at"),
         supabase.from("object_types").select("*").order("position"),
@@ -834,6 +837,7 @@ export function StoreProvider({
         scheduledMessages: (scheduledRes.data ?? []).map(mapScheduledMessage),
         leadStatuses: (leadStatusesRes.data ?? []).map((r: Row) => ({ id: r.id, name: r.name, position: r.position, color: r.color ?? undefined })),
         meetingReminders: Boolean(orgRes.data?.meeting_reminders),
+        companySignature: orgRes.data?.company_signature ?? undefined,
         documentTemplates: (documentTemplatesRes.data ?? []).map(mapDocumentTemplate),
         documents: (documentsRes.data ?? []).map(mapDocument),
         objectTypes: (objectTypesRes.data ?? []).map((t: Row) => mapObjectType(t, objectFieldsRes.data ?? [])),
@@ -1988,6 +1992,11 @@ export function StoreProvider({
     setState((s) => ({ ...s, meetingReminders: on }));
   };
 
+  const setCompanySignature: Store["setCompanySignature"] = async (sig) => {
+    await apiPost("/api/org/settings", { companySignature: sig });
+    setState((s) => ({ ...s, companySignature: sig ?? undefined }));
+  };
+
   const addScheduledMessages: Store["addScheduledMessages"] = (rows) => {
     const mapped = rows.map(mapScheduledMessage);
     setState((s) => ({ ...s, scheduledMessages: mapped.reduce((acc, m) => upsertById(acc, m), s.scheduledMessages) }));
@@ -2126,6 +2135,7 @@ export function StoreProvider({
         deleteMessageTemplate,
         uploadMedia,
         setMeetingReminders,
+        setCompanySignature,
         addObjectType,
         updateObjectType,
         deleteObjectType,

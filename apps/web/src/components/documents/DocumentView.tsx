@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { inlineParts, parseBody, SIGNER_FIELDS } from "@/lib/documents";
-import type { DocSection } from "@/lib/types";
+import type { CompanySignature, DocSection } from "@/lib/types";
 
 // The document as the lead reads it — used by the public link and by the
 // in-app preview, so what an agent sees is exactly what the lead gets.
@@ -69,11 +69,13 @@ export function DocumentView({
   cover,
   sections,
   signature,
+  companySignature,
   sectionRef,
 }: {
   cover: CoverData;
   sections: DocSection[];
   signature?: SignatureData | null;
+  companySignature?: CompanySignature | null;
   sectionRef?: (id: string, el: HTMLElement | null) => void;
 }) {
   const accent = cover.accent_color || "#1e3a8a";
@@ -126,37 +128,55 @@ export function DocumentView({
           </section>
         ))}
 
-        {signature && (
+        {(signature || companySignature) && (
           <section className="py-8 sm:grid sm:grid-cols-[200px_1fr] sm:gap-10 break-inside-avoid-page">
             <h2 className="text-xl sm:text-2xl font-semibold mb-3" style={{ color: accent }}>
-              חתימה
+              חתימות
             </h2>
-            <div className="text-sm text-neutral-700 space-y-1">
-              {signature.image && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={signature.image} alt="חתימה" className="h-24 border-b border-neutral-300 mb-2" />
+            <div className="grid sm:grid-cols-2 gap-8 text-sm text-neutral-700">
+              {companySignature && (
+                <div className="space-y-1">
+                  <p className="text-neutral-500">חתימת החברה</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={companySignature.image} alt="חתימת החברה" className="h-24 border-b border-neutral-300 mb-2 object-contain" />
+                  {companySignature.name && <p>{companySignature.name}</p>}
+                  {companySignature.title && <p className="text-neutral-500">{companySignature.title}</p>}
+                </div>
               )}
-              <p>
-                <span className="text-neutral-500">שם: </span>
-                {signature.name}
-              </p>
-              {Object.entries(signature.fields ?? {}).map(([k, v]) => (
-                <p key={k}>
-                  <span className="text-neutral-500">{SIGNER_FIELDS.find((f) => f.id === k)?.label ?? k}: </span>
-                  {v}
-                </p>
-              ))}
-              {signature.signedAt && (
-                <p>
-                  <span className="text-neutral-500">נחתם: </span>
-                  {new Date(signature.signedAt).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })}
-                </p>
-              )}
-              {signature.contentHash && (
-                <p className="text-xs text-neutral-400 break-all pt-2" dir="ltr">
-                  Document fingerprint (SHA-256): {signature.contentHash}
-                </p>
-              )}
+              <div className="space-y-1">
+                <p className="text-neutral-500">חתימת הלקוח</p>
+                {signature ? (
+                  <>
+                    {signature.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={signature.image} alt="חתימה" className="h-24 border-b border-neutral-300 mb-2" />
+                    )}
+                    <p>
+                      <span className="text-neutral-500">שם: </span>
+                      {signature.name}
+                    </p>
+                    {Object.entries(signature.fields ?? {}).map(([k, v]) => (
+                      <p key={k}>
+                        <span className="text-neutral-500">{SIGNER_FIELDS.find((f) => f.id === k)?.label ?? k}: </span>
+                        {v}
+                      </p>
+                    ))}
+                    {signature.signedAt && (
+                      <p>
+                        <span className="text-neutral-500">נחתם: </span>
+                        {new Date(signature.signedAt).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })}
+                      </p>
+                    )}
+                    {signature.contentHash && (
+                      <p className="text-xs text-neutral-400 break-all pt-2" dir="ltr">
+                        Document fingerprint (SHA-256): {signature.contentHash}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <div className="h-24 border-b border-dashed border-neutral-300 flex items-end pb-2 text-neutral-400">ממתין לחתימת הלקוח</div>
+                )}
+              </div>
             </div>
           </section>
         )}

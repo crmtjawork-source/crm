@@ -15,7 +15,7 @@ const subscribe = () => () => {};
 // Builds a personal document for a lead from a template: details filled in,
 // editable before sending.
 export function NewDocumentSheet({ contact, onClose, onCreated }: { contact: Contact; onClose: () => void; onCreated: (doc: CrmDocument) => void }) {
-  const { documentTemplates, members, currentMemberId, createDocument } = useStore();
+  const { documentTemplates, members, currentMemberId, createDocument, companySignature } = useStore();
   const origin = useSyncExternalStore(subscribe, () => window.location.origin, () => "");
   const me = members.find((m) => m.id === currentMemberId);
   const [templateId, setTemplateId] = useState(documentTemplates[0]?.id ?? "");
@@ -119,6 +119,7 @@ export function NewDocumentSheet({ contact, onClose, onCreated }: { contact: Con
           <DocumentView
             cover={{ title: cover.title, prepared_for: cover.preparedFor, date: cover.date, logo_url: cover.logoUrl, cover_image_url: cover.coverImageUrl, accent_color: cover.accentColor, sender_name: cover.senderName, sender_email: cover.senderEmail }}
             sections={sections}
+            companySignature={companySignature}
           />
         </Sheet>
       )}
