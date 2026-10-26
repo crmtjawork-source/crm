@@ -267,12 +267,31 @@ function ConnectPageForm() {
 }
 
 export function IntegrationsSettings() {
-  const { channels, leadAdPages } = useStore();
+  const { channels, leadAdPages, mergeRepeatLeads, setMergeRepeatLeads } = useStore();
   const { membership } = useAuth();
   const canManage = membership?.role === "owner" || membership?.role === "admin";
 
   return (
     <>
+      <Section title="קליטת לידים" description="איך מטפלים בליד שמשאיר פרטים (טופס פייסבוק, דף נחיתה, סוכנות) כשכבר יש במערכת ליד עם אותו טלפון.">
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={!mergeRepeatLeads}
+            disabled={!canManage}
+            onChange={(e) => setMergeRepeatLeads(!e.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            כל השארת פרטים נפתחת כליד חדש
+            <span className="block text-xs text-neutral-500 leading-relaxed">
+              מסומן: גם אם הטלפון כבר קיים, נפתח ליד נפרד ואוטומציות &quot;ליד חדש נוצר&quot; רצות שוב. לא מסומן: הפרטים מתווספים לליד הקיים. בשני
+              המצבים, אותו מילוי שמגיע פעמיים תוך 30 דקות (למשל מפייסבוק וגם ממערכת אחרת) נשמר כליד אחד.
+            </span>
+          </span>
+        </label>
+      </Section>
+
       <Section
         title="ערוצי וואטסאפ"
         description="מספרי WhatsApp Business (Cloud API) שמחוברים למערכת. הודעות נכנסות ויוצאות מכל המספרים מופיעות במסך השיחות."

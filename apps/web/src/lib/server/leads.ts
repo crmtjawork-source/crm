@@ -37,34 +37,31 @@ export async function resolveCampaign(db: Db, orgId: string, c: InboundLead["cam
 }
 
 // One path for every inbound lead (Meta lead forms, intake URLs, …): match
-// an existing lead by phone, then email; otherwise create one. The first
-// campaign and tracking data that brought the lead are kept (first touch).
+// an existing lead by phone, then email (unless the org opens a new lead per
+// submission); otherwise create one. The first campaign and tracking data
+// that brought the lead are kept (first touch).
 export async function upsertInboundLead(db: Db, orgId: string, lead: InboundLead): Promise<{ contactId: string; created: boolean }> {
   const campaignId = (await resolveCampaign(db, orgId, lead.campaign)) ?? lead.defaultCampaignId ?? null;
   const fields = lead.fields ?? {};
   const attribution = lead.attribution ?? {};
   const via = lead.campaign?.name ? `${lead.source} — ${lead.campaign.name}` : lead.source;
 
+  // A lead created this recently with the same phone/email is the same
+  // submission delivered twice (e.g. a Facebook form reaching us both
+  // directly and through another CRM).
+  const SAME_SUBMISSION_MINUTES = 30;
+  const { data: org } = await db.from("organizations").select("merge_repeat_leads").eq("id", orgId).maybeSingle();
+  const mergeRepeats = org?.merge_repeat_leads !== false;
+
   const digits = normalizePhone(lead.phone);
   let existing: Row | null = null;
-  if (digits) {
-    ({ data: existing } = await db
-      .from("contacts")
-      .select("*")
-      .eq("org_id", orgId)
-      .eq("phone_digits", digits)
-      .order("created_at")
-      .limit(1)
-      .maybeSingle());
-  } else if (lead.email) {
-    ({ data: existing } = await db
-      .from("contacts")
-      .select("*")
-      .eq("org_id", orgId)
-      .ilike("email", lead.email)
-      .order("created_at")
-      .limit(1)
-      .maybeSingle());
+  if (digits || lead.email) {
+    let query = db.from("contacts").select("*").eq("org_id", orgId);
+    query = digits ? query.eq("phone_digits", digits) : query.ilike("email", lead.email!);
+    // Merging repeats: the lead's first record. Otherwise only a duplicate
+    // delivery of the same submission is merged, into the newest record.
+    if (!mergeRepeats) query = query.gte("created_at", new Date(Date.now() - SAME_SUBMISSION_MINUTES * 60_000).toISOString());
+    ({ data: existing } = await query.order("created_at", { ascending: mergeRepeats }).limit(1).maybeSingle());
   }
 
   let contactId: string;
@@ -84,7 +81,8 @@ export async function upsertInboundLead(db: Db, orgId: string, lead: InboundLead
       })
       .eq("id", contactId);
     const quiet =
-      lead.quietWithinMinutes && Date.now() - new Date(existing.created_at).getTime() < lead.quietWithinMinutes * 60_000;
+      !mergeRepeats ||
+      (lead.quietWithinMinutes && Date.now() - new Date(existing.created_at).getTime() < lead.quietWithinMinutes * 60_000);
     if (!quiet) {
       await db.from("activities").insert({
         org_id: orgId,

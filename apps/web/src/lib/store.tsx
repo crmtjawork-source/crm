@@ -88,6 +88,7 @@ type State = {
   roles: Role[];
   // Business settings (organizations row).
   meetingReminders: boolean;
+  mergeRepeatLeads: boolean;
   companySignature?: CompanySignature;
 };
 
@@ -122,6 +123,7 @@ const emptyState: State = {
   objectCategories: [],
   roles: [],
   meetingReminders: false,
+  mergeRepeatLeads: true,
 };
 
 type ContactPatch = Partial<Pick<Contact, "name" | "phone" | "email" | "source" | "ownerEmail" | "campaignId" | "noAnswerCount">>;
@@ -243,6 +245,7 @@ type Store = State & {
   ) => Promise<void>;
   loadDocumentViews: (documentId: string) => Promise<DocumentView[]>;
   setMeetingReminders: (on: boolean) => Promise<void>;
+  setMergeRepeatLeads: (on: boolean) => Promise<void>;
   setCompanySignature: (sig: CompanySignature | null) => Promise<void>;
   deleteMessageTemplate: (id: string) => Promise<void>;
 
@@ -772,7 +775,7 @@ export function StoreProvider({
         // Upcoming and recently failed reminders; sent ones live in the timeline.
         supabase.from("scheduled_messages").select("*").in("status", ["pending", "sending", "failed"]).order("send_at").limit(1000),
         supabase.from("lead_statuses").select("*").order("position"),
-        supabase.from("organizations").select("meeting_reminders, company_signature").eq("id", orgId).maybeSingle(),
+        supabase.from("organizations").select("meeting_reminders, merge_repeat_leads, company_signature").eq("id", orgId).maybeSingle(),
         supabase.from("document_templates").select("*").order("position"),
         fetchAll("documents", "sent_at"),
         supabase.from("object_types").select("*").order("position"),
@@ -839,6 +842,7 @@ export function StoreProvider({
         scheduledMessages: (scheduledRes.data ?? []).map(mapScheduledMessage),
         leadStatuses: (leadStatusesRes.data ?? []).map((r: Row) => ({ id: r.id, name: r.name, position: r.position, color: r.color ?? undefined })),
         meetingReminders: Boolean(orgRes.data?.meeting_reminders),
+        mergeRepeatLeads: orgRes.data?.merge_repeat_leads !== false,
         companySignature: orgRes.data?.company_signature ?? undefined,
         documentTemplates: (documentTemplatesRes.data ?? []).map(mapDocumentTemplate),
         documents: (documentsRes.data ?? []).map(mapDocument),
@@ -1996,6 +2000,11 @@ export function StoreProvider({
     setState((s) => ({ ...s, meetingReminders: on }));
   };
 
+  const setMergeRepeatLeads: Store["setMergeRepeatLeads"] = async (on) => {
+    await apiPost("/api/org/settings", { mergeRepeatLeads: on });
+    setState((s) => ({ ...s, mergeRepeatLeads: on }));
+  };
+
   const setCompanySignature: Store["setCompanySignature"] = async (sig) => {
     await apiPost("/api/org/settings", { companySignature: sig });
     setState((s) => ({ ...s, companySignature: sig ?? undefined }));
@@ -2139,6 +2148,7 @@ export function StoreProvider({
         deleteMessageTemplate,
         uploadMedia,
         setMeetingReminders,
+        setMergeRepeatLeads,
         setCompanySignature,
         addObjectType,
         updateObjectType,

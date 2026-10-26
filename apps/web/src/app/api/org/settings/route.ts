@@ -7,9 +7,14 @@ export async function POST(request: Request) {
     const user = await requireUser(request);
     const orgId = await requireOwnOrg(user);
     await requireOrgRole(user, orgId, ["owner", "admin"]);
-    const body = (await request.json()) as { meetingReminders?: boolean; companySignature?: { image?: string; name?: string; title?: string } | null };
+    const body = (await request.json()) as {
+      meetingReminders?: boolean;
+      mergeRepeatLeads?: boolean;
+      companySignature?: { image?: string; name?: string; title?: string } | null;
+    };
     const patch: Record<string, unknown> = {};
     if (typeof body.meetingReminders === "boolean") patch.meeting_reminders = body.meetingReminders;
+    if (typeof body.mergeRepeatLeads === "boolean") patch.merge_repeat_leads = body.mergeRepeatLeads;
     if ("companySignature" in body) {
       const sig = body.companySignature;
       if (sig === null) patch.company_signature = null;
