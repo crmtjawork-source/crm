@@ -3,12 +3,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { ColorChip, colorAt } from "@/components/ui/ColorChip";
 import { useAuth } from "@/lib/auth";
 import { downloadCsv } from "@/lib/exportCsv";
 import { buildFilterFields } from "@/lib/leadFilters";
 import { useRecordFilter } from "@/components/FilterBar";
 import { BackLink } from "@/components/BackLink";
+import { StageSelect } from "@/components/leads/StageSelect";
+import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { ColumnPicker } from "@/components/ColumnPicker";
 import { buildLeadCols, formatEntered, useColumnPrefs, type LeadCol } from "@/lib/leadColumns";
 
@@ -31,12 +32,6 @@ export default function ContactsPage() {
     return m;
   }, [opportunities]);
   const stageName = new Map(pipelines.flatMap((p) => p.stages.map((st) => [st.id, st.name] as const)));
-  const stageColor = new Map(pipelines.flatMap((p) => p.stages.map((st, i) => [st.id, colorAt(st.color, i)] as const)));
-  const OUTCOME_COLOR: Record<string, string> = { won: "#16a34a", lost: "#64748b", abandoned: "#94a3b8" };
-  const stageChipColor = (contactId: string) => {
-    const d = dealOf.get(contactId);
-    return d ? (d.status === "open" ? stageColor.get(d.stageId) : OUTCOME_COLOR[d.status]) : undefined;
-  };
   const OUTCOME: Record<string, string> = { won: "נסגרה עסקה", lost: "לא נסגרה עסקה", abandoned: "בוטלה עסקה" };
   const stageLabel = (contactId: string) => {
     const d = dealOf.get(contactId);
@@ -44,6 +39,7 @@ export default function ContactsPage() {
     return d.status === "open" ? stageName.get(d.stageId) ?? "" : OUTCOME[d.status];
   };
   const [visible, setVisible] = useState(PAGE_SIZE);
+  const stagePrompt = useStageMovePrompt();
 
   const catalog = buildLeadCols({
     leadFields,
@@ -55,7 +51,7 @@ export default function ContactsPage() {
         label: "שלב",
         group: "פרטי ליד",
         nowrap: true,
-        cell: (c) => <ColorChip label={stageLabel(c.id)} color={stageChipColor(c.id)} />,
+        cell: (c) => <StageSelect contact={c} deal={dealOf.get(c.id)} afterMove={stagePrompt.afterMove} />,
       } satisfies LeadCol,
     ],
   });
@@ -166,6 +162,7 @@ export default function ContactsPage() {
       </div>
 
       {filterChips}
+      {stagePrompt.element}
 
       <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
