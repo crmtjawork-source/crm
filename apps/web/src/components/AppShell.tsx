@@ -56,11 +56,28 @@ function SearchBox() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { members, currentMemberId, loading, objectTypes, roles } = useStore();
+  const { members, currentMemberId, loading, objectTypes, objectCategories, roles } = useStore();
   const { session, signOut } = useAuth();
   const currentMember = members.find((m) => m.id === currentMemberId);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  // Which menu categories the user opened / closed (kept in this browser).
+  const [openCats, setOpenCats] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("crm-menu-categories") ?? "{}");
+    } catch {
+      return {};
+    }
+  });
+  const toggleCat = (id: string, open: boolean) => {
+    const next = { ...openCats, [id]: open };
+    setOpenCats(next);
+    try {
+      localStorage.setItem("crm-menu-categories", JSON.stringify(next));
+    } catch {
+      // not remembered
+    }
+  };
   const [lastPath, setLastPath] = useState(pathname);
   if (lastPath !== pathname) {
     // Navigating closes the mobile menu.
@@ -73,32 +90,59 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // The leads list isn't in the menu — the pipeline table covers it (the
   // page itself stays reachable from the pipeline).
   const pipelineItem = NAV.find((i) => i.href === "/pipeline")!;
-  const nav = [
-    NAV[0],
-    pipelineItem,
-    ...objectTypes.map((t) => ({ href: `/o/${t.id}`, label: `${t.icon ? `${t.icon} ` : ""}${t.name}` })),
-    ...NAV.slice(1).filter((i) => i.href !== "/contacts" && i.href !== "/pipeline"),
-  ].filter((item) => canSeeHref(role, item.href));
+  const tableItem = (t: (typeof objectTypes)[number]) => ({ href: `/o/${t.id}`, label: `${t.icon ? `${t.icon} ` : ""}${t.name}` });
+  const visible = (item: { href: string }) => canSeeHref(role, item.href);
+  // Custom tables: those in a category sit in a collapsible group, the rest stay loose.
+  const groups = objectCategories
+    .map((c) => ({ category: c, items: objectTypes.filter((t) => t.categoryId === c.id).map(tableItem).filter(visible) }))
+    .filter((g) => g.items.length > 0);
+  const looseTables = objectTypes.filter((t) => !t.categoryId || !objectCategories.some((c) => c.id === t.categoryId)).map(tableItem);
+  const before = [NAV[0], pipelineItem].filter(visible);
+  const after = [...looseTables, ...NAV.slice(1).filter((i) => i.href !== "/contacts" && i.href !== "/pipeline")].filter(visible);
+
+  const link = (item: { href: string; label: string }, nested = false) => {
+    // A lead's card belongs to the pipeline entry.
+    const active = pathname.startsWith(item.href) || (item.href === "/pipeline" && pathname.startsWith("/contacts"));
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={`rounded-md px-3 py-2 text-sm ${nested ? "py-1.5" : ""} ${
+          active
+            ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+            : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900"
+        }`}
+      >
+        {item.label}
+      </Link>
+    );
+  };
+
   const navLinks = (
     // Scrolls on its own when the menu is taller than the screen.
     <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-1 px-2 pb-2">
-      {nav.map((item) => {
-        // A lead's card belongs to the pipeline entry.
-        const active = pathname.startsWith(item.href) || (item.href === "/pipeline" && pathname.startsWith("/contacts"));
+      {before.map((item) => link(item))}
+      {groups.map(({ category, items }) => {
+        const hasActive = items.some((i) => pathname.startsWith(i.href));
+        const open = openCats[category.id] ?? hasActive;
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`rounded-md px-3 py-2 text-sm ${
-              active
-                ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-                : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900"
-            }`}
-          >
-            {item.label}
-          </Link>
+          <div key={category.id}>
+            <button
+              onClick={() => toggleCat(category.id, !open)}
+              aria-expanded={open}
+              className="w-full flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-900"
+            >
+              <span>
+                {category.icon ? `${category.icon} ` : ""}
+                {category.name}
+              </span>
+              <span className="text-xs">{open ? "▾" : "▸"}</span>
+            </button>
+            {open && <div className="flex flex-col gap-1 ms-3 ps-2 border-s border-neutral-200 dark:border-neutral-800">{items.map((item) => link(item, true))}</div>}
+          </div>
         );
       })}
+      {after.map((item) => link(item))}
     </nav>
   );
 

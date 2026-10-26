@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { FIELD_TYPES, newKey, OBJECT_PRESETS, OPTION_COLORS } from "@/lib/objects";
-import type { FieldOption, ObjectField, ObjectType } from "@/lib/types";
+import type { FieldOption, ObjectCategory, ObjectField, ObjectType } from "@/lib/types";
 import { Sheet } from "@/components/ui/Sheet";
 
 const input = "w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
@@ -13,7 +13,7 @@ const btn = "px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:borde
 // Lets a business define its own record types (clients, properties,
 // projects…) with fields, option lists and stages — no code.
 export function ObjectsSettings({ isAdmin }: { isAdmin: boolean }) {
-  const { objectTypes } = useStore();
+  const { objectTypes, objectCategories, addObjectCategory } = useStore();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = objectTypes.find((t) => t.id === editingId);
@@ -25,8 +25,46 @@ export function ObjectsSettings({ isAdmin }: { isAdmin: boolean }) {
         מסכים משלכם מעבר ללידים — לקוחות, נכסים, פרויקטים, רכבים, מנויים או כל דבר אחר. לכל אובייקט מגדירים שדות (טקסט, מספר, תאריך, רשימת
         בחירה, קישור לרשומה אחרת…), שלבים לתצוגת לוח, והוא מופיע בתפריט.
       </p>
-      <ul className="space-y-2 mb-3">
-        {objectTypes.map((t) => (
+      {objectCategories.map((c) => (
+        <CategoryGroup key={c.id} category={c} isAdmin={isAdmin} tables={objectTypes.filter((t) => t.categoryId === c.id)} onEdit={setEditingId} />
+      ))}
+      <TableList
+        tables={objectTypes.filter((t) => !t.categoryId || !objectCategories.some((c) => c.id === t.categoryId))}
+        isAdmin={isAdmin}
+        onEdit={setEditingId}
+        title={objectCategories.length ? "ללא קטגוריה" : undefined}
+      />
+      {isAdmin ? (
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setCreating(true)} className={btn}>
+            + אובייקט חדש
+          </button>
+          <button
+            onClick={() => {
+              const name = window.prompt("שם הקטגוריה (למשל: תפעול, מכירות, פיננסים, שיווק)")?.trim();
+              if (name) void addObjectCategory(name);
+            }}
+            className={btn}
+          >
+            + קטגוריה חדשה
+          </button>
+        </div>
+      ) : (
+        <p className="text-xs text-amber-600">רק מנהלים יכולים להגדיר אובייקטים.</p>
+      )}
+      {creating && <CreateObject onClose={() => setCreating(false)} onCreated={(t) => (setCreating(false), setEditingId(t.id))} />}
+      {editing && <ObjectEditor type={editing} onClose={() => setEditingId(null)} />}
+    </section>
+  );
+}
+
+function TableList({ tables, isAdmin, onEdit, title }: { tables: ObjectType[]; isAdmin: boolean; onEdit: (id: string) => void; title?: string }) {
+  if (!tables.length) return null;
+  return (
+    <div className="mb-3">
+      {title && <h3 className="text-xs font-medium text-neutral-500 mb-1">{title}</h3>}
+      <ul className="space-y-2">
+        {tables.map((t) => (
           <li key={t.id} className="flex items-center gap-2 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-sm">
             <span>{t.icon}</span>
             <Link href={`/o/${t.id}`} className="font-medium hover:underline">
@@ -34,23 +72,49 @@ export function ObjectsSettings({ isAdmin }: { isAdmin: boolean }) {
             </Link>
             <span className="text-xs text-neutral-400">{t.fields.length} שדות</span>
             {isAdmin && (
-              <button onClick={() => setEditingId(t.id)} className="text-xs text-neutral-500 hover:underline ms-auto">
+              <button onClick={() => onEdit(t.id)} className="text-xs text-neutral-500 hover:underline ms-auto">
                 עריכת שדות
               </button>
             )}
           </li>
         ))}
       </ul>
-      {isAdmin ? (
-        <button onClick={() => setCreating(true)} className={btn}>
-          + אובייקט חדש
-        </button>
-      ) : (
-        <p className="text-xs text-amber-600">רק מנהלים יכולים להגדיר אובייקטים.</p>
-      )}
-      {creating && <CreateObject onClose={() => setCreating(false)} onCreated={(t) => (setCreating(false), setEditingId(t.id))} />}
-      {editing && <ObjectEditor type={editing} onClose={() => setEditingId(null)} />}
-    </section>
+    </div>
+  );
+}
+
+// A menu category and the tables in it; rename / delete (its tables are released, not deleted).
+function CategoryGroup({ category, tables, isAdmin, onEdit }: { category: ObjectCategory; tables: ObjectType[]; isAdmin: boolean; onEdit: (id: string) => void }) {
+  const { updateObjectCategory, deleteObjectCategory } = useStore();
+  return (
+    <div className="mb-4">
+      <div className="flex items-center gap-2 mb-1">
+        <h3 className="text-sm font-semibold">
+          {category.icon} {category.name}
+        </h3>
+        <span className="text-xs text-neutral-400">{tables.length} טבלאות</span>
+        {isAdmin && (
+          <span className="ms-auto flex gap-3 text-xs text-neutral-400">
+            <button
+              onClick={() => {
+                const name = window.prompt("שם הקטגוריה", category.name)?.trim();
+                if (name) void updateObjectCategory(category.id, { name });
+              }}
+              className="hover:underline"
+            >
+              שינוי שם
+            </button>
+            <button
+              onClick={() => window.confirm(`למחוק את הקטגוריה "${category.name}"? הטבלאות שבה לא יימחקו — הן יעברו ל"ללא קטגוריה".`) && void deleteObjectCategory(category.id)}
+              className="hover:text-red-500 hover:underline"
+            >
+              מחיקה
+            </button>
+          </span>
+        )}
+      </div>
+      {tables.length ? <TableList tables={tables} isAdmin={isAdmin} onEdit={onEdit} /> : <p className="text-xs text-neutral-400 mb-2">אין עדיין טבלאות בקטגוריה הזו — משייכים בעריכת הטבלה.</p>}
+    </div>
   );
 }
 
@@ -119,7 +183,7 @@ function CreateObject({ onClose, onCreated }: { onClose: () => void; onCreated: 
 }
 
 function ObjectEditor({ type, onClose }: { type: ObjectType; onClose: () => void }) {
-  const { updateObjectType, deleteObjectType, saveObjectField, deleteObjectField } = useStore();
+  const { updateObjectType, deleteObjectType, saveObjectField, deleteObjectField, objectCategories } = useStore();
   const [fieldOpen, setFieldOpen] = useState<ObjectField | "new" | null>(null);
   const selects = type.fields.filter((f) => f.type === "select");
 
@@ -140,6 +204,19 @@ function ObjectEditor({ type, onClose }: { type: ObjectType; onClose: () => void
           <input defaultValue={type.name} onBlur={(e) => e.target.value.trim() && updateObjectType(type.id, { name: e.target.value.trim() })} className={input} />
           <input defaultValue={type.singular} onBlur={(e) => e.target.value.trim() && updateObjectType(type.id, { singular: e.target.value.trim() })} className={input} />
         </div>
+        {objectCategories.length > 0 && (
+          <label className="block text-xs">
+            <span className="block text-neutral-500 mb-1">קטגוריה בתפריט</span>
+            <select value={type.categoryId ?? ""} onChange={(e) => updateObjectType(type.id, { categoryId: e.target.value || undefined })} className={input}>
+              <option value="">ללא קטגוריה</option>
+              {objectCategories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.icon} {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <div className="grid sm:grid-cols-2 gap-2 text-xs">
           <label>
             <span className="block text-neutral-500 mb-1">שדה הכותרת (השם של כל רשומה)</span>

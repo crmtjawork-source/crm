@@ -411,11 +411,15 @@ export type ObjectField = {
   position: number;
 };
 
+// A named group in the menu that holds custom objects (operations, sales…).
+export type ObjectCategory = { id: string; name: string; icon?: string; position: number };
+
 export type ObjectType = {
   id: string;
   name: string;
   singular: string;
   icon?: string;
+  categoryId?: string; // menu category; none = loose in the menu
   position: number;
   titleField?: string;
   stageField?: string;

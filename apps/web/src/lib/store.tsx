@@ -13,6 +13,7 @@ import type {
   DocSection,
   DocCover,
   DocumentView,
+  ObjectCategory,
   ObjectType,
   ObjectField,
   Role,
@@ -82,6 +83,7 @@ type State = {
   documentTemplates: DocumentTemplate[];
   documents: CrmDocument[];
   objectTypes: ObjectType[];
+  objectCategories: ObjectCategory[];
   roles: Role[];
   // Business settings (organizations row).
   meetingReminders: boolean;
@@ -115,6 +117,7 @@ const emptyState: State = {
   documentTemplates: [],
   documents: [],
   objectTypes: [],
+  objectCategories: [],
   roles: [],
   meetingReminders: false,
 };
@@ -210,6 +213,9 @@ type Store = State & {
   addObjectType: (t: Omit<ObjectType, "id" | "position" | "fields"> & { fields: Omit<ObjectField, "id" | "objectTypeId" | "position">[] }) => Promise<ObjectType>;
   updateObjectType: (id: string, patch: Partial<Omit<ObjectType, "id" | "fields">>) => Promise<void>;
   deleteObjectType: (id: string) => Promise<void>;
+  addObjectCategory: (name: string, icon?: string) => Promise<ObjectCategory>;
+  updateObjectCategory: (id: string, patch: Partial<Omit<ObjectCategory, "id">>) => Promise<void>;
+  deleteObjectCategory: (id: string) => Promise<void>;
   saveObjectField: (f: Omit<ObjectField, "id"> & { id?: string }) => Promise<ObjectField>;
   deleteObjectField: (f: ObjectField) => Promise<void>;
   addDocumentTemplate: (t: Omit<DocumentTemplate, "id" | "position">) => Promise<DocumentTemplate>;
@@ -397,6 +403,7 @@ function mapObjectType(r: Row, fieldRows: Row[]): ObjectType {
     name: r.name,
     singular: r.singular,
     icon: r.icon ?? undefined,
+    categoryId: r.category_id ?? undefined,
     position: r.position,
     titleField: r.title_field ?? undefined,
     stageField: r.stage_field ?? undefined,
@@ -723,6 +730,7 @@ export function StoreProvider({
         documentTemplatesRes,
         documentsRes,
         objectTypesRes,
+        objectCategoriesRes,
         objectFieldsRes,
         rolesRes,
       ] = await Promise.all([
@@ -759,6 +767,7 @@ export function StoreProvider({
         supabase.from("document_templates").select("*").order("position"),
         fetchAll("documents", "sent_at"),
         supabase.from("object_types").select("*").order("position"),
+        supabase.from("object_categories").select("*").order("position"),
         supabase.from("object_fields").select("*").order("position"),
         supabase.from("roles").select("*").order("position"),
       ]);
@@ -824,6 +833,7 @@ export function StoreProvider({
         documentTemplates: (documentTemplatesRes.data ?? []).map(mapDocumentTemplate),
         documents: (documentsRes.data ?? []).map(mapDocument),
         objectTypes: (objectTypesRes.data ?? []).map((t: Row) => mapObjectType(t, objectFieldsRes.data ?? [])),
+        objectCategories: (objectCategoriesRes.data ?? []).map((c: Row) => ({ id: c.id, name: c.name, icon: c.icon ?? undefined, position: c.position })),
         roles: (rolesRes.data ?? []).map(mapRole),
       });
       setLoading(false);
@@ -1828,6 +1838,7 @@ export function StoreProvider({
     if (patch.name !== undefined) payload.name = patch.name;
     if (patch.singular !== undefined) payload.singular = patch.singular;
     if ("icon" in patch) payload.icon = patch.icon ?? null;
+    if ("categoryId" in patch) payload.category_id = patch.categoryId ?? null;
     if ("titleField" in patch) payload.title_field = patch.titleField ?? null;
     if ("stageField" in patch) payload.stage_field = patch.stageField ?? null;
     if (patch.position !== undefined) payload.position = patch.position;
@@ -1840,6 +1851,36 @@ export function StoreProvider({
     const { error } = await supabase.from("object_types").delete().eq("id", id);
     if (error) throw error;
     setState((s) => ({ ...s, objectTypes: s.objectTypes.filter((t) => t.id !== id) }));
+  };
+
+  const addObjectCategory: Store["addObjectCategory"] = async (name, icon) => {
+    const position = Math.max(-1, ...state.objectCategories.map((x) => x.position)) + 1;
+    const { data, error } = await supabase.from("object_categories").insert({ org_id: orgId, name, icon: icon ?? null, position }).select().single();
+    if (error || !data) throw error ?? new Error("יצירת הקטגוריה נכשלה");
+    const category: ObjectCategory = { id: data.id, name: data.name, icon: data.icon ?? undefined, position: data.position };
+    setState((s) => ({ ...s, objectCategories: [...s.objectCategories, category] }));
+    return category;
+  };
+
+  const updateObjectCategory: Store["updateObjectCategory"] = async (id, patch) => {
+    const payload: Row = {};
+    if (patch.name !== undefined) payload.name = patch.name;
+    if ("icon" in patch) payload.icon = patch.icon ?? null;
+    if (patch.position !== undefined) payload.position = patch.position;
+    const { error } = await supabase.from("object_categories").update(payload).eq("id", id);
+    if (error) throw error;
+    setState((s) => ({ ...s, objectCategories: s.objectCategories.map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
+  };
+
+  // Its objects stay (the database releases them); they just go back to the loose list.
+  const deleteObjectCategory: Store["deleteObjectCategory"] = async (id) => {
+    const { error } = await supabase.from("object_categories").delete().eq("id", id);
+    if (error) throw error;
+    setState((s) => ({
+      ...s,
+      objectCategories: s.objectCategories.filter((c) => c.id !== id),
+      objectTypes: s.objectTypes.map((t) => (t.categoryId === id ? { ...t, categoryId: undefined } : t)),
+    }));
   };
 
   const saveObjectField: Store["saveObjectField"] = async (f) => {
@@ -2018,6 +2059,9 @@ export function StoreProvider({
         addObjectType,
         updateObjectType,
         deleteObjectType,
+        addObjectCategory,
+        updateObjectCategory,
+        deleteObjectCategory,
         saveObjectField,
         deleteObjectField,
         addDocumentTemplate,
