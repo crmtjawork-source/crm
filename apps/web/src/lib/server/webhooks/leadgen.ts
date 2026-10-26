@@ -38,18 +38,34 @@ async function fetchLead(leadgenId: string, pageToken: string): Promise<Lead> {
   }
 }
 
-const KNOWN_KEYS = new Set(["full_name", "first_name", "last_name", "phone_number", "phone", "email"]);
+// Meta's standard questions use English keys; custom questions written in
+// another language (e.g. a Hebrew "שם מלא" field) keep the label as the key.
+const NAME_KEYS = ["full_name", "שם_מלא", "שם"];
+const FIRST_NAME_KEYS = ["first_name", "שם_פרטי"];
+const LAST_NAME_KEYS = ["last_name", "שם_משפחה"];
+const PHONE_KEYS = ["phone_number", "phone", "מספר_טלפון", "טלפון", "מספר_נייד", "נייד"];
+const EMAIL_KEYS = ["email", 'דוא"ל', "דואל", "אימייל", "מייל", "כתובת_מייל"];
+const KNOWN_KEYS = new Set([...NAME_KEYS, ...FIRST_NAME_KEYS, ...LAST_NAME_KEYS, ...PHONE_KEYS, ...EMAIL_KEYS]);
 
 export function mapLeadAnswers(fieldData: Lead["field_data"] = []) {
-  const get = (name: string) => fieldData.find((f) => f.name === name)?.values?.[0]?.trim() || undefined;
-  const name = get("full_name") || [get("first_name"), get("last_name")].filter(Boolean).join(" ") || undefined;
+  const get = (keys: string[]) => {
+    for (const key of keys) {
+      const value = fieldData.find((f) => f.name === key)?.values?.[0]?.trim();
+      if (value) return value;
+    }
+    return undefined;
+  };
+  const name = get(NAME_KEYS) || [get(FIRST_NAME_KEYS), get(LAST_NAME_KEYS)].filter(Boolean).join(" ") || undefined;
   const extra: Record<string, string> = {};
   for (const f of fieldData) {
     if (KNOWN_KEYS.has(f.name)) continue;
     const value = (f.values ?? []).join(", ").trim();
     if (value) extra[f.name.replace(/_/g, " ").trim()] = value;
   }
-  return { name, phone: get("phone_number") || get("phone"), email: get("email"), extra };
+  // An Israeli mobile typed without its leading 0 ("532298443").
+  let phone = get(PHONE_KEYS);
+  if (phone && /^5\d{8}$/.test(phone.replace(/\D/g, ""))) phone = `0${phone.replace(/\D/g, "")}`;
+  return { name, phone, email: get(EMAIL_KEYS), extra };
 }
 
 export async function handleLeadgenChange(db: Db, value: Row): Promise<string | null> {
