@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Papa from "papaparse";
 import { useStore } from "@/lib/store";
+import { BackLink } from "@/components/BackLink";
 
 const NAME_ALIASES = ["name", "שם", "שם מלא", "full name"];
 const PHONE_ALIASES = ["phone", "טלפון", "נייד", "מספר טלפון"];
@@ -94,6 +95,7 @@ export default function ImportContactsPage() {
 
   return (
     <div className="p-6 max-w-2xl">
+      <BackLink fallback="/contacts" />
       <h1 className="text-xl font-bold mb-1">ייבוא לידים מ-CSV</h1>
       <p className="text-sm text-neutral-500 mb-6">
         קובץ עם שורת כותרות. עמודת שם היא חובה (name / שם). טלפון, אימייל ומקור מזוהים אוטומטית אם קיימים. כל עמודה אחרת הופכת לשדה מותאם אישית.

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
+import { BackLink } from "@/components/BackLink";
 import { useLeadChatHref } from "@/lib/useMyGateway";
 import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
 import { QuickActions } from "@/components/leads/QuickActions";
@@ -57,7 +58,12 @@ export default function ContactDetailPage() {
   const [noteText, setNoteText] = useState("");
 
   if (!contact) {
-    return <div className="p-6 text-neutral-500">הליד לא נמצא.</div>;
+    return (
+      <div className="p-6 text-neutral-500">
+        <BackLink fallback="/contacts" />
+        <p>הליד לא נמצא.</p>
+      </div>
+    );
   }
 
   const contactOpportunities = opportunities.filter((o) => o.contactId === contact.id);
@@ -105,6 +111,7 @@ export default function ContactDetailPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl">
+      <BackLink fallback="/contacts" />
       <div className="flex items-start justify-between mb-1">
         {editingInfo ? (
           <form onSubmit={saveInfo} className="w-full space-y-2 mb-4">

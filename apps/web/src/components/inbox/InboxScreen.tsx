@@ -52,7 +52,7 @@ function ConversationList({
   });
 
   return (
-    <div className="w-80 shrink-0 border-e border-neutral-200 dark:border-neutral-800 flex flex-col min-h-0">
+    <div className="w-full md:w-80 shrink-0 border-e border-neutral-200 dark:border-neutral-800 flex flex-col min-h-0">
       <div className="p-3 space-y-2 border-b border-neutral-200 dark:border-neutral-800">
         <input
           value={q}
@@ -112,12 +112,25 @@ function ConversationList({
   );
 }
 
+// Phone: the list and the open conversation take turns; this returns to the list.
+function BackToList({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} aria-label="חזרה לרשימת השיחות" className="md:hidden shrink-0 -ms-1 p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M5 12h14M13 6l6 6-6 6" />
+      </svg>
+    </button>
+  );
+}
+
 function Thread({
   conversation,
   contact,
   channel,
   readOnly,
+  onBack,
 }: {
+  onBack: () => void;
   conversation: Conversation;
   contact?: Contact;
   channel?: Channel;
@@ -158,7 +171,8 @@ function Thread({
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
       <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-3">
-        <div className="min-w-0">
+        <BackToList onClick={onBack} />
+        <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm truncate">{contact?.name ?? "ליד לא ידוע"}</p>
           <p className="text-xs text-neutral-500">
             <span dir="ltr">{contact?.phone ?? ""}</span>
@@ -225,7 +239,7 @@ function Thread({
 // Meta's official API needs approved templates outside the 24-hour window.
 const isGateway = (channel?: Channel) => Boolean(channel && channel.provider !== "whatsapp_cloud");
 
-function StartConversation({ contact, channels, basePath }: { contact: Contact; channels: Channel[]; basePath: string }) {
+function StartConversation({ contact, channels, basePath, onBack }: { contact: Contact; channels: Channel[]; basePath: string; onBack: () => void }) {
   const router = useRouter();
   const [channelId, setChannelId] = useState(channels.find((c) => c.isDefault)?.id ?? channels[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
@@ -249,6 +263,7 @@ function StartConversation({ contact, channels, basePath }: { contact: Contact; 
   return (
     <div className="flex-1 p-6 max-w-lg space-y-4">
       <div>
+        <BackToList onClick={onBack} />
         <h2 className="font-semibold">שיחה חדשה עם {contact.name}</h2>
         <p className="text-sm text-neutral-500" dir="ltr">
           {contact.phone ?? "אין מספר טלפון"}
@@ -391,9 +406,9 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
 
   return (
     <div className="flex h-[calc(100dvh-3rem)]">
-      <div className="flex flex-col min-h-0">
+      <div className={`${selected || startContact ? "hidden md:flex" : "flex"} flex-col min-h-0 w-full md:w-auto`}>
         {box === "personal" && isAdmin && colleagues.length > 0 && (
-          <div className="p-3 border-b border-e border-neutral-200 dark:border-neutral-800 w-80">
+          <div className="p-3 border-b border-e border-neutral-200 dark:border-neutral-800 w-full md:w-80">
             <select
               value={viewing}
               onChange={(e) => {
@@ -422,11 +437,11 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
         />
       </div>
       {selected ? (
-        <Thread key={selected.id} conversation={selected} contact={contactsById.get(selected.contactId)} channel={channelsById.get(selected.channelId)} readOnly={!canWrite} />
+        <Thread key={selected.id} onBack={() => (contactParam ? router.back() : router.replace(basePath))} conversation={selected} contact={contactsById.get(selected.contactId)} channel={channelsById.get(selected.channelId)} readOnly={!canWrite} />
       ) : startContact && canWrite ? (
-        <StartConversation contact={startContact} channels={activeChannels} basePath={basePath} />
+        <StartConversation contact={startContact} channels={activeChannels} basePath={basePath} onBack={() => router.back()} />
       ) : (
-        <div className="flex-1 flex items-center justify-center text-sm text-neutral-400">{loading ? "טוען שיחות…" : "בחרו שיחה מהרשימה"}</div>
+        <div className="hidden md:flex flex-1 items-center justify-center text-sm text-neutral-400">{loading ? "טוען שיחות…" : "בחרו שיחה מהרשימה"}</div>
       )}
     </div>
   );

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
+import { BackLink } from "@/components/BackLink";
 
 export default function NewContactPage() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function NewContactPage() {
 
   return (
     <div className="p-6 max-w-md">
+      <BackLink fallback="/contacts" />
       <h1 className="text-xl font-bold mb-6">ליד חדש</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="שם" value={name} onChange={setName} required autoFocus />

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useStore } from "@/lib/store";
+import { BackLink } from "@/components/BackLink";
 import { formatValue, stageField, type FieldValue as Value } from "@/lib/objects";
 import { deleteRecord, mapRecord, recordTitles, updateRecord } from "@/lib/useRecords";
 import { FieldValue } from "@/components/objects/FieldValue";
@@ -94,10 +95,8 @@ export default function RecordPage() {
 
   return (
     <div className="max-w-5xl">
-      <Link href={`/o/${type.id}`} className="text-xs text-neutral-400 hover:underline">
-        ← {type.name}
-      </Link>
-      <div className="flex flex-wrap items-center gap-3 mt-1 mb-4">
+      <BackLink fallback={`/o/${type.id}`} label={`חזרה ל${type.name}`} className="mb-2" />
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <h1 className="text-2xl font-bold me-auto">{r.title || "ללא שם"}</h1>
         {r.contactId && (
           <Link href={`/contacts/${r.contactId}`} className="text-sm text-sky-600 hover:underline">
