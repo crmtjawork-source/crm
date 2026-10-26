@@ -8,6 +8,8 @@ import { BackLink } from "@/components/BackLink";
 import { useLeadChatHref } from "@/lib/useMyGateway";
 import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
 import { QuickActions } from "@/components/leads/QuickActions";
+import { StageSelect } from "@/components/leads/StageSelect";
+import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { LeadUpcoming } from "@/components/leads/LeadUpcoming";
 import { LeadTimeline } from "@/components/leads/LeadTimeline";
 import { LeadDocuments } from "@/components/documents/LeadDocuments";
@@ -22,6 +24,7 @@ export default function ContactDetailPage() {
   const router = useRouter();
   const {
     getContact,
+    opportunities,
     updateContact,
     deleteContact,
     addTag,
@@ -35,6 +38,7 @@ export default function ContactDetailPage() {
   } = useStore();
   const contact = getContact(id);
   const chatHref = useLeadChatHref(id);
+  const stagePrompt = useStageMovePrompt();
 
   useEffect(() => {
     loadActivitiesFor(id);
@@ -167,6 +171,17 @@ export default function ContactDetailPage() {
       {!editingInfo && <QuickActions contact={contact} />}
 
       <LeadUpcoming contact={contact} />
+
+      <div className="flex items-center gap-2 mb-2 text-sm">
+        <span className="text-neutral-500">שלב:</span>
+        {(() => {
+          // The lead's current deal: the open one if any, else the latest.
+          const deals = opportunities.filter((o) => o.contactId === contact.id);
+          const deal = deals.find((o) => o.status === "open") ?? [...deals].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+          return <StageSelect contact={contact} deal={deal} afterMove={stagePrompt.afterMove} />;
+        })()}
+      </div>
+      {stagePrompt.element}
 
       {leadStatuses.length > 0 && (
         <label className="flex items-center gap-2 mb-2 text-sm">
