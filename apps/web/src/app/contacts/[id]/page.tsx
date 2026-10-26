@@ -8,36 +8,28 @@ import { BackLink } from "@/components/BackLink";
 import { useLeadChatHref } from "@/lib/useMyGateway";
 import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
 import { QuickActions } from "@/components/leads/QuickActions";
+import { LeadUpcoming } from "@/components/leads/LeadUpcoming";
+import { LeadTimeline } from "@/components/leads/LeadTimeline";
 import { LeadDocuments } from "@/components/documents/LeadDocuments";
 import { LeadCalls } from "@/components/leads/LeadCalls";
-import { ColorChip, colorAt } from "@/components/ui/ColorChip";
+import { colorAt } from "@/components/ui/ColorChip";
 import { LeadFieldsCard } from "@/components/leads/LeadFieldsCard";
 import { LeadRecords } from "@/components/leads/LeadRecords";
 import { FilesSection } from "@/components/FilesSection";
-import { TaskRow } from "@/components/leads/TaskRow";
 
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const {
     getContact,
-    opportunities,
-    activitiesFor,
     updateContact,
     deleteContact,
     addTag,
     removeTag,
-    addNote,
     members,
     currentMemberId,
-    pipelines,
     loadActivitiesFor,
-    setOpportunityStatus,
     campaigns,
-    tasks,
-    appointments,
-    scheduledMessages,
-    cancelScheduledMessage,
     leadStatuses,
     setHandlingStatus,
   } = useStore();
@@ -55,7 +47,6 @@ export default function ContactDetailPage() {
   const [email, setEmail] = useState(contact?.email ?? "");
 
   const [newTag, setNewTag] = useState("");
-  const [noteText, setNoteText] = useState("");
 
   if (!contact) {
     return (
@@ -66,8 +57,6 @@ export default function ContactDetailPage() {
     );
   }
 
-  const contactOpportunities = opportunities.filter((o) => o.contactId === contact.id);
-  const activities = activitiesFor(contact.id);
 
   function startEdit() {
     if (!contact) return;
@@ -100,13 +89,6 @@ export default function ContactDetailPage() {
     if (!newTag.trim() || !contact) return;
     await addTag(contact.id, newTag.trim());
     setNewTag("");
-  }
-
-  async function handleAddNote(e: React.FormEvent) {
-    e.preventDefault();
-    if (!noteText.trim() || !contact) return;
-    await addNote(contact.id, noteText.trim());
-    setNoteText("");
   }
 
   return (
@@ -184,47 +166,7 @@ export default function ContactDetailPage() {
 
       {!editingInfo && <QuickActions contact={contact} />}
 
-      {(() => {
-        const leadTasks = tasks.filter((t) => t.contactId === contact.id && !t.done);
-        const queued = scheduledMessages
-          .filter((m) => m.contactId === contact.id && (m.status === "pending" || m.status === "failed"))
-          .sort((a, b) => a.sendAt.localeCompare(b.sendAt));
-        const upcoming = appointments
-          .filter((a) => a.contactId === contact.id && a.startAt >= new Date().toISOString())
-          .sort((a, b) => a.startAt.localeCompare(b.startAt));
-        if (!leadTasks.length && !upcoming.length && !queued.length) return null;
-        return (
-          <section className="mb-5 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2">
-            {upcoming.map((a) => (
-              <p key={a.id} className="text-sm py-1">
-                📅 {a.title} ·{" "}
-                {new Date(a.startAt).toLocaleString("he-IL", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-              </p>
-            ))}
-            {queued.map((m) => (
-              <p key={m.id} className="text-sm py-1 flex items-center gap-2">
-                <span className="flex-1 min-w-0">
-                  ⏰ {m.label} ·{" "}
-                  {new Date(m.sendAt).toLocaleString("he-IL", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                  {m.status === "failed" && <span className="text-red-500"> · נכשל: {m.error}</span>}
-                </span>
-                {m.status === "pending" && (
-                  <button onClick={() => cancelScheduledMessage(m.id)} className="text-xs text-neutral-400 hover:text-red-500 shrink-0">
-                    ביטול
-                  </button>
-                )}
-              </p>
-            ))}
-            {leadTasks.length > 0 && (
-              <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                {leadTasks.map((t) => (
-                  <TaskRow key={t.id} task={t} showContact={false} />
-                ))}
-              </ul>
-            )}
-          </section>
-        );
-      })()}
+      <LeadUpcoming contact={contact} />
 
       {leadStatuses.length > 0 && (
         <label className="flex items-center gap-2 mb-2 text-sm">
@@ -333,78 +275,7 @@ export default function ContactDetailPage() {
       <LeadCalls contactId={contact.id} />
       <FilesSection contactId={contact.id} />
 
-      <section className="mb-6">
-        <h2 className="text-sm font-semibold text-neutral-500 mb-2">הזדמנויות</h2>
-        {contactOpportunities.length === 0 ? (
-          <p className="text-sm text-neutral-400">אין הזדמנויות.</p>
-        ) : (
-          <ul className="space-y-2">
-            {contactOpportunities.map((o) => {
-              const pipeline = pipelines.find((p) => p.id === o.pipelineId);
-              const stage = pipeline?.stages.find((s) => s.id === o.stageId);
-              const outcome = { won: "נסגרה ✓", lost: "לא נסגרה", abandoned: "בוטלה" } as const;
-              return (
-                <li key={o.id} className="border border-neutral-200 dark:border-neutral-800 rounded-md p-3 text-sm flex items-center justify-between gap-2">
-                  <div>
-                    <p>
-                      {o.title} {o.value > 0 ? `· ₪${o.value.toLocaleString("he-IL")}` : ""}
-                    </p>
-                    <p className="text-xs text-neutral-500 flex items-center gap-1 flex-wrap">
-                      {pipeline?.name} ·{" "}
-                      <ColorChip label={stage?.name ?? ""} color={pipeline && stage ? colorAt(stage.color, pipeline.stages.indexOf(stage)) : undefined} />
-                      {o.status !== "open" && (
-                        <span className={o.status === "won" ? "text-emerald-600" : "text-neutral-500"}>
-                          {" "}· {outcome[o.status]}
-                          {o.lostReason ? ` (${o.lostReason})` : ""}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  {o.status !== "open" && (
-                    <button onClick={() => setOpportunityStatus(o.id, "open")} className="text-xs text-neutral-400 hover:underline shrink-0">
-                      פתיחה מחדש
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <section>
-        <h2 className="text-sm font-semibold text-neutral-500 mb-2">ציר זמן</h2>
-        <form onSubmit={handleAddNote} className="flex gap-2 mb-4">
-          <input
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            placeholder="הוספת הערה…"
-            className="flex-1 px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
-          />
-          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
-            הוספה
-          </button>
-        </form>
-        {activities.length === 0 ? (
-          <p className="text-sm text-neutral-400">אין עדיין פעילות.</p>
-        ) : (
-          <ul className="space-y-3">
-            {activities.map((a) => (
-              <li key={a.id} className="text-sm flex gap-2">
-                <span className={a.type === "note" ? "text-neutral-400" : "text-neutral-300"}>
-                  {a.type === "note" ? "📝" : "→"}
-                </span>
-                <div className="min-w-0">
-                  <p className="whitespace-pre-line break-words">{a.text}</p>
-                  <p className="text-xs text-neutral-400">
-                    {new Date(a.createdAt).toLocaleString("he-IL")}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <LeadTimeline contact={contact} />
     </div>
   );
 }
