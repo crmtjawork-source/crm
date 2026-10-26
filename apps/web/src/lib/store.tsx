@@ -155,6 +155,10 @@ type Store = State & {
   addStage: (pipelineId: string, name: string) => Promise<void>;
   renameStage: (pipelineId: string, stageId: string, name: string) => Promise<void>;
   deleteStage: (pipelineId: string, stageId: string) => Promise<{ ok: boolean; reason?: string }>;
+  updateStage: (pipelineId: string, stageId: string, patch: { name?: string; color?: string; winProbability?: number; linkObjectTypeId?: string | null }) => Promise<void>;
+  moveStage: (pipelineId: string, stageId: string, direction: -1 | 1) => Promise<void>;
+  renamePipeline: (pipelineId: string, name: string) => Promise<void>;
+  deletePipeline: (pipelineId: string) => Promise<{ ok: boolean; reason?: string }>;
   setStageColor: (pipelineId: string, stageId: string, color: string) => Promise<void>;
 
   addTask: (t: { title: string; contactId?: string; assignee?: string; dueDate?: string; templateId?: string; appointmentId?: string }) => Promise<Task>;
@@ -462,7 +466,7 @@ function mapLeadSource(r: Row): LeadSource {
 }
 
 function mapStage(r: Row): Stage {
-  return { id: r.id, name: r.name, winProbability: r.win_probability, color: r.color ?? undefined };
+  return { id: r.id, name: r.name, winProbability: r.win_probability, color: r.color ?? undefined, linkObjectTypeId: r.link_object_type_id ?? undefined };
 }
 
 function mapPipeline(r: Row, stageRows: Row[]): Pipeline {
@@ -1197,6 +1201,66 @@ export function StoreProvider({
       ...s,
       pipelines: s.pipelines.map((p) => (p.id === pipelineId ? { ...p, stages: p.stages.filter((st) => st.id !== stageId) } : p)),
     }));
+    return { ok: true };
+  };
+
+  const updateStage: Store["updateStage"] = async (pipelineId, stageId, patch) => {
+    const payload: Row = {};
+    if (patch.name !== undefined) payload.name = patch.name;
+    if (patch.color !== undefined) payload.color = patch.color;
+    if (patch.winProbability !== undefined) payload.win_probability = Math.max(0, Math.min(100, Math.round(patch.winProbability)));
+    if ("linkObjectTypeId" in patch) payload.link_object_type_id = patch.linkObjectTypeId ?? null;
+    const { error } = await supabase.from("stages").update(payload).eq("id", stageId);
+    if (error) throw error;
+    setState((s) => ({
+      ...s,
+      pipelines: s.pipelines.map((p) =>
+        p.id === pipelineId
+          ? {
+              ...p,
+              stages: p.stages.map((st) =>
+                st.id === stageId
+                  ? {
+                      ...st,
+                      ...(patch.name !== undefined ? { name: patch.name } : {}),
+                      ...(patch.color !== undefined ? { color: patch.color } : {}),
+                      ...(patch.winProbability !== undefined ? { winProbability: payload.win_probability } : {}),
+                      ...("linkObjectTypeId" in patch ? { linkObjectTypeId: patch.linkObjectTypeId ?? undefined } : {}),
+                    }
+                  : st
+              ),
+            }
+          : p
+      ),
+    }));
+  };
+
+  // Swaps a stage with its neighbour; positions are rewritten for the whole
+  // pipeline so gaps or ties never leave the order ambiguous.
+  const moveStage: Store["moveStage"] = async (pipelineId, stageId, direction) => {
+    const pipeline = state.pipelines.find((p) => p.id === pipelineId);
+    if (!pipeline) return;
+    const stages = [...pipeline.stages];
+    const i = stages.findIndex((st) => st.id === stageId);
+    const j = i + direction;
+    if (i < 0 || j < 0 || j >= stages.length) return;
+    [stages[i], stages[j]] = [stages[j], stages[i]];
+    setState((s) => ({ ...s, pipelines: s.pipelines.map((p) => (p.id === pipelineId ? { ...p, stages } : p)) }));
+    await Promise.all(stages.map((st, position) => supabase.from("stages").update({ position }).eq("id", st.id)));
+  };
+
+  const renamePipeline: Store["renamePipeline"] = async (pipelineId, name) => {
+    const { error } = await supabase.from("pipelines").update({ name }).eq("id", pipelineId);
+    if (error) throw error;
+    setState((s) => ({ ...s, pipelines: s.pipelines.map((p) => (p.id === pipelineId ? { ...p, name } : p)) }));
+  };
+
+  const deletePipeline: Store["deletePipeline"] = async (pipelineId) => {
+    if (state.pipelines.length <= 1) return { ok: false, reason: "צריך להישאר לפחות פייפליין אחד." };
+    if (state.opportunities.some((o) => o.pipelineId === pipelineId)) return { ok: false, reason: "יש בפייפליין הזה עסקאות — צריך להעביר או למחוק אותן קודם." };
+    const { error } = await supabase.from("pipelines").delete().eq("id", pipelineId);
+    if (error) return { ok: false, reason: "אין הרשאה למחוק פייפליין." };
+    setState((s) => ({ ...s, pipelines: s.pipelines.filter((p) => p.id !== pipelineId) }));
     return { ok: true };
   };
 
@@ -2012,6 +2076,10 @@ export function StoreProvider({
         addStage,
         renameStage,
         setStageColor,
+        updateStage,
+        moveStage,
+        renamePipeline,
+        deletePipeline,
         deleteStage,
         addTask,
         toggleTask,

@@ -7,6 +7,7 @@ import { PersonalWhatsAppSettings } from "./PersonalWhatsAppSettings";
 import { ObjectsSettings } from "./ObjectsSettings";
 import { LeadFieldsSettings } from "./LeadFieldsSettings";
 import { LeadStatusesSettings } from "./LeadStatusesSettings";
+import { PipelineStagesSettings } from "./PipelineStagesSettings";
 import { MessageTemplatesSettings } from "./MessageTemplatesSettings";
 import { DocumentTemplatesSettings } from "./DocumentTemplatesSettings";
 import { RolesSettings } from "./RolesSettings";
@@ -38,6 +39,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { slug: "my-whatsapp", label: "הוואטסאפ שלי", group: "אישי", business: false, render: (a) => <PersonalWhatsAppSettings isAdmin={a} /> },
   { slug: "objects", label: "טבלאות ואובייקטים", group: "נתונים וכרטיסים", business: true, render: (a) => <ObjectsSettings isAdmin={a} /> },
   { slug: "lead-fields", label: "שדות בכרטיס הליד", group: "נתונים וכרטיסים", business: true, render: (a) => <LeadFieldsSettings isAdmin={a} /> },
+  { slug: "stages", label: "שלבי עסקה", group: "נתונים וכרטיסים", business: true, render: (a) => <PipelineStagesSettings isAdmin={a} /> },
   { slug: "lead-statuses", label: "סטטוסי ליד", group: "נתונים וכרטיסים", business: true, render: (a) => <LeadStatusesSettings isAdmin={a} /> },
   { slug: "messages", label: "הודעות מוכנות", group: "תקשורת ומסמכים", business: true, render: (a) => <MessageTemplatesSettings isAdmin={a} /> },
   { slug: "documents", label: "הצעות והסכמים", group: "תקשורת ומסמכים", business: true, render: (a) => <DocumentTemplatesSettings isAdmin={a} /> },

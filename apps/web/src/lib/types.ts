@@ -25,6 +25,9 @@ export type Stage = {
   name: string;
   winProbability: number; // 0-100, shown on the pipeline column header
   color?: string;
+  // When a deal enters this stage, a record is created in this table from the
+  // lead (e.g. "deal closed" → clients). The deal stays in the pipeline.
+  linkObjectTypeId?: string;
 };
 
 export type Pipeline = {
