@@ -17,7 +17,7 @@ function Gate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading || isPublicPage) return;
     if (!session && !isLoginPage) router.replace("/login");
-    if (session && isLoginPage) router.replace("/dashboard");
+    if (session && isLoginPage) router.replace("/");
   }, [loading, session, isLoginPage, isPublicPage, router]);
 
   if (isLoginPage || isPublicPage) return <>{children}</>;

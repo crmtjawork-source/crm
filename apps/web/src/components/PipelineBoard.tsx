@@ -273,6 +273,9 @@ export function PipelineBoard({ pipeline, search = "", filter }: { pipeline: Pip
   const needle = search.trim().toLowerCase();
   const digits = needle.replace(/\D/g, "");
   const contactById = new Map(contacts.map((c) => [c.id, c]));
+  // New leads nobody owns yet come first in their column.
+  const flagged = new Set(contacts.filter(needsAssignment).map((c) => c.id));
+  const unassignedFirst = (a: Opportunity, b: Opportunity) => Number(flagged.has(b.contactId)) - Number(flagged.has(a.contactId));
   const opportunities = all
     .filter((o) => {
       if (filter && !filter(o)) return false;
@@ -284,7 +287,7 @@ export function PipelineBoard({ pipeline, search = "", filter }: { pipeline: Pip
         (digits.length >= 3 && (c?.phone ?? "").replace(/\D/g, "").includes(digits))
       );
     })
-    .sort((a, b) => b.stageChangedAt.localeCompare(a.stageChangedAt));
+    .sort((a, b) => unassignedFirst(a, b) || b.stageChangedAt.localeCompare(a.stageChangedAt));
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;

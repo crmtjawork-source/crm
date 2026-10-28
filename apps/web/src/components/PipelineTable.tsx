@@ -17,6 +17,8 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
   const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
   const needle = search.trim().toLowerCase();
   const digits = needle.replace(/\D/g, "");
+  const flagged = new Set(contacts.filter(needsAssignment).map((c) => c.id));
+  const unassignedFirst = (a: Opportunity, b: Opportunity) => Number(flagged.has(b.contactId)) - Number(flagged.has(a.contactId));
   const rows = opportunities
     .filter((o) => o.pipelineId === pipeline.id && o.status === "open")
     .filter((o) => {
@@ -25,7 +27,7 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
       const c = contacts.find((x) => x.id === o.contactId);
       return (c?.name ?? "").toLowerCase().includes(needle) || (digits.length >= 3 && (c?.phone ?? "").replace(/\D/g, "").includes(digits));
     })
-    .sort((a, b) => b.stageChangedAt.localeCompare(a.stageChangedAt));
+    .sort((a, b) => unassignedFirst(a, b) || b.stageChangedAt.localeCompare(a.stageChangedAt));
   const dealGroup = "פרטי העסקה";
   const catalog = buildLeadCols({
     leadFields,

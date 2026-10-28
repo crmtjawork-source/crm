@@ -23,7 +23,7 @@ export default function ContactsPage() {
   const isAgent = members.find((m) => m.email.toLowerCase() === (session?.user.email ?? "").toLowerCase())?.role === "agent";
   // all | mine | none | <email>; "?owner=none" (from the pipeline's unassigned banner) opens on unowned leads.
   const [owner, setOwner] = useState(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("owner") === "none" ? "none" : isAgent ? "mine" : "all"));
-  const [sortBy, setSortBy] = useState<"activity" | "created">("activity");
+  const [sortBy, setSortBy] = useState<"activity" | "created">(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("owner") === "none" ? "created" : "activity"));
   // Each lead's current deal: the open one if any, else the latest.
   const dealOf = useMemo(() => {
     const m = new Map<string, (typeof opportunities)[number]>();
