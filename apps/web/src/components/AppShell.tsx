@@ -98,7 +98,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     .filter((g) => g.items.length > 0);
   const looseTables = objectTypes.filter((t) => !t.categoryId || !objectCategories.some((c) => c.id === t.categoryId)).map(tableItem);
   const before = [NAV[0], pipelineItem].filter(visible);
-  const after = [...looseTables, ...NAV.slice(1).filter((i) => i.href !== "/contacts" && i.href !== "/pipeline")].filter(visible);
+  // Without the business-settings permission "settings" is only the person's own (notifications, calendar, WhatsApp, appearance).
+  const businessSettings = !role || !role.features || role.features.includes("settings");
+  const after = [...looseTables, ...NAV.slice(1).filter((i) => i.href !== "/contacts" && i.href !== "/pipeline")]
+    .filter(visible)
+    .map((i) => (i.href === "/settings" && !businessSettings ? { ...i, label: "ההגדרות שלי" } : i));
 
   const link = (item: { href: string; label: string }, nested = false) => {
     // A lead's card belongs to the pipeline entry.

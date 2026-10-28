@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -16,9 +17,19 @@ import { buildLeadCols, formatEntered, useColumnPrefs, type LeadCol } from "@/li
 
 const PAGE_SIZE = 100;
 
-const fromQuery = (key: string) => (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get(key) : null);
-
+// useSearchParams (not window.location) so a client-side navigation to
+// /contacts?new=1 sees its own query right away, not the previous page's.
 export default function ContactsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-neutral-400">טוען…</div>}>
+      <ContactsList />
+    </Suspense>
+  );
+}
+
+function ContactsList() {
+  const params = useSearchParams();
+  const fromQuery = (key: string) => params.get(key);
   const { contacts, members, campaigns, opportunities, pipelines, leadStatuses, leadFields } = useStore();
   const { session } = useAuth();
   const [q, setQ] = useState("");
