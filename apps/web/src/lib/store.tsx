@@ -90,6 +90,7 @@ type State = {
   meetingReminders: boolean;
   mergeRepeatLeads: boolean;
   companySignature?: CompanySignature;
+  lostReasons: string[]; // answers offered when a deal is not closed
 };
 
 const emptyState: State = {
@@ -121,6 +122,7 @@ const emptyState: State = {
   documents: [],
   objectTypes: [],
   objectCategories: [],
+  lostReasons: [],
   roles: [],
   meetingReminders: false,
   mergeRepeatLeads: true,
@@ -130,7 +132,7 @@ type ContactPatch = Partial<Pick<Contact, "name" | "phone" | "email" | "source" 
 type TemplatePatch = Partial<Pick<MessageTemplate, "name" | "body" | "quickAction" | "position">> & { attachment?: TemplateAttachment | null };
 type CampaignPatch = Partial<Pick<Campaign, "name" | "platform" | "agency" | "archived">>;
 type LeadSourcePatch = Partial<Pick<LeadSource, "name" | "defaultPlatform" | "defaultAgency" | "defaultCampaignId" | "active">>;
-type OpportunityPatch = Partial<Pick<Opportunity, "title" | "value">>;
+type OpportunityPatch = Partial<Pick<Opportunity, "title" | "value" | "lostReason">>;
 type ImportRow = { name: string; phone?: string; email?: string; source?: string; fields?: Record<string, string> };
 
 type Store = State & {
@@ -159,7 +161,7 @@ type Store = State & {
   addStage: (pipelineId: string, name: string) => Promise<void>;
   renameStage: (pipelineId: string, stageId: string, name: string) => Promise<void>;
   deleteStage: (pipelineId: string, stageId: string) => Promise<{ ok: boolean; reason?: string }>;
-  updateStage: (pipelineId: string, stageId: string, patch: { name?: string; color?: string; winProbability?: number; linkObjectTypeId?: string | null }) => Promise<void>;
+  updateStage: (pipelineId: string, stageId: string, patch: { name?: string; color?: string; winProbability?: number; linkObjectTypeId?: string | null; asksLostReason?: boolean }) => Promise<void>;
   moveStage: (pipelineId: string, stageId: string, direction: -1 | 1) => Promise<void>;
   renamePipeline: (pipelineId: string, name: string) => Promise<void>;
   deletePipeline: (pipelineId: string) => Promise<{ ok: boolean; reason?: string }>;
@@ -247,6 +249,7 @@ type Store = State & {
   setMeetingReminders: (on: boolean) => Promise<void>;
   setMergeRepeatLeads: (on: boolean) => Promise<void>;
   setCompanySignature: (sig: CompanySignature | null) => Promise<void>;
+  setLostReasons: (reasons: string[]) => Promise<void>;
   deleteMessageTemplate: (id: string) => Promise<void>;
 
   addScheduledMessages: (rows: Row[]) => void;
@@ -474,7 +477,7 @@ function mapLeadSource(r: Row): LeadSource {
 }
 
 function mapStage(r: Row): Stage {
-  return { id: r.id, name: r.name, winProbability: r.win_probability, color: r.color ?? undefined, linkObjectTypeId: r.link_object_type_id ?? undefined };
+  return { id: r.id, name: r.name, winProbability: r.win_probability, color: r.color ?? undefined, linkObjectTypeId: r.link_object_type_id ?? undefined, asksLostReason: Boolean(r.asks_lost_reason) };
 }
 
 function mapPipeline(r: Row, stageRows: Row[]): Pipeline {
@@ -775,7 +778,7 @@ export function StoreProvider({
         // Upcoming and recently failed reminders; sent ones live in the timeline.
         supabase.from("scheduled_messages").select("*").in("status", ["pending", "sending", "failed"]).order("send_at").limit(1000),
         supabase.from("lead_statuses").select("*").order("position"),
-        supabase.from("organizations").select("meeting_reminders, merge_repeat_leads, company_signature").eq("id", orgId).maybeSingle(),
+        supabase.from("organizations").select("meeting_reminders, merge_repeat_leads, company_signature, lost_reasons").eq("id", orgId).maybeSingle(),
         supabase.from("document_templates").select("*").order("position"),
         fetchAll("documents", "sent_at"),
         supabase.from("object_types").select("*").order("position"),
@@ -844,6 +847,7 @@ export function StoreProvider({
         meetingReminders: Boolean(orgRes.data?.meeting_reminders),
         mergeRepeatLeads: orgRes.data?.merge_repeat_leads !== false,
         companySignature: orgRes.data?.company_signature ?? undefined,
+        lostReasons: Array.isArray(orgRes.data?.lost_reasons) ? (orgRes.data.lost_reasons as string[]) : [],
         documentTemplates: (documentTemplatesRes.data ?? []).map(mapDocumentTemplate),
         documents: (documentsRes.data ?? []).map(mapDocument),
         objectTypes: (objectTypesRes.data ?? []).map((t: Row) => mapObjectType(t, objectFieldsRes.data ?? [])),
@@ -1105,7 +1109,10 @@ export function StoreProvider({
   };
 
   const updateOpportunity: Store["updateOpportunity"] = async (opportunityId, patch) => {
-    const { data } = await supabase.from("opportunities").update(patch).eq("id", opportunityId).select().single();
+    const { lostReason, ...rest } = patch;
+    const payload: Row = { ...rest };
+    if ("lostReason" in patch) payload.lost_reason = lostReason?.trim() || null;
+    const { data } = await supabase.from("opportunities").update(payload).eq("id", opportunityId).select().single();
     if (data) setState((s) => ({ ...s, opportunities: s.opportunities.map((o) => (o.id === opportunityId ? mapOpportunity(data) : o)) }));
   };
 
@@ -1220,6 +1227,7 @@ export function StoreProvider({
     if (patch.color !== undefined) payload.color = patch.color;
     if (patch.winProbability !== undefined) payload.win_probability = Math.max(0, Math.min(100, Math.round(patch.winProbability)));
     if ("linkObjectTypeId" in patch) payload.link_object_type_id = patch.linkObjectTypeId ?? null;
+    if (patch.asksLostReason !== undefined) payload.asks_lost_reason = patch.asksLostReason;
     const { error } = await supabase.from("stages").update(payload).eq("id", stageId);
     if (error) throw error;
     setState((s) => ({
@@ -1236,6 +1244,7 @@ export function StoreProvider({
                       ...(patch.color !== undefined ? { color: patch.color } : {}),
                       ...(patch.winProbability !== undefined ? { winProbability: payload.win_probability } : {}),
                       ...("linkObjectTypeId" in patch ? { linkObjectTypeId: patch.linkObjectTypeId ?? undefined } : {}),
+                      ...(patch.asksLostReason !== undefined ? { asksLostReason: patch.asksLostReason } : {}),
                     }
                   : st
               ),
@@ -2010,6 +2019,11 @@ export function StoreProvider({
     setState((s) => ({ ...s, companySignature: sig ?? undefined }));
   };
 
+  const setLostReasons: Store["setLostReasons"] = async (reasons) => {
+    await apiPost("/api/org/settings", { lostReasons: reasons });
+    setState((s) => ({ ...s, lostReasons: reasons }));
+  };
+
   const addScheduledMessages: Store["addScheduledMessages"] = (rows) => {
     const mapped = rows.map(mapScheduledMessage);
     setState((s) => ({ ...s, scheduledMessages: mapped.reduce((acc, m) => upsertById(acc, m), s.scheduledMessages) }));
@@ -2150,6 +2164,7 @@ export function StoreProvider({
         setMeetingReminders,
         setMergeRepeatLeads,
         setCompanySignature,
+        setLostReasons,
         addObjectType,
         updateObjectType,
         deleteObjectType,

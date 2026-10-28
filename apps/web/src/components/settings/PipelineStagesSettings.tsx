@@ -32,6 +32,7 @@ export function PipelineStagesSettings({ isAdmin }: { isAdmin: boolean }) {
       {pipelines.map((p) => (
         <PipelineBlock key={p.id} pipeline={p} isAdmin={isAdmin} />
       ))}
+      <LostReasonsEditor isAdmin={isAdmin} />
       {isAdmin && (
         <form onSubmit={create} className="flex gap-2 mt-2">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="פייפליין חדש (למשל: השכרות)" className={`${input} flex-1`} />
@@ -158,6 +159,10 @@ function StageRow({ pipeline, stage, index, count, isAdmin }: { pipeline: Pipeli
       </div>
       <div className="flex items-center gap-2 mt-1.5 text-xs text-neutral-500 flex-wrap">
         <span>{count} עסקאות פתוחות</span>
+        <label className="flex items-center gap-1">
+          <input type="checkbox" checked={Boolean(stage.asksLostReason)} disabled={!isAdmin} onChange={(e) => updateStage(pipeline.id, stage.id, { asksLostReason: e.target.checked })} />
+          לבקש סיבה כשהליד נכנס לשלב
+        </label>
         {objectTypes.length > 0 && (
           <label className="flex items-center gap-1 ms-auto">
             כשליד נכנס לשלב — ליצור גם רשומה ב:
@@ -180,5 +185,60 @@ function StageRow({ pipeline, stage, index, count, isAdmin }: { pipeline: Pipeli
       {linked && <p className="text-[11px] text-neutral-400 mt-1">ליד שנכנס לשלב הזה מקבל {linked.singular} ב{linked.name} (פעם אחת לכל ליד), ונשאר בפייפליין. עסקאות שכבר בשלב לא נוספות רטרואקטיבית.</p>}
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </li>
+  );
+}
+
+// The answers offered when a deal isn't closed (stages marked "ask for a reason").
+function LostReasonsEditor({ isAdmin }: { isAdmin: boolean }) {
+  const { lostReasons, setLostReasons } = useStore();
+  const [name, setName] = useState("");
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    const n = name.trim();
+    if (!n || lostReasons.includes(n)) return;
+    await setLostReasons([...lostReasons, n]);
+    setName("");
+  }
+  async function move(i: number, d: number) {
+    const next = [...lostReasons];
+    [next[i], next[i + d]] = [next[i + d], next[i]];
+    await setLostReasons(next);
+  }
+
+  return (
+    <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 mb-4">
+      <h3 className="font-semibold text-sm mb-1">סיבות לאי-סגירת עסקה</h3>
+      <p className="text-xs text-neutral-500 mb-2 leading-relaxed">הרשימה שנפתחת כשליד עובר לשלב שמסומן &quot;לבקש סיבה&quot; (למשל &quot;לא נסגרה עסקה&quot;). הסיבה נשמרת על העסקה ובציר הזמן של הליד.</p>
+      <ul className="space-y-1 mb-2">
+        {lostReasons.map((r, i) => (
+          <li key={r} className="flex items-center gap-2 rounded-md bg-neutral-50 dark:bg-neutral-900 px-2 py-1.5 text-sm">
+            <span className="flex-1">{r}</span>
+            {isAdmin && (
+              <span className="flex items-center text-neutral-400">
+                <button className="hover:text-neutral-800 dark:hover:text-neutral-200 disabled:opacity-25 px-1.5" disabled={i === 0} onClick={() => move(i, -1)} aria-label="הזזה למעלה">
+                  ↑
+                </button>
+                <button className="hover:text-neutral-800 dark:hover:text-neutral-200 disabled:opacity-25 px-1.5" disabled={i === lostReasons.length - 1} onClick={() => move(i, 1)} aria-label="הזזה למטה">
+                  ↓
+                </button>
+                <button className="hover:text-red-500 px-1.5" onClick={() => setLostReasons(lostReasons.filter((x) => x !== r))} aria-label="מחיקה">
+                  ×
+                </button>
+              </span>
+            )}
+          </li>
+        ))}
+        {lostReasons.length === 0 && <p className="text-sm text-neutral-400">אין סיבות — מוסיפים למטה.</p>}
+      </ul>
+      {isAdmin && (
+        <form onSubmit={add} className="flex gap-2">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="סיבה חדשה (למשל: המחיר גבוה מדי)" className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+            הוספה
+          </button>
+        </form>
+      )}
+    </div>
   );
 }

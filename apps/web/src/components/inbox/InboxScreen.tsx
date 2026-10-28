@@ -364,6 +364,16 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
     if (selected && selected.unreadCount > 0) markRead(selected.id);
   }, [selected, markRead]);
 
+  // A linked number can be logged out from the phone at any time; refresh the
+  // channel status when the page opens and when the tab regains focus, so a
+  // disconnected number shows the link screen instead of an empty inbox.
+  useEffect(() => {
+    void reloadIntegrations();
+    const onFocus = () => void reloadIntegrations();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [reloadIntegrations]);
+
   const title = box === "business" ? "וואטסאפ חברה" : "וואטסאפ אישי";
 
   // My own number: link it right here.

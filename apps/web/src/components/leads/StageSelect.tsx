@@ -14,7 +14,7 @@ const OUTCOME: Record<string, { label: string; color: string }> = {
 //  • open deal → pick another stage (moves it, like dragging on the board);
 //  • closed deal → pick a stage to reopen it there;
 //  • no deal → pick a stage to put the lead on the pipeline.
-export function StageSelect({ contact, deal, afterMove }: { contact: Contact; deal?: Opportunity; afterMove?: (oppId: string, stageId: string) => void }) {
+export function StageSelect({ contact, deal, afterMove }: { contact: Contact; deal?: Opportunity; afterMove?: (oppId: string, stageId: string, fresh?: boolean) => void }) {
   const { pipelines, moveOpportunity, setOpportunityStatus, addOpportunity } = useStore();
   if (!pipelines.length) return <span className="text-neutral-400">—</span>;
 
@@ -34,7 +34,8 @@ export function StageSelect({ contact, deal, afterMove }: { contact: Contact; de
       afterMove?.(deal.id, stageId);
       await moveOpportunity(deal.id, stageId);
     } else {
-      await addOpportunity({ contactId: contact.id, pipelineId, stageId, title: contact.name, value: 0 });
+      const created = await addOpportunity({ contactId: contact.id, pipelineId, stageId, title: contact.name, value: 0 });
+      afterMove?.(created.id, stageId, true);
     }
   }
 

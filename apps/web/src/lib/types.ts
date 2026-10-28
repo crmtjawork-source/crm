@@ -28,6 +28,8 @@ export type Stage = {
   // When a deal enters this stage, a record is created in this table from the
   // lead (e.g. "deal closed" → clients). The deal stays in the pipeline.
   linkObjectTypeId?: string;
+  // When a deal enters this stage, ask why it wasn't closed (from the business's list of reasons).
+  asksLostReason?: boolean;
 };
 
 export type Pipeline = {

@@ -68,6 +68,7 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
         },
       },
       { id: "value", label: "שווי", group: dealGroup, mobile: true, cell: (_c, o) => (o && o.value > 0 ? <span className="text-neutral-600 dark:text-neutral-400">₪{o.value.toLocaleString("he-IL")}</span> : <span className="text-neutral-400">—</span>) },
+      { id: "lostReason", label: "סיבת אי-סגירה", group: dealGroup, cell: (_c, o) => (o?.lostReason ? <span className="text-neutral-600 dark:text-neutral-400">{o.lostReason}</span> : <span className="text-neutral-400">—</span>) },
       { id: "dealCreated", label: "נפתחה ב", group: dealGroup, nowrap: true, cell: (_c, o) => (o ? <span dir="ltr" className="text-neutral-600 dark:text-neutral-400">{formatEntered(o.createdAt)}</span> : null) },
       { id: "stageChangedAt", label: "עברה שלב ב", group: dealGroup, nowrap: true, cell: (_c, o) => (o ? <span dir="ltr" className="text-neutral-600 dark:text-neutral-400">{formatEntered(o.stageChangedAt)}</span> : null) },
     ] satisfies LeadCol[],

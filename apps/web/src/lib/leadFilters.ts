@@ -302,7 +302,8 @@ export const EMPTY_FILTER: LeadFilter = { match: "all", conds: [] };
 export function buildDealFilterFields(
   leadFields: FilterField[],
   contactOf: (o: Opportunity) => Contact | undefined,
-  pipeline: Pipeline
+  pipeline: Pipeline,
+  lostReasons: string[] = []
 ): FilterField<Opportunity>[] {
   const group = "פרטי העסקה";
   const viaLead = leadFields
@@ -310,6 +311,7 @@ export function buildDealFilterFields(
     .map((f): FilterField<Opportunity> => ({ ...f, get: (o) => { const c = contactOf(o); return c ? f.get(c) : undefined; } }));
   return [
     { key: "deal:stage", label: "שלב", group, kind: "enum", options: pipeline.stages.map((st) => ({ value: st.id, label: st.name })), get: (o) => o.stageId },
+    { key: "deal:lostReason", label: "סיבת אי-סגירה", group, kind: "enum", options: lostReasons.map((r) => ({ value: r, label: r })), get: (o) => o.lostReason },
     { key: "deal:value", label: "שווי", group, kind: "number", get: (o) => (o.value ? String(o.value) : undefined) },
     { key: "deal:createdAt", label: "נפתחה ב", group, kind: "date", get: (o) => o.createdAt },
     { key: "deal:stageChangedAt", label: "עברה שלב ב", group, kind: "date", get: (o) => o.stageChangedAt },

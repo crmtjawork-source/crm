@@ -11,10 +11,14 @@ export async function POST(request: Request) {
       meetingReminders?: boolean;
       mergeRepeatLeads?: boolean;
       companySignature?: { image?: string; name?: string; title?: string } | null;
+      lostReasons?: string[];
     };
     const patch: Record<string, unknown> = {};
     if (typeof body.meetingReminders === "boolean") patch.meeting_reminders = body.meetingReminders;
     if (typeof body.mergeRepeatLeads === "boolean") patch.merge_repeat_leads = body.mergeRepeatLeads;
+    if (Array.isArray(body.lostReasons)) {
+      patch.lost_reasons = [...new Set(body.lostReasons.filter((r): r is string => typeof r === "string").map((r) => r.trim().slice(0, 120)).filter(Boolean))].slice(0, 30);
+    }
     if ("companySignature" in body) {
       const sig = body.companySignature;
       if (sig === null) patch.company_signature = null;

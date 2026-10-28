@@ -39,7 +39,7 @@ const remember = (key: string, value: string) => {
 };
 
 export default function PipelinePage() {
-  const { pipelines, contacts, opportunities, addOpportunity, addPipeline, members, campaigns, leadStatuses, leadFields, currentMemberId, roles } = useStore();
+  const { pipelines, contacts, opportunities, addOpportunity, addPipeline, members, campaigns, leadStatuses, leadFields, currentMemberId, roles, lostReasons } = useStore();
   const me = members.find((m) => m.id === currentMemberId);
   const unassigned = canAssignLeads(me, effectiveRole(me, roles)) ? contacts.filter(needsAssignment).length : 0;
   // Kanban / table, the pipeline and the search are remembered for this tab,
@@ -63,8 +63,8 @@ export default function PipelinePage() {
   const filterFields = useMemo(() => {
     const leadSide = buildFilterFields({ contacts, leadFields, leadStatuses, pipelines, campaigns, members, dealOf: new Map() });
     const byId = new Map(contacts.map((c) => [c.id, c]));
-    return buildDealFilterFields(leadSide, (o) => byId.get(o.contactId), pipeline ?? { id: "", name: "", stages: [] });
-  }, [contacts, leadFields, leadStatuses, pipelines, campaigns, members, pipeline]);
+    return buildDealFilterFields(leadSide, (o) => byId.get(o.contactId), pipeline ?? { id: "", name: "", stages: [] }, lostReasons);
+  }, [contacts, leadFields, leadStatuses, pipelines, campaigns, members, pipeline, lostReasons]);
   const dealFilter = useRecordFilter(`pipeline:${pipeline?.id ?? ""}`, filterFields, "סינון עסקאות");
 
   if (!pipeline) return null;

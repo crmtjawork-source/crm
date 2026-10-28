@@ -12,9 +12,9 @@ import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { colorAt } from "@/components/ui/ColorChip";
 
 function CloseForm({ opp, onDone }: { opp: Opportunity; onDone: () => void }) {
-  const { opportunities, setOpportunityStatus } = useStore();
+  const { opportunities, setOpportunityStatus, lostReasons } = useStore();
   const [reason, setReason] = useState("");
-  const knownReasons = Array.from(new Set(opportunities.map((o) => o.lostReason).filter(Boolean))) as string[];
+  const knownReasons = Array.from(new Set([...lostReasons, ...opportunities.map((o) => o.lostReason).filter(Boolean)])) as string[];
 
   async function close(status: "won" | "lost" | "abandoned") {
     await setOpportunityStatus(opp.id, status, reason);
