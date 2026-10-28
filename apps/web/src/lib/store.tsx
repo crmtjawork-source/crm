@@ -879,6 +879,15 @@ export function StoreProvider({
           setState((s) => ({ ...s, contacts: upsertById(s.contacts, contact) }));
         }
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "opportunities", filter }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          const id = (payload.old as Row).id;
+          setState((s) => ({ ...s, opportunities: s.opportunities.filter((o) => o.id !== id) }));
+        } else {
+          const opp = mapOpportunity(payload.new as Row);
+          setState((s) => ({ ...s, opportunities: upsertById(s.opportunities, opp) }));
+        }
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "campaigns", filter }, (payload) => {
         if (payload.eventType === "DELETE") return;
         const campaign = mapCampaign(payload.new as Row);

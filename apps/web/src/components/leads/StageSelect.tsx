@@ -13,21 +13,23 @@ const OUTCOME: Record<string, { label: string; color: string }> = {
 // The lead's pipeline stage as a coloured pill that doubles as the control:
 //  • open deal → pick another stage (moves it, like dragging on the board);
 //  • closed deal → pick a stage to reopen it there;
-//  • no deal → pick a stage to put the lead on the pipeline.
+//  • no deal yet (a brand-new lead the server hasn't finished setting up) →
+//    it counts as being in the first stage of the first pipeline.
 export function StageSelect({ contact, deal, afterMove }: { contact: Contact; deal?: Opportunity; afterMove?: (oppId: string, stageId: string, fresh?: boolean) => void }) {
   const { pipelines, moveOpportunity, setOpportunityStatus, addOpportunity } = useStore();
   if (!pipelines.length) return <span className="text-neutral-400">—</span>;
 
-  const dealPipeline = deal ? pipelines.find((p) => p.id === deal.pipelineId) : undefined;
+  // Every lead has a stage; without a deal it's the first stage of the first pipeline.
+  const dealPipeline = deal ? pipelines.find((p) => p.id === deal.pipelineId) : pipelines[0];
   const open = deal?.status === "open";
-  const stageIndex = open ? dealPipeline?.stages.findIndex((s) => s.id === deal!.stageId) ?? -1 : -1;
-  const color = open ? colorAt(dealPipeline?.stages[stageIndex]?.color, stageIndex) : deal ? OUTCOME[deal.status].color : "#94a3b8";
-  const current = open ? deal!.stageId : deal ? `outcome:${deal.status}` : "";
-  // A lead with no deal can go to any pipeline; a deal stays in its own.
+  const shownStageId = open ? deal!.stageId : deal ? undefined : dealPipeline?.stages[0]?.id;
+  const stageIndex = shownStageId ? dealPipeline?.stages.findIndex((s) => s.id === shownStageId) ?? -1 : -1;
+  const color = shownStageId ? colorAt(dealPipeline?.stages[stageIndex]?.color, stageIndex) : deal ? OUTCOME[deal.status].color : "#94a3b8";
+  const current = deal && !open ? `outcome:${deal.status}` : shownStageId ? `${dealPipeline!.id}|${shownStageId}` : "";
   const choices = dealPipeline ? [dealPipeline] : pipelines;
 
   async function choose(value: string) {
-    if (!value || value === current || value.startsWith("outcome:")) return;
+    if (!value || value.startsWith("outcome:") || (deal && value === current)) return;
     const [pipelineId, stageId] = value.split("|");
     if (deal) {
       if (!open) await setOpportunityStatus(deal.id, "open");
@@ -44,13 +46,13 @@ export function StageSelect({ contact, deal, afterMove }: { contact: Contact; de
     <span className="relative inline-flex items-center gap-1 rounded-full ps-2 pe-1 py-0.5 text-xs whitespace-nowrap" style={{ backgroundColor: `${color}1f`, color }}>
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
       <select
-        value={open ? valueOf(deal!.pipelineId, deal!.stageId) : current}
+        value={current}
         aria-label="שלב"
         onChange={(e) => choose(e.target.value)}
         className="appearance-none bg-transparent outline-none cursor-pointer pe-1 py-0.5 text-xs"
         style={{ color }}
       >
-        {!open && <option value={current}>{deal ? OUTCOME[deal.status].label : "ללא שלב"}</option>}
+        {deal && !open && <option value={current}>{OUTCOME[deal.status].label}</option>}
         {choices.map((p) => (
           <optgroup key={p.id} label={pipelines.length > 1 ? p.name : ""}>
             {p.stages.map((st) => (
