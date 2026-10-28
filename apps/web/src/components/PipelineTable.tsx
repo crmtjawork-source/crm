@@ -7,6 +7,7 @@ import { useStore } from "@/lib/store";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { colorAt } from "@/components/ui/ColorChip";
 import { needsAssignment } from "@/components/leads/OwnerSelect";
+import { BulkBar } from "@/components/leads/BulkBar";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import { ColumnPicker } from "@/components/ColumnPicker";
 import { buildLeadCols, formatEntered, useColumnPrefs, type LeadCol } from "@/lib/leadColumns";
@@ -74,8 +75,9 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
     ] satisfies LeadCol[],
   });
   const colPrefs = useColumnPrefs(`pipeline:${pipeline.id}`, catalog, ["phone", "stage", "handlingStatus", "createdAt", "owner", "tags", "value"]);
-  const colSpan = colPrefs.columns.length + 2;
+  const colSpan = colPrefs.columns.length + 3;
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set()); // lead ids
   function handleDelete(id: string) {
     if (confirm("למחוק את ההזדמנות הזו?")) deleteOpportunity(id);
   }
@@ -90,6 +92,14 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
       <table className="w-full text-sm">
         <thead className="bg-neutral-50 dark:bg-neutral-900 text-neutral-500">
           <tr>
+            <th className="px-3 py-2 w-8">
+              <input
+                type="checkbox"
+                aria-label="בחירת כל השורות המוצגות"
+                checked={rows.length > 0 && rows.every((o) => selected.has(o.contactId))}
+                onChange={(e) => setSelected(e.target.checked ? new Set(rows.map((o) => o.contactId)) : new Set())}
+              />
+            </th>
             <th className="text-start px-4 py-2 font-medium">ליד</th>
             {colPrefs.columns.map((col) => (
               <th key={col.id} className={`text-start px-4 py-2 font-medium ${col.mobile ? "" : "hidden md:table-cell"}`}>
@@ -104,6 +114,9 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
             const lead = contacts.find((x) => x.id === o.contactId);
             return (
               <tr key={o.id} className={`border-t border-neutral-200 dark:border-neutral-800 group ${lead && needsAssignment(lead) ? "bg-amber-50/70 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30" : "hover:bg-neutral-50 dark:hover:bg-neutral-900"}`}>
+                <td className="px-3 py-3 w-8">
+                  <input type="checkbox" aria-label="בחירת שורה" checked={selected.has(o.contactId)} onChange={() => setSelected((prev) => { const next = new Set(prev); if (next.has(o.contactId)) next.delete(o.contactId); else next.add(o.contactId); return next; })} />
+                </td>
                 <td className="px-4 py-3">
                   <Link href={`/contacts/${o.contactId}`} className="font-medium hover:underline">
                     {lead?.name ?? "—"}
@@ -138,6 +151,10 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
       </table>
       </div>
       {stagePrompt.element}
+      {(() => {
+        const picked = rows.filter((o) => selected.has(o.contactId)).map((o) => contacts.find((c) => c.id === o.contactId)).filter((c): c is NonNullable<typeof c> => Boolean(c));
+        return picked.length > 0 ? <BulkBar contacts={picked} onClear={() => setSelected(new Set())} /> : null;
+      })()}
       {(() => {
         const opp = rows.find((o) => o.id === editingId);
         const lead = opp && contacts.find((c) => c.id === opp.contactId);

@@ -10,6 +10,7 @@ import { buildFilterFields } from "@/lib/leadFilters";
 import { useRecordFilter } from "@/components/FilterBar";
 import { BackLink } from "@/components/BackLink";
 import { needsAssignment } from "@/components/leads/OwnerSelect";
+import { BulkBar } from "@/components/leads/BulkBar";
 import { StageSelect } from "@/components/leads/StageSelect";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { ColumnPicker } from "@/components/ColumnPicker";
@@ -57,6 +58,7 @@ function ContactsList() {
   };
   const [visible, setVisible] = useState(PAGE_SIZE);
   const stagePrompt = useStageMovePrompt();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const catalog = buildLeadCols({
     leadFields,
@@ -100,6 +102,10 @@ function ContactsList() {
       );
     })
     .sort((a, b) => (sortBy === "activity" ? b.lastActivityAt.localeCompare(a.lastActivityAt) : b.createdAt.localeCompare(a.createdAt)));
+
+  const shown = filtered.slice(0, visible);
+  // Only leads still matching the current filters count as selected.
+  const selectedContacts = filtered.filter((c) => selected.has(c.id));
 
   function handleExport() {
     downloadCsv(
@@ -187,12 +193,29 @@ function ContactsList() {
         </div>
       )}
       {filterChips}
+      {shown.length > 0 && shown.every((c) => selected.has(c.id)) && filtered.length > shown.length && selectedContacts.length < filtered.length && (
+        <div className="mb-3 text-sm text-neutral-600 dark:text-neutral-300">
+          נבחרו {shown.length} הלידים המוצגים.{" "}
+          <button onClick={() => setSelected(new Set(filtered.map((c) => c.id)))} className="underline">
+            בחירת כל {filtered.length} הלידים שתואמים לסינון
+          </button>
+        </div>
+      )}
       {stagePrompt.element}
+      {selectedContacts.length > 0 && <BulkBar contacts={selectedContacts} onClear={() => setSelected(new Set())} />}
 
       <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-neutral-50 dark:bg-neutral-900 text-neutral-500">
             <tr>
+              <th className="px-3 py-2 w-8">
+                <input
+                  type="checkbox"
+                  aria-label="בחירת כל הלידים המוצגים"
+                  checked={shown.length > 0 && shown.every((c) => selected.has(c.id))}
+                  onChange={(e) => setSelected(e.target.checked ? new Set([...selected, ...shown.map((c) => c.id)]) : new Set([...selected].filter((id) => !shown.some((c) => c.id === id))))}
+                />
+              </th>
               <th className="text-start px-4 py-2 font-medium">שם</th>
               {colPrefs.columns.map((col) => (
                 <th key={col.id} className={`text-start px-4 py-2 font-medium ${col.mobile ? "" : "hidden md:table-cell"}`}>
@@ -202,11 +225,14 @@ function ContactsList() {
             </tr>
           </thead>
           <tbody>
-            {filtered.slice(0, visible).map((c) => (
+            {shown.map((c) => (
               <tr
                 key={c.id}
                 className={`border-t border-neutral-200 dark:border-neutral-800 ${needsAssignment(c) ? "bg-amber-50/70 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30" : "hover:bg-neutral-50 dark:hover:bg-neutral-900"}`}
               >
+                <td className="px-3 py-3 w-8">
+                  <input type="checkbox" aria-label={`בחירת ${c.name}`} checked={selected.has(c.id)} onChange={() => setSelected((prev) => { const next = new Set(prev); if (next.has(c.id)) next.delete(c.id); else next.add(c.id); return next; })} />
+                </td>
                 <td className="px-4 py-3">
                   <Link href={`/contacts/${c.id}`} className="font-medium hover:underline">
                     {c.name}
@@ -221,7 +247,7 @@ function ContactsList() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={colPrefs.columns.length + 1} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={colPrefs.columns.length + 2} className="px-4 py-6 text-center text-neutral-400">
                   אין תוצאות.
                 </td>
               </tr>
