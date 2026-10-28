@@ -391,3 +391,28 @@ export async function handleEvolutionEvent(db: Db, channel: Row, p: Row): Promis
   await ingestMessages(db, channel, list, false);
   return null;
 }
+
+// Brings our chat list in line with the gateway's stored one: every chat exists,
+// names are filled in, and unread counts match what WhatsApp shows.
+export async function syncChatList(
+  db: Db,
+  channel: Row,
+  chats: Array<{ remoteJid: string; name?: string; pushName?: string; unreadMessages?: number }>,
+  contacts: Array<{ remoteJid?: string; id?: string; pushName?: string; profileName?: string }>
+): Promise<{ chats: number; unread: number }> {
+  const names = [
+    ...namesFrom(chats, (c) => ({ jid: c.remoteJid, name: c.name ?? c.pushName })),
+    ...namesFrom(contacts, (c) => ({ jid: c.remoteJid ?? c.id, name: c.pushName ?? c.profileName })),
+  ];
+  await ensureChats(db, channel, chats.map((c) => c.remoteJid).filter(Boolean));
+  for (const part of chunk(names, 500)) await db.rpc("apply_wa_names", { p_channel: channel.id, p_names: part });
+  let unread = 0;
+  const withUnread = chats.filter((c) => (c.unreadMessages ?? 0) > 0);
+  for (const c of withUnread) {
+    const chat = chatOf({ remoteJid: c.remoteJid });
+    if (!chat) continue;
+    await db.from("conversations").update({ unread_count: c.unreadMessages }).eq("channel_id", channel.id).eq("external_thread_id", chat.thread);
+    unread++;
+  }
+  return { chats: chats.length, unread };
+}

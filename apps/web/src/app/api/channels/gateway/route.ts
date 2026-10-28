@@ -3,6 +3,7 @@ import { errorResponse, HttpError, requireOwnOrg, requireUser } from "@/lib/serv
 import { supabaseAdmin } from "@/lib/server/supabaseAdmin";
 import { configureWebhooks, getQr, getState, getWid, GreenApiError, logout, normalizeApiUrl } from "@/lib/server/greenApi";
 import * as evo from "@/lib/server/evolution";
+import { syncChatList } from "@/lib/server/webhooks/evolution";
 
 // Linking a personal WhatsApp through Green-API. Any member may link their
 // own number; admins may manage anyone's. Credentials are write-only.
@@ -11,6 +12,7 @@ type Body =
   | { action: "connect_evolution"; name?: string; shared?: boolean; fresh?: boolean }
   | { action: "connect"; name?: string; idInstance?: string; apiToken?: string; apiUrl?: string; ownerMembershipId?: string }
   | { action: "configure"; id: string }
+  | { action: "sync_chats"; id: string }
   | { action: "status"; id: string }
   | { action: "disconnect"; id: string };
 
@@ -128,6 +130,13 @@ export async function POST(request: Request) {
         await evo.setWebhook(name, `${new URL(request.url).origin}/api/webhooks/evolution/${creds.webhook_secret}`);
         await evo.applySettings(name);
         return Response.json({ ok: true });
+      }
+      // Reads the chat list the gateway stores: unread counts (WhatsApp Web's
+      // badges), names, and chats that have no recent message.
+      if (body.action === "sync_chats") {
+        const [chats, contacts] = await Promise.all([evo.findChats(name), evo.findContacts(name).catch(() => [])]);
+        const out = await syncChatList(db, channel, chats, contacts);
+        return Response.json(out);
       }
       if (body.action === "status") {
         const raw = await evo.getState(name);

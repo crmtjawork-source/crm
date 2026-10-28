@@ -149,3 +149,17 @@ export async function getMediaBase64(name: string, message: unknown): Promise<{ 
   if (!r.base64) throw new EvolutionError("המדיה לא זמינה");
   return { base64: r.base64.replace(/^data:[^;]+;base64,/, ""), mimetype: r.mimetype, fileName: r.fileName };
 }
+
+export type EvoChat = { remoteJid: string; name?: string; pushName?: string; unreadMessages?: number; updatedAt?: string };
+
+// The chat list the gateway keeps for the number (needs chat storage enabled
+// on the server): per-chat unread counts and names, as WhatsApp Web shows.
+export async function findChats(name: string): Promise<EvoChat[]> {
+  const r = await call<EvoChat[] | { chats?: EvoChat[] }>("POST", `/chat/findChats/${encodeURIComponent(name)}`, { where: {} });
+  return Array.isArray(r) ? r : r.chats ?? [];
+}
+
+export async function findContacts(name: string): Promise<Array<{ remoteJid?: string; id?: string; pushName?: string; profileName?: string }>> {
+  const r = await call<Array<{ remoteJid?: string; id?: string; pushName?: string; profileName?: string }>>("POST", `/chat/findContacts/${encodeURIComponent(name)}`, { where: {} });
+  return Array.isArray(r) ? r : [];
+}

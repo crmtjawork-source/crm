@@ -273,6 +273,18 @@ export function LinkControls({ channel, onChange }: { channel: Channel; onChange
     setBusy(false);
   }
 
+  async function syncList() {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await apiPost<{ chats: number; unread: number }>("/api/channels/gateway", { action: "sync_chats", id: channel.id });
+      setError(r.chats ? `נטענו ${r.chats} שיחות, ${r.unread} עם הודעות שלא נקראו.` : "השרת עוד לא שומר רשימת שיחות — צריך להפעיל שמירה בשרת וחיבור מחדש.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "הרענון נכשל");
+    }
+    setBusy(false);
+  }
+
   async function disconnect() {
     if (!confirm("להתנתק מהוואטסאפ? ההודעות יפסיקו להיכנס עד שתחבר שוב.")) return;
     setBusy(true);
@@ -290,6 +302,9 @@ export function LinkControls({ channel, onChange }: { channel: Channel; onChange
         </span>
       )}
       <span className="ms-auto flex gap-3">
+        <button onClick={syncList} disabled={busy} className="text-neutral-600 dark:text-neutral-300 hover:underline disabled:opacity-50" title="מושך מהשרת את רשימת השיחות ואת מונה ההודעות שלא נקראו">
+          רענון רשימה
+        </button>
         <button onClick={relink} disabled={busy} className="text-neutral-600 dark:text-neutral-300 hover:underline disabled:opacity-50">
           חיבור מחדש
         </button>
@@ -297,7 +312,7 @@ export function LinkControls({ channel, onChange }: { channel: Channel; onChange
           התנתקות
         </button>
       </span>
-      {error && <span className="w-full text-red-500">{error}</span>}
+      {error && <span className={`w-full ${error.startsWith("נטענו") ? "text-emerald-600" : "text-red-500"}`}>{error}</span>}
     </div>
   );
 }
