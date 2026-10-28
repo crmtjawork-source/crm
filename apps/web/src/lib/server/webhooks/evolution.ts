@@ -95,6 +95,26 @@ async function ingestMessages(db: Db, channel: Row, msgs: Row[], history: boolea
     const { data } = await db.from("wa_lid_map").select("lid, phone").eq("channel_id", channel.id).in("lid", part);
     for (const r of data ?? []) lidMap.set(r.lid, r.phone);
   }
+  // Messages we sent from the CRM are in our database under the phone-number
+  // chat: if WhatsApp reports the same message id under an anonymous chat id,
+  // that tells us whose number it is.
+  const unresolved = msgs.filter((m) => {
+    const jid = String(m?.key?.remoteJid ?? "");
+    return jid.endsWith("@lid") && !m.key.remoteJidAlt && !lidMap.has(jid.split("@")[0]) && m.key.id;
+  });
+  for (const part of chunk(unresolved, 150)) {
+    const ids = part.map((m) => m.key.id as string);
+    const { data } = await db.from("messages").select("external_id, conversations!inner(external_thread_id, channel_id)").in("external_id", ids).eq("conversations.channel_id", channel.id);
+    const phoneOf = new Map<string, string>();
+    for (const r of (data ?? []) as unknown as { external_id: string; conversations: { external_thread_id: string } | { external_thread_id: string }[] }[]) {
+      const conv = Array.isArray(r.conversations) ? r.conversations[0] : r.conversations;
+      if (conv && /^\d+$/.test(conv.external_thread_id)) phoneOf.set(r.external_id, conv.external_thread_id);
+    }
+    for (const m of part) {
+      const phone = phoneOf.get(m.key.id);
+      if (phone) lidMap.set(String(m.key.remoteJid).split("@")[0], phone);
+    }
+  }
   const items: Item[] = [];
   for (const m of msgs) {
     if (!m?.key?.id) continue;
@@ -123,7 +143,7 @@ async function ingestMessages(db: Db, channel: Row, msgs: Row[], history: boolea
     const { data } = await db.from("wa_chat_names").select("jid, name").eq("channel_id", channel.id).in("jid", part);
     for (const n of data ?? []) nameOf.set(n.jid, n.name);
   }
-  for (const i of items) if (!i.chat.isGroup && !i.fromMe && i.m.pushName && !nameOf.has(i.chat.jid)) nameOf.set(i.chat.jid, i.m.pushName);
+  for (const i of items) if (!i.chat.isGroup && !i.fromMe && i.m.pushName && !/^[+\d\s()-]+$/.test(i.m.pushName) && !nameOf.has(i.chat.jid)) nameOf.set(i.chat.jid, i.m.pushName);
 
   // Chats: existing ones, then the missing ones created in bulk.
   const threads = [...new Set(items.map((i) => i.chat.thread))];
@@ -210,7 +230,7 @@ async function ingestMessages(db: Db, channel: Row, msgs: Row[], history: boolea
   for (const [t, i] of latest) {
     const conv = convOf.get(t)!;
     if (!conv.last_message_at || i.at.getTime() >= new Date(conv.last_message_at).getTime())
-      await db.from("conversations").update({ last_message_at: i.at.toISOString(), last_message_preview: preview(i.d.body) }).eq("id", conv.id);
+      await db.from("conversations").update({ last_message_at: i.at.toISOString(), last_message_preview: preview(i.d.body), last_direction: i.fromMe ? "outbound" : "inbound" }).eq("id", conv.id);
   }
   if (!history) {
     for (const i of fresh) {
@@ -285,7 +305,8 @@ function namesFrom(list: unknown, pick: (x: Row) => { jid?: string; name?: strin
   const out: { jid: string; name: string }[] = [];
   for (const x of Array.isArray(list) ? list : []) {
     const { jid, name } = pick(x ?? {});
-    if (jid && name && (jid.endsWith("@s.whatsapp.net") || jid.endsWith("@g.us") || jid.endsWith("@lid"))) out.push({ jid: jid.replace(/:\d+@/, "@"), name });
+    // A bare number isn't a name (WhatsApp sometimes reports the id itself).
+    if (jid && name && !/^[+\d\s()-]+$/.test(name) && (jid.endsWith("@s.whatsapp.net") || jid.endsWith("@g.us") || jid.endsWith("@lid"))) out.push({ jid: jid.replace(/:\d+@/, "@"), name });
   }
   return out;
 }

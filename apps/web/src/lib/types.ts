@@ -244,6 +244,7 @@ export type Conversation = {
   chatName?: string; // the name WhatsApp shows (contact name / group subject)
   isGroup: boolean;
   waJid?: string;
+  lastDirection?: "inbound" | "outbound"; // who wrote last
   externalThreadId: string; // phone number, or the group id
   lastMessageAt?: string;
   lastMessagePreview?: string;

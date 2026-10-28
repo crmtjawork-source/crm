@@ -27,13 +27,20 @@ function formatListTime(iso?: string): string {
 
 const AVATAR_COLORS = ["#2563eb", "#db2777", "#16a34a", "#ca8a04", "#7c3aed", "#0891b2", "#ea580c", "#4f46e5", "#0d9488", "#be123c"];
 
+// Israeli numbers the way people write them (052-123-4567); others as +number.
+export function prettyPhone(digits: string): string {
+  const m = /^972(\d{2})(\d{3})(\d{4})$/.exec(digits);
+  if (m) return `0${m[1]}-${m[2]}-${m[3]}`;
+  return `+${digits}`;
+}
+
 // What to call a chat: the lead's name, else the name WhatsApp shows, else the number / "group".
 function chatTitle(c: Conversation, contactsById: Map<string, Contact>): string {
   const lead = c.contactId ? contactsById.get(c.contactId) : undefined;
   if (lead) return lead.name;
   if (c.chatName) return c.chatName;
   if (c.isGroup) return "קבוצה";
-  return c.externalThreadId.includes("@") ? "איש קשר" : `+${c.externalThreadId}`; // anonymous WhatsApp id: no number to show
+  return c.externalThreadId.includes("@") ? "איש קשר" : prettyPhone(c.externalThreadId); // anonymous WhatsApp id: no number to show
 }
 
 function Avatar({ title, group, size = 40 }: { title: string; group: boolean; size?: number }) {
@@ -46,7 +53,7 @@ function Avatar({ title, group, size = 40 }: { title: string; group: boolean; si
   );
 }
 
-type ListTab = "all" | "unread" | "groups" | "leads";
+type ListTab = "all" | "unread" | "waiting" | "groups" | "leads";
 
 function ConversationList({
   conversations,
@@ -72,6 +79,7 @@ function ConversationList({
     if (!c.lastMessageAt && !c.chatName && !c.contactId) return false;
     if (channelFilter && c.channelId !== channelFilter) return false;
     if (tab === "unread" && !c.unreadCount) return false;
+    if (tab === "waiting" && !(c.lastDirection === "inbound" && !c.isGroup)) return false;
     if (tab === "groups" && !c.isGroup) return false;
     if (tab === "leads" && !c.contactId) return false;
     if (!needle) return true;
@@ -100,6 +108,7 @@ function ConversationList({
         <div className="flex gap-1.5 overflow-x-auto">
           {tabBtn("all", "הכל")}
           {tabBtn("unread", unreadTotal ? `לא נקראו (${unreadTotal})` : "לא נקראו")}
+          {tabBtn("waiting", "ממתינות למענה")}
           {tabBtn("groups", "קבוצות")}
           {tabBtn("leads", "לידים")}
         </div>
@@ -270,7 +279,7 @@ function Thread({
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm truncate">{title}</p>
           <p className="text-xs text-neutral-500 truncate">
-            {conversation.isGroup ? "קבוצה" : conversation.externalThreadId.includes("@") ? "מספר לא מוכר (מזהה אנונימי של וואטסאפ)" : <span dir="ltr">+{conversation.externalThreadId}</span>}
+            {conversation.isGroup ? "קבוצה" : conversation.externalThreadId.includes("@") ? "מספר לא מוכר (מזהה אנונימי של וואטסאפ)" : <span dir="ltr">{prettyPhone(conversation.externalThreadId)}</span>}
             {channel && <> · דרך {channel.name}</>}
           </p>
         </div>

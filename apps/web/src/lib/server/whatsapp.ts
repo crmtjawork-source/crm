@@ -316,7 +316,7 @@ export async function sendToContact(
   if (error) throw error;
   await db
     .from("conversations")
-    .update({ last_message_at: now, last_message_preview: preview(body) })
+    .update({ last_message_at: now, last_message_preview: preview(body), last_direction: "outbound" })
     .eq("id", conversation.id);
   return message;
 }
@@ -365,6 +365,6 @@ export async function sendToConversation(
     .select()
     .single();
   if (error) throw error;
-  await db.from("conversations").update({ last_message_at: now, last_message_preview: preview(body) }).eq("id", conversation.id);
+  await db.from("conversations").update({ last_message_at: now, last_message_preview: preview(body), last_direction: "outbound" }).eq("id", conversation.id);
   return message;
 }

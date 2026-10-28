@@ -24,6 +24,7 @@ function mapConversation(r: Row): Conversation {
     chatName: r.chat_name ?? undefined,
     isGroup: Boolean(r.is_group),
     waJid: r.wa_jid ?? undefined,
+    lastDirection: r.last_direction ?? undefined,
     externalThreadId: r.external_thread_id,
     lastMessageAt: r.last_message_at ?? undefined,
     lastMessagePreview: r.last_message_preview ?? undefined,
