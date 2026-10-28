@@ -240,7 +240,11 @@ export type LeadAdPage = {
 export type Conversation = {
   id: string;
   channelId: string;
-  contactId: string;
+  contactId?: string; // none for chats with people who aren't leads, and groups
+  chatName?: string; // the name WhatsApp shows (contact name / group subject)
+  isGroup: boolean;
+  waJid?: string;
+  externalThreadId: string; // phone number, or the group id
   lastMessageAt?: string;
   lastMessagePreview?: string;
   lastInboundAt?: string;
@@ -260,6 +264,12 @@ export type Message = {
   status: MessageStatus;
   error?: string;
   createdAt: string;
+  senderName?: string; // who wrote it, in a group
+  mediaMime?: string;
+  mediaName?: string;
+  mediaSize?: number;
+  mediaFailed?: boolean;
+  quoted?: { text: string; author?: string }; // the message this one replies to
 };
 
 export type Notification = {

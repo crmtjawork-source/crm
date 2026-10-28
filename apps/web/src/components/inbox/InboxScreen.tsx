@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabaseClient";
 import { apiPost, ApiError } from "@/lib/api";
 import { isWindowOpen, useConversations, useMessages } from "@/lib/messaging";
 import type { Channel, Contact, Conversation } from "@/lib/types";
@@ -24,6 +25,28 @@ function formatListTime(iso?: string): string {
     : d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
 }
 
+const AVATAR_COLORS = ["#2563eb", "#db2777", "#16a34a", "#ca8a04", "#7c3aed", "#0891b2", "#ea580c", "#4f46e5", "#0d9488", "#be123c"];
+
+// What to call a chat: the lead's name, else the name WhatsApp shows, else the number / "group".
+function chatTitle(c: Conversation, contactsById: Map<string, Contact>): string {
+  const lead = c.contactId ? contactsById.get(c.contactId) : undefined;
+  if (lead) return lead.name;
+  if (c.chatName) return c.chatName;
+  return c.isGroup ? "קבוצה" : `+${c.externalThreadId}`;
+}
+
+function Avatar({ title, group, size = 40 }: { title: string; group: boolean; size?: number }) {
+  const color = AVATAR_COLORS[[...title].reduce((n, ch) => n + ch.charCodeAt(0), 0) % AVATAR_COLORS.length];
+  const initials = title.replace(/[^\p{L}\p{N} ]/gu, "").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  return (
+    <span className="shrink-0 rounded-full flex items-center justify-center text-white font-medium" style={{ width: size, height: size, backgroundColor: color, fontSize: size * 0.38 }}>
+      {group ? "👥" : initials || "#"}
+    </span>
+  );
+}
+
+type ListTab = "all" | "unread" | "groups" | "leads";
+
 function ConversationList({
   conversations,
   contactsById,
@@ -38,28 +61,45 @@ function ConversationList({
   onSelect: (id: string) => void;
 }) {
   const [q, setQ] = useState("");
+  const [tab, setTab] = useState<ListTab>("all");
   const [channelFilter, setChannelFilter] = useState("");
   const needle = q.trim().toLowerCase();
+  const digits = needle.replace(/\D/g, "");
+  const unreadTotal = conversations.filter((c) => c.unreadCount > 0).length;
   const visible = conversations.filter((c) => {
     if (channelFilter && c.channelId !== channelFilter) return false;
+    if (tab === "unread" && !c.unreadCount) return false;
+    if (tab === "groups" && !c.isGroup) return false;
+    if (tab === "leads" && !c.contactId) return false;
     if (!needle) return true;
-    const contact = contactsById.get(c.contactId);
+    const lead = c.contactId ? contactsById.get(c.contactId) : undefined;
     return (
-      contact?.name.toLowerCase().includes(needle) ||
-      contact?.phone?.includes(needle) ||
+      chatTitle(c, contactsById).toLowerCase().includes(needle) ||
+      (digits.length >= 3 && (c.externalThreadId.includes(digits) || (lead?.phone ?? "").replace(/\D/g, "").includes(digits))) ||
       c.lastMessagePreview?.toLowerCase().includes(needle)
     );
   });
+  const tabBtn = (id: ListTab, label: string) => (
+    <button key={id} onClick={() => setTab(id)} className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap ${tab === id ? "bg-emerald-600 text-white" : "bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300"}`}>
+      {label}
+    </button>
+  );
 
   return (
-    <div className="w-full md:w-80 shrink-0 border-e border-neutral-200 dark:border-neutral-800 flex flex-col min-h-0">
+    <div className="w-full md:w-96 shrink-0 border-e border-neutral-200 dark:border-neutral-800 flex flex-col min-h-0">
       <div className="p-3 space-y-2 border-b border-neutral-200 dark:border-neutral-800">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="חיפוש שיחה…"
-          className="w-full px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+          placeholder="חיפוש שיחה, שם או מספר…"
+          className="w-full px-3 py-1.5 text-sm rounded-full border border-neutral-200 dark:border-neutral-800 bg-transparent"
         />
+        <div className="flex gap-1.5 overflow-x-auto">
+          {tabBtn("all", "הכל")}
+          {tabBtn("unread", unreadTotal ? `לא נקראו (${unreadTotal})` : "לא נקראו")}
+          {tabBtn("groups", "קבוצות")}
+          {tabBtn("leads", "לידים")}
+        </div>
         {channelsById.size > 1 && (
           <select
             value={channelFilter}
@@ -69,7 +109,7 @@ function ConversationList({
             <option value="">כל המספרים</option>
             {[...channelsById.values()].map((ch) => (
               <option key={ch.id} value={ch.id}>
-                {ch.name}
+                {ch.displayPhone ? `${ch.name} (+${ch.displayPhone})` : ch.name}
               </option>
             ))}
           </select>
@@ -77,31 +117,31 @@ function ConversationList({
       </div>
       <ul className="flex-1 overflow-y-auto">
         {visible.map((c) => {
-          const contact = contactsById.get(c.contactId);
+          const title = chatTitle(c, contactsById);
           const channel = channelsById.get(c.channelId);
           return (
             <li key={c.id}>
               <button
                 onClick={() => onSelect(c.id)}
-                className={`w-full text-start px-3 py-2.5 border-b border-neutral-100 dark:border-neutral-900 ${
+                className={`w-full text-start px-3 py-2.5 border-b border-neutral-100 dark:border-neutral-900 flex items-center gap-3 ${
                   selectedId === c.id ? "bg-neutral-100 dark:bg-neutral-900" : "hover:bg-neutral-50 dark:hover:bg-neutral-950"
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`text-sm truncate ${c.unreadCount ? "font-semibold" : "font-medium"}`}>
-                    {contact?.name ?? "ליד לא ידוע"}
-                  </span>
-                  <span className="text-[11px] text-neutral-400 shrink-0">{formatListTime(c.lastMessageAt)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2 mt-0.5">
-                  <span className="text-xs text-neutral-500 truncate">{c.lastMessagePreview ?? ""}</span>
-                  {c.unreadCount > 0 && (
-                    <span className="text-[11px] min-w-[1.25rem] text-center px-1 rounded-full bg-emerald-500 text-white shrink-0">
-                      {c.unreadCount}
+                <Avatar title={title} group={c.isGroup} />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className={`text-sm truncate ${c.unreadCount ? "font-semibold" : "font-medium"}`}>
+                      {title}
+                      {c.contactId && <span className="ms-1.5 text-[10px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300 align-middle">ליד</span>}
                     </span>
-                  )}
-                </div>
-                {channelsById.size > 1 && channel && <p className="text-[11px] text-neutral-400 mt-0.5">{channel.name}</p>}
+                    <span className={`text-[11px] shrink-0 ${c.unreadCount ? "text-emerald-600 font-medium" : "text-neutral-400"}`}>{formatListTime(c.lastMessageAt)}</span>
+                  </span>
+                  <span className="flex items-center justify-between gap-2 mt-0.5">
+                    <span className="text-xs text-neutral-500 truncate">{c.lastMessagePreview ?? ""}</span>
+                    {c.unreadCount > 0 && <span className="text-[11px] min-w-[1.25rem] text-center px-1 rounded-full bg-emerald-500 text-white shrink-0">{c.unreadCount}</span>}
+                  </span>
+                  {channelsById.size > 1 && channel && <span className="block text-[11px] text-neutral-400 mt-0.5">{channel.name}</span>}
+                </span>
               </button>
             </li>
           );
@@ -123,102 +163,184 @@ function BackToList({ onClick }: { onClick: () => void }) {
   );
 }
 
+const dayLabel = (iso: string) => {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date(Date.now() - 86400000);
+  if (d.toDateString() === today.toDateString()) return "היום";
+  if (d.toDateString() === yesterday.toDateString()) return "אתמול";
+  return d.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", year: d.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+};
+
+function mediaTypeOf(file: File): "image" | "video" | "voice" | "document" {
+  if (file.type.startsWith("image/") && file.type !== "image/svg+xml") return "image";
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "voice";
+  return "document";
+}
+
 function Thread({
   conversation,
   contact,
   channel,
-  readOnly,
+  title,
   onBack,
 }: {
   onBack: () => void;
   conversation: Conversation;
   contact?: Contact;
   channel?: Channel;
-  readOnly?: boolean; // a colleague's personal WhatsApp: read, not write
+  title: string;
 }) {
   const { messages, loading, addLocal } = useMessages(conversation.id);
+  const { uploadMedia, addContact } = useStore();
   const [text, setText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   // A linked WhatsApp (gateway) has no 24-hour rule — only Meta's official API does.
   const windowOpen = isGateway(channel) || isWindowOpen(conversation.lastInboundAt);
+  const canAttach = channel?.provider === "evolution";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [messages.length, conversation.id]);
 
-  async function send(payload: { text?: string; template?: TemplateInput }) {
+  async function send(payload: { text?: string; template?: TemplateInput; media?: { url: string; mediaType: string; fileName?: string; caption?: string } }) {
     setBusy(true);
     setError(null);
     try {
       const { message } = await apiPost<{ message: Row }>("/api/messages/send", { conversationId: conversation.id, ...payload });
       addLocal(message);
-      if (payload.text) setText("");
+      return true;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "השליחה נכשלה");
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
-  function handleSend(e: React.FormEvent) {
-    e.preventDefault();
-    if (!text.trim() || busy) return;
-    send({ text: text.trim() });
+  async function handleSend(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (busy) return;
+    if (file) {
+      setBusy(true);
+      setError(null);
+      try {
+        const url = await uploadMedia(file);
+        const ok = await send({ media: { url, mediaType: mediaTypeOf(file), fileName: file.name, caption: text.trim() || undefined } });
+        if (ok) {
+          setFile(null);
+          setText("");
+        }
+      } catch {
+        setError("העלאת הקובץ נכשלה");
+        setBusy(false);
+      }
+      return;
+    }
+    if (!text.trim()) return;
+    if (await send({ text: text.trim() })) setText("");
+  }
+
+  // A chat with someone who isn't a lead yet: make them a lead and link the chat.
+  async function makeLead() {
+    if (conversation.isGroup || contact) return;
+    setBusy(true);
+    try {
+      const created = await addContact({ name: conversation.chatName ?? `+${conversation.externalThreadId}`, phone: conversation.externalThreadId, source: "וואטסאפ" });
+      await supabase.from("conversations").update({ contact_id: created.id }).eq("id", conversation.id);
+    } catch {
+      setError("יצירת הליד נכשלה");
+    }
+    setBusy(false);
   }
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col min-h-0">
-      <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-3">
+    <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-neutral-50 dark:bg-neutral-950">
+      <div className="px-4 py-2.5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-3 bg-white dark:bg-neutral-950">
         <BackToList onClick={onBack} />
+        <Avatar title={title} group={conversation.isGroup} size={36} />
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm truncate">{contact?.name ?? "ליד לא ידוע"}</p>
-          <p className="text-xs text-neutral-500">
-            <span dir="ltr">{contact?.phone ?? ""}</span>
+          <p className="font-semibold text-sm truncate">{title}</p>
+          <p className="text-xs text-neutral-500 truncate">
+            {conversation.isGroup ? "קבוצה" : <span dir="ltr">+{conversation.externalThreadId}</span>}
             {channel && <> · דרך {channel.name}</>}
           </p>
         </div>
-        {contact && (
+        {contact ? (
           <Link href={`/contacts/${contact.id}`} className="text-xs text-neutral-500 hover:underline shrink-0">
             כרטיס ליד
           </Link>
+        ) : (
+          !conversation.isGroup && (
+            <button onClick={makeLead} disabled={busy} className="text-xs px-2.5 py-1 rounded-md border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 shrink-0 disabled:opacity-50">
+              הפוך לליד
+            </button>
+          )
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
         {loading && <p className="text-sm text-neutral-400">טוען הודעות…</p>}
         {!loading && messages.length === 0 && <p className="text-sm text-neutral-400">אין עדיין הודעות בשיחה הזו.</p>}
-        {messages.map((m) => (
-          <MessageBubble key={m.id} message={m} />
-        ))}
+        {messages.map((m, i) => {
+          const prev = messages[i - 1];
+          const day = dayLabel(m.createdAt);
+          const sep = !prev || dayLabel(prev.createdAt) !== day;
+          return (
+            <div key={m.id} className={!sep && prev && prev.direction === m.direction && prev.senderName === m.senderName ? "" : "pt-1.5"}>
+              {sep && (
+                <div className="flex justify-center my-2">
+                  <span className="text-[11px] px-3 py-1 rounded-full bg-neutral-200/80 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">{day}</span>
+                </div>
+              )}
+              <MessageBubble message={m} showSender={conversation.isGroup && (!prev || prev.senderName !== m.senderName || prev.direction !== m.direction || sep)} />
+            </div>
+          );
+        })}
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-neutral-200 dark:border-neutral-800 p-3 space-y-2">
+      <div className="border-t border-neutral-200 dark:border-neutral-800 p-3 space-y-2 bg-white dark:bg-neutral-950">
         {error && <p className="text-xs text-red-500">{error}</p>}
-        {readOnly ? (
-          <p className="text-xs text-neutral-500">זו שיחה מהוואטסאפ האישי של איש צוות — צפייה בלבד.</p>
-        ) : windowOpen ? (
+        {file && (
+          <div className="flex items-center gap-2 text-xs rounded-md bg-neutral-100 dark:bg-neutral-900 px-3 py-1.5">
+            <span>📎</span>
+            <span className="flex-1 truncate">{file.name}</span>
+            <button onClick={() => setFile(null)} className="text-neutral-400 hover:text-red-500" aria-label="הסרת הקובץ">
+              ×
+            </button>
+          </div>
+        )}
+        {windowOpen ? (
           <form onSubmit={handleSend} className="flex gap-2 items-end">
+            {canAttach && (
+              <>
+                <input ref={fileRef} type="file" className="hidden" onChange={(e) => (setFile(e.target.files?.[0] ?? null), (e.target.value = ""))} />
+                <button type="button" onClick={() => fileRef.current?.click()} className="w-9 h-9 shrink-0 rounded-full border border-neutral-200 dark:border-neutral-700 text-lg hover:bg-neutral-100 dark:hover:bg-neutral-900" aria-label="צירוף קובץ או תמונה" title="צירוף קובץ או תמונה">
+                  📎
+                </button>
+              </>
+            )}
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  handleSend(e);
+                  void handleSend();
                 }
               }}
-              rows={2}
-              placeholder="כתיבת הודעה… (Enter לשליחה, Shift+Enter לשורה חדשה)"
-              className="flex-1 resize-none px-3 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              rows={1}
+              dir="auto"
+              placeholder={file ? "כיתוב (לא חובה)…" : "כתיבת הודעה…"}
+              className="flex-1 resize-none px-3 py-2 text-sm rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-transparent max-h-32"
             />
-            <button
-              type="submit"
-              disabled={busy || !text.trim()}
-              className="px-4 py-2 text-sm rounded-md bg-emerald-600 text-white disabled:opacity-50"
-            >
+            <button type="submit" disabled={busy || (!text.trim() && !file)} className="px-4 py-2 text-sm rounded-full bg-emerald-600 text-white disabled:opacity-50">
               {busy ? "…" : "שליחה"}
             </button>
           </form>
@@ -325,8 +447,8 @@ function StartConversation({ contact, channels, basePath, onBack }: { contact: C
 }
 
 // box: "business" = the business's numbers (shared WhatsApp, official API);
-// "personal" = a team member's own linked WhatsApp (mine; admins may look at
-// a colleague's, read-only).
+// "personal" = the signed-in member's own linked WhatsApp. Personal chats are
+// private to their owner — managers don't see a colleague's.
 function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: string }) {
   const { membership } = useAuth();
   const { contacts, channels, members, currentMemberId, reloadIntegrations } = useStore();
@@ -335,7 +457,7 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
   const { conversations, loading, markRead } = useConversations(membership!.orgId);
   const me = members.find((m) => m.id === currentMemberId);
   const isAdmin = me?.role !== "agent";
-  const [viewing, setViewing] = useState(currentMemberId);
+  const viewing = currentMemberId;
 
   const gateway = (c: Channel) => c.provider === "green_api" || c.provider === "evolution";
   const boxChannels = useMemo(
@@ -352,11 +474,10 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
   const contactsById = useMemo(() => new Map(contacts.map((c) => [c.id, c])), [contacts]);
   const activeChannels = useMemo(() => boxChannels.filter((c) => c.active), [boxChannels]);
   const channelsById = useMemo(() => new Map(boxChannels.map((c) => [c.id, c])), [boxChannels]);
-  const colleagues = members.filter((m) => m.status === "active" && channels.some((c) => gateway(c) && `mem:${c.ownerMembershipId}` === m.id));
 
   const conversationParam = searchParams.get("c");
   const contactParam = searchParams.get("contact");
-  const contactConversation = contactParam ? boxConversations.find((c) => c.contactId === contactParam) : undefined;
+  const contactConversation = contactParam ? boxConversations.find((c) => c.contactId === contactParam && !c.isGroup) : undefined;
   const selectedId = conversationParam ?? contactConversation?.id ?? null;
   const selected = boxConversations.find((c) => c.id === selectedId);
 
@@ -382,8 +503,8 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
       <div className="p-6 max-w-md space-y-3">
         <h1 className="text-xl font-bold">{title}</h1>
         <p className="text-sm text-neutral-500 leading-relaxed">
-          מחברים את הוואטסאפ האישי שלך (סריקת קוד, כמו וואטסאפ ווב) — ומאז ההודעות לבעלי הלידים שלך יוצאות מהמספר שלך, והשיחות שלך עם לידים
-          מופיעות כאן.
+          מחברים את הוואטסאפ האישי שלך (סריקת קוד, כמו וואטסאפ ווב), וכל השיחות שלך מופיעות כאן: שיחות רגילות, קבוצות ותמונות, כולל 30
+          הימים האחרונים. השיחות פרטיות — רק אתה רואה אותן.
         </p>
         {myPersonal ? <Connected channel={myPersonal} onChange={reloadIntegrations} /> : <ConnectForm onDone={reloadIntegrations} />}
       </div>
@@ -412,32 +533,10 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
   }
 
   const startContact = contactParam && !contactConversation && !loading ? contactsById.get(contactParam) : undefined;
-  const canWrite = box === "business" || viewing === currentMemberId;
 
   return (
     <div className="flex h-[calc(100dvh-3rem)]">
       <div className={`${selected || startContact ? "hidden md:flex" : "flex"} flex-col min-h-0 w-full md:w-auto`}>
-        {box === "personal" && isAdmin && colleagues.length > 0 && (
-          <div className="p-3 border-b border-e border-neutral-200 dark:border-neutral-800 w-full md:w-80">
-            <select
-              value={viewing}
-              onChange={(e) => {
-                setViewing(e.target.value);
-                router.replace(basePath);
-              }}
-              className="w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
-            >
-              <option value={currentMemberId}>הוואטסאפ שלי</option>
-              {colleagues
-                .filter((m) => m.id !== currentMemberId)
-                .map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} (צפייה בלבד)
-                  </option>
-                ))}
-            </select>
-          </div>
-        )}
         <ConversationList
           conversations={boxConversations}
           contactsById={contactsById}
@@ -447,8 +546,8 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
         />
       </div>
       {selected ? (
-        <Thread key={selected.id} onBack={() => (contactParam ? router.back() : router.replace(basePath))} conversation={selected} contact={contactsById.get(selected.contactId)} channel={channelsById.get(selected.channelId)} readOnly={!canWrite} />
-      ) : startContact && canWrite ? (
+        <Thread key={selected.id} onBack={() => (contactParam ? router.back() : router.replace(basePath))} conversation={selected} contact={selected.contactId ? contactsById.get(selected.contactId) : undefined} channel={channelsById.get(selected.channelId)} title={chatTitle(selected, contactsById)} />
+      ) : startContact ? (
         <StartConversation contact={startContact} channels={activeChannels} basePath={basePath} onBack={() => router.back()} />
       ) : (
         <div className="hidden md:flex flex-1 items-center justify-center text-sm text-neutral-400">{loading ? "טוען שיחות…" : "בחרו שיחה מהרשימה"}</div>

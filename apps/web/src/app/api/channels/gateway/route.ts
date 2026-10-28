@@ -8,7 +8,7 @@ import * as evo from "@/lib/server/evolution";
 // own number; admins may manage anyone's. Credentials are write-only.
 type Body =
   | { action: "config" }
-  | { action: "connect_evolution"; name?: string; shared?: boolean }
+  | { action: "connect_evolution"; name?: string; shared?: boolean; fresh?: boolean }
   | { action: "connect"; name?: string; idInstance?: string; apiToken?: string; apiUrl?: string; ownerMembershipId?: string }
   | { action: "status"; id: string }
   | { action: "disconnect"; id: string };
@@ -32,7 +32,6 @@ export async function POST(request: Request) {
     // the whole team can send from it).
     if (body.action === "connect_evolution") {
       if (!evo.evolutionConfigured()) throw new HttpError(503, "שרת הוואטסאפ עוד לא הוגדר");
-      if (body.shared && !isAdmin) throw new HttpError(403, "רק מנהלים מחברים את מספר העסק");
       const instance = body.shared ? `crm-org-${orgId.slice(0, 8)}-${randomBytes(3).toString("hex")}` : `crm-${me.id}`;
       const { data: existing } = await db.from("channels").select("*").eq("provider", "evolution").eq("external_id", instance).maybeSingle();
       const { data: oldCreds } = existing ? await db.from("channel_credentials").select("webhook_secret").eq("channel_id", existing.id).maybeSingle() : { data: null };
@@ -44,6 +43,10 @@ export async function POST(request: Request) {
         // Already exists on the server (re-linking) — just point it at us.
         await evo.setWebhook(instance, webhookUrl);
       }
+      // Groups on and history requested; a fresh link (new QR scan) is what makes
+      // WhatsApp send the last stretch of history, so "fresh" logs the device out first.
+      await evo.applySettings(instance).catch((err) => console.error("evolution settings failed", err));
+      if (body.fresh) await evo.logout(instance).catch(() => undefined);
       const { data: currentDefault } = await db.from("channels").select("id").eq("org_id", orgId).eq("is_default", true).eq("active", true).maybeSingle();
       const row = {
         org_id: orgId,
@@ -111,7 +114,8 @@ export async function POST(request: Request) {
 
     const { data: channel } = await db.from("channels").select("*").eq("id", body.id).eq("org_id", orgId).in("provider", ["green_api", "evolution"]).maybeSingle();
     if (!channel) throw new HttpError(404, "החיבור לא נמצא");
-    if (channel.owner_membership_id !== me.id && !isAdmin) throw new HttpError(403, "אין הרשאה");
+    // A business number belongs to the whole team; a personal one to its owner (and admins, who only manage the link).
+    if (channel.owner_membership_id && channel.owner_membership_id !== me.id && !isAdmin) throw new HttpError(403, "אין הרשאה");
 
     if (channel.provider === "evolution") {
       const name = channel.external_id as string;

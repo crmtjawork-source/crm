@@ -1,7 +1,8 @@
 import "server-only";
 import type { Db } from "../supabaseAdmin";
-import { findOrCreateConversation, preview } from "../whatsapp";
 import { cancelWaitingRunsOnReply } from "../automations";
+import { preview } from "../whatsapp";
+import { storeMessageMedia } from "../waMedia";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
@@ -9,27 +10,211 @@ type Row = Record<string, any>;
 const STATUS: Record<string, string> = { SERVER_ACK: "sent", DELIVERY_ACK: "delivered", READ: "read", PLAYED: "read", ERROR: "failed" };
 const RANK: Record<string, number> = { pending: 0, sent: 1, delivered: 2, read: 3, failed: 4 };
 
-function describe(m: Row = {}): { type: string; body: string } {
-  if (m.conversation) return { type: "text", body: m.conversation };
-  if (m.extendedTextMessage?.text) return { type: "text", body: m.extendedTextMessage.text };
+// How far back the history WhatsApp sends when a device is linked is kept.
+const HISTORY_DAYS = 30;
+const MAX_LIVE_MEDIA_BYTES = 25 * 1024 * 1024;
+
+const WRAPPERS = ["ephemeralMessage", "viewOnceMessage", "viewOnceMessageV2", "viewOnceMessageV2Extension", "documentWithCaptionMessage", "editedMessage"];
+
+// The message content inside WhatsApp's wrappers (disappearing / view-once…).
+function unwrap(message: Row | undefined): Row {
+  let m: Row = message ?? {};
+  for (let i = 0; i < 4; i++) {
+    const key = WRAPPERS.find((w) => m[w]?.message);
+    if (!key) break;
+    m = m[key].message;
+  }
+  return m;
+}
+
+type Described = { type: string; body: string; mime?: string; fileName?: string; size?: number; media: boolean };
+
+function describe(raw: Row | undefined): Described | null {
+  const m = unwrap(raw);
+  if (m.conversation) return { type: "text", body: m.conversation, media: false };
+  if (m.extendedTextMessage?.text) return { type: "text", body: m.extendedTextMessage.text, media: false };
   const media: [string, string][] = [
     ["imageMessage", "תמונה"],
     ["videoMessage", "סרטון"],
     ["audioMessage", "הודעה קולית"],
     ["documentMessage", "מסמך"],
     ["stickerMessage", "סטיקר"],
-    ["locationMessage", "מיקום"],
-    ["contactMessage", "איש קשר"],
   ];
   for (const [key, label] of media) {
-    if (m[key]) return { type: key.replace(/Message$/, ""), body: m[key].caption ? `[${label}] ${m[key].caption}` : `[${label}]` };
+    const x = m[key];
+    if (!x) continue;
+    const type = key === "audioMessage" && x.ptt ? "voice" : key.replace(/Message$/, "");
+    const caption = x.caption ? ` ${x.caption}` : "";
+    const fileName = key === "documentMessage" ? x.fileName ?? x.title : undefined;
+    return { type, body: `[${label}]${key === "documentMessage" && fileName ? ` ${fileName}` : ""}${caption}`, mime: x.mimetype, fileName, size: Number(x.fileLength) || undefined, media: true };
   }
-  if (m.reactionMessage) return { type: "reaction", body: `הגיב/ה ${m.reactionMessage.text ?? ""}`.trim() };
-  return { type: "unknown", body: "[הודעה]" };
+  if (m.locationMessage) return { type: "location", body: `[מיקום] ${m.locationMessage.name ?? m.locationMessage.address ?? ""}`.trim(), media: false };
+  if (m.liveLocationMessage) return { type: "location", body: "[מיקום חי]", media: false };
+  if (m.contactMessage) return { type: "contact", body: `[איש קשר] ${m.contactMessage.displayName ?? ""}`.trim(), media: false };
+  if (m.contactsArrayMessage) return { type: "contact", body: "[אנשי קשר]", media: false };
+  if (m.pollCreationMessage || m.pollCreationMessageV3) return { type: "poll", body: `[סקר] ${(m.pollCreationMessage ?? m.pollCreationMessageV3).name ?? ""}`.trim(), media: false };
+  if (m.buttonsResponseMessage?.selectedDisplayText) return { type: "text", body: m.buttonsResponseMessage.selectedDisplayText, media: false };
+  if (m.listResponseMessage?.title) return { type: "text", body: m.listResponseMessage.title, media: false };
+  // Reactions, deletes, key exchanges and the like aren't chat bubbles.
+  return null;
 }
 
-// Only chats with existing leads are stored — the agent's WhatsApp also
-// holds personal conversations that don't belong in the CRM.
+// The chat a message belongs to: a 1:1 chat is keyed by the phone number, a
+// group by its id. Broadcast lists, status updates and channels are skipped.
+function chatOf(key: Row): { thread: string; jid: string; isGroup: boolean } | null {
+  let jid: string = key?.remoteJid ?? "";
+  // WhatsApp's newer anonymous ids: use the real number when we're given it.
+  if (jid.endsWith("@lid") && key.remoteJidAlt) jid = key.remoteJidAlt;
+  if (jid.endsWith("@g.us")) return { thread: jid, jid, isGroup: true };
+  if (jid.endsWith("@s.whatsapp.net")) return { thread: jid.split("@")[0].split(":")[0], jid: `${jid.split("@")[0].split(":")[0]}@s.whatsapp.net`, isGroup: false };
+  return null;
+}
+
+const chunk = <T,>(arr: T[], n: number) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
+const tsOf = (m: Row) => (m.messageTimestamp ? new Date(Number(m.messageTimestamp?.low ?? m.messageTimestamp) * 1000) : new Date());
+
+// Stores a batch of messages (live ones, or a history chunk): finds or creates
+// each chat, links 1:1 chats to leads by phone, and writes the messages.
+async function ingestMessages(db: Db, channel: Row, msgs: Row[], history: boolean): Promise<void> {
+  const cutoff = Date.now() - HISTORY_DAYS * 86400000;
+  type Item = { m: Row; chat: NonNullable<ReturnType<typeof chatOf>>; d: Described; at: Date; fromMe: boolean };
+  const items: Item[] = [];
+  for (const m of msgs) {
+    if (!m?.key?.id) continue;
+    const chat = chatOf(m.key);
+    if (!chat) continue;
+    const d = describe(m.message);
+    if (!d) continue;
+    const at = tsOf(m);
+    if (history && at.getTime() < cutoff) continue;
+    items.push({ m, chat, d, at, fromMe: Boolean(m.key.fromMe) });
+  }
+  if (!items.length) return;
+
+  // Leads by phone (1:1 chats only).
+  const digits = [...new Set(items.filter((i) => !i.chat.isGroup).map((i) => i.chat.thread))];
+  const contactOf = new Map<string, string>();
+  for (const part of chunk(digits, 200)) {
+    const { data } = await db.from("contacts").select("id, phone_digits").eq("org_id", channel.org_id).in("phone_digits", part).order("created_at");
+    for (const c of data ?? []) if (!contactOf.has(c.phone_digits)) contactOf.set(c.phone_digits, c.id);
+  }
+
+  // Names we already know for these chats.
+  const jids = [...new Set(items.map((i) => i.chat.jid))];
+  const nameOf = new Map<string, string>();
+  for (const part of chunk(jids, 200)) {
+    const { data } = await db.from("wa_chat_names").select("jid, name").eq("channel_id", channel.id).in("jid", part);
+    for (const n of data ?? []) nameOf.set(n.jid, n.name);
+  }
+  for (const i of items) if (!i.chat.isGroup && !i.fromMe && i.m.pushName && !nameOf.has(i.chat.jid)) nameOf.set(i.chat.jid, i.m.pushName);
+
+  // Chats: existing ones, then the missing ones created in bulk.
+  const threads = [...new Set(items.map((i) => i.chat.thread))];
+  const convOf = new Map<string, Row>();
+  const load = async () => {
+    for (const part of chunk(threads, 200)) {
+      const { data } = await db.from("conversations").select("*").eq("channel_id", channel.id).in("external_thread_id", part);
+      for (const c of data ?? []) convOf.set(c.external_thread_id, c);
+    }
+  };
+  await load();
+  const missing = threads.filter((t) => !convOf.has(t));
+  if (missing.length) {
+    const info = new Map(items.map((i) => [i.chat.thread, i.chat]));
+    for (const part of chunk(missing, 200)) {
+      await db.from("conversations").upsert(
+        part.map((t) => {
+          const c = info.get(t)!;
+          return { org_id: channel.org_id, channel_id: channel.id, contact_id: c.isGroup ? null : contactOf.get(t) ?? null, external_thread_id: t, wa_jid: c.jid, is_group: c.isGroup, chat_name: nameOf.get(c.jid) ?? null };
+        }),
+        { onConflict: "channel_id,external_thread_id", ignoreDuplicates: true }
+      );
+    }
+    await load();
+  }
+  // A chat that gained a lead / name / jid since it was created.
+  for (const t of threads) {
+    const conv = convOf.get(t);
+    const chat = items.find((i) => i.chat.thread === t)!.chat;
+    if (!conv) continue;
+    const patch: Row = {};
+    if (!conv.contact_id && !chat.isGroup && contactOf.get(t)) patch.contact_id = contactOf.get(t);
+    if (!conv.wa_jid) patch.wa_jid = chat.jid;
+    if (!conv.chat_name && nameOf.get(chat.jid)) patch.chat_name = nameOf.get(chat.jid);
+    if (Object.keys(patch).length) await db.from("conversations").update(patch).eq("id", conv.id);
+  }
+
+  // Messages, in bulk; only genuinely new ones come back.
+  const rows = items.map((i) => ({
+    org_id: channel.org_id,
+    conversation_id: convOf.get(i.chat.thread)!.id,
+    direction: i.fromMe ? "outbound" : "inbound",
+    origin: i.fromMe ? "phone_app" : null,
+    type: i.d.type,
+    body: i.d.body,
+    payload: i.m,
+    external_id: i.m.key.id,
+    status: i.fromMe ? "sent" : "received",
+    created_at: i.at.toISOString(),
+    sender_jid: i.chat.isGroup ? i.m.key.participant ?? i.m.participant ?? null : null,
+    sender_name: i.chat.isGroup && !i.fromMe ? i.m.pushName ?? null : null,
+    media_mime: i.d.media ? i.d.mime ?? null : null,
+    media_name: i.d.fileName ?? null,
+    media_size: i.d.size ?? null,
+  }));
+  const inserted: Row[] = [];
+  for (const part of chunk(rows, 300)) {
+    const { data } = await db.from("messages").upsert(part, { onConflict: "conversation_id,external_id", ignoreDuplicates: true }).select("id, external_id, conversation_id, type, payload, org_id, media_mime, media_name, media_path");
+    inserted.push(...(data ?? []));
+  }
+  if (!inserted.length) return;
+  const insertedIds = new Set(inserted.map((r) => r.external_id));
+  const fresh = items.filter((i) => insertedIds.has(i.m.key.id));
+
+  // Chat summaries: last message, and (live only) unread counts.
+  const latest = new Map<string, Item>();
+  for (const i of fresh) {
+    const cur = latest.get(i.chat.thread);
+    if (!cur || i.at > cur.at) latest.set(i.chat.thread, i);
+  }
+  for (const [t, i] of latest) {
+    const conv = convOf.get(t)!;
+    if (!conv.last_message_at || i.at.getTime() >= new Date(conv.last_message_at).getTime())
+      await db.from("conversations").update({ last_message_at: i.at.toISOString(), last_message_preview: preview(i.d.body) }).eq("id", conv.id);
+  }
+  if (!history) {
+    for (const i of fresh) {
+      if (i.fromMe) continue;
+      const conv = convOf.get(i.chat.thread)!;
+      await db.rpc("bump_conversation_inbound", { conv_id: conv.id, at: i.at.toISOString(), preview: preview(i.d.body) });
+      if (conv.contact_id ?? contactOf.get(i.chat.thread)) await cancelWaitingRunsOnReply(db, channel.org_id, (conv.contact_id ?? contactOf.get(i.chat.thread))!);
+    }
+    // Live media is fetched right away (WhatsApp keeps the file only a while); history media on demand.
+    for (const i of fresh) {
+      if (!i.d.media || (i.d.size ?? 0) > MAX_LIVE_MEDIA_BYTES) continue;
+      const row = inserted.find((r) => r.external_id === i.m.key.id);
+      if (row) await storeMessageMedia(db, channel, row);
+    }
+  }
+}
+
+// "Delete for everyone": this number's copy of the message becomes a tombstone.
+async function markDeleted(db: Db, channel: Row, externalId: string) {
+  const { data: found } = await db.from("messages").select("id, conversations!inner(channel_id)").eq("external_id", externalId).eq("conversations.channel_id", channel.id);
+  for (const msg of found ?? []) await db.from("messages").update({ type: "deleted", body: "[הודעה נמחקה]", media_path: null }).eq("id", msg.id);
+}
+
+function namesFrom(list: unknown, pick: (x: Row) => { jid?: string; name?: string }): { jid: string; name: string }[] {
+  const out: { jid: string; name: string }[] = [];
+  for (const x of Array.isArray(list) ? list : []) {
+    const { jid, name } = pick(x ?? {});
+    if (jid && name && (jid.endsWith("@s.whatsapp.net") || jid.endsWith("@g.us"))) out.push({ jid: jid.replace(/:\d+@/, "@"), name });
+  }
+  return out;
+}
+
+// Everything a linked number reports: messages (all chats, groups included),
+// the history sent at linking, and the names that go with them.
 export async function handleEvolutionEvent(db: Db, channel: Row, p: Row): Promise<string | null> {
   const event = String(p.event ?? "").toLowerCase().replace(/_/g, ".");
   const data = p.data ?? {};
@@ -45,50 +230,64 @@ export async function handleEvolutionEvent(db: Db, channel: Row, p: Row): Promis
       const next = STATUS[String(u.status ?? "").toUpperCase()];
       const id = u.keyId ?? u.key?.id;
       if (!next || !id) continue;
-      const { data: msg } = await db.from("messages").select("id, status").eq("org_id", channel.org_id).eq("external_id", id).maybeSingle();
-      if (!msg || ((RANK[msg.status] ?? -1) >= RANK[next] && next !== "failed")) continue;
-      await db.from("messages").update({ status: next }).eq("id", msg.id);
+      // Only this number's copy of the message (another linked number may hold one too).
+      const { data: found } = await db.from("messages").select("id, status, conversations!inner(channel_id)").eq("external_id", id).eq("conversations.channel_id", channel.id);
+      for (const msg of found ?? []) {
+        if ((RANK[msg.status] ?? -1) >= RANK[next] && next !== "failed") continue;
+        await db.from("messages").update({ status: next }).eq("id", msg.id);
+      }
     }
     return null;
   }
 
+  if (event === "messages.delete") {
+    for (const k of Array.isArray(data) ? data : [data]) {
+      const id = k?.id ?? k?.key?.id;
+      if (id) await markDeleted(db, channel, id);
+    }
+    return null;
+  }
+
+  // Names: contacts, chats, groups.
+  if (event === "contacts.upsert" || event === "contacts.update" || event === "contacts.set") {
+    const list = namesFrom(Array.isArray(data) ? data : data.contacts ?? [], (c) => ({ jid: c.remoteJid ?? c.id, name: c.name ?? c.pushName ?? c.notify }));
+    for (const part of chunk(list, 500)) await db.rpc("apply_wa_names", { p_channel: channel.id, p_names: part });
+    return null;
+  }
+  if (event === "chats.upsert" || event === "chats.set" || event === "chats.update") {
+    const list = namesFrom(Array.isArray(data) ? data : data.chats ?? [], (c) => ({ jid: c.remoteJid ?? c.id, name: c.name ?? c.subject }));
+    for (const part of chunk(list, 500)) await db.rpc("apply_wa_names", { p_channel: channel.id, p_names: part });
+    return null;
+  }
+  if (event === "groups.upsert" || event === "group.update") {
+    const list = namesFrom(Array.isArray(data) ? data : [data], (g) => ({ jid: g.id ?? g.groupJid ?? g.remoteJid, name: g.subject }));
+    await db.rpc("apply_wa_names", { p_channel: channel.id, p_names: list });
+    return null;
+  }
+
+  // History: the chunks WhatsApp sends when the device is linked.
+  if (event === "messages.set" || event === "messaging.history.set") {
+    const msgs: Row[] = Array.isArray(data) ? data : data.messages ?? [];
+    await ingestMessages(db, channel, msgs, true);
+    // The history set may carry chats / contacts with names too.
+    const names = [
+      ...namesFrom(data.chats, (c) => ({ jid: c.remoteJid ?? c.id, name: c.name ?? c.subject })),
+      ...namesFrom(data.contacts, (c) => ({ jid: c.remoteJid ?? c.id, name: c.name ?? c.pushName ?? c.notify })),
+    ];
+    for (const part of chunk(names, 500)) await db.rpc("apply_wa_names", { p_channel: channel.id, p_names: part });
+    return `היסטוריה: ${msgs.length} הודעות בחבילה`;
+  }
+
   if (event !== "messages.upsert") return null;
-  for (const m of Array.isArray(data) ? data : [data]) {
-    const jid: string = m.key?.remoteJid ?? "";
-    if (!jid.endsWith("@s.whatsapp.net")) continue; // groups, broadcasts, status
-    const digits = jid.split("@")[0];
-    const { data: contact } = await db.from("contacts").select("id").eq("org_id", channel.org_id).eq("phone_digits", digits).order("created_at").limit(1).maybeSingle();
-    if (!contact) continue;
-    const inbound = !m.key?.fromMe;
-    const at = m.messageTimestamp ? new Date(Number(m.messageTimestamp) * 1000).toISOString() : new Date().toISOString();
-    const conversation = await findOrCreateConversation(db, { orgId: channel.org_id, channelId: channel.id, contactId: contact.id, waId: digits });
-    const { type, body } = describe(m.message);
-    // Our own API sends come back here too; they're already stored (same id).
-    const { data: inserted } = await db
-      .from("messages")
-      .upsert(
-        {
-          org_id: channel.org_id,
-          conversation_id: conversation.id,
-          direction: inbound ? "inbound" : "outbound",
-          origin: inbound ? null : "phone_app",
-          type,
-          body,
-          payload: m,
-          external_id: m.key?.id,
-          status: inbound ? "received" : "sent",
-          created_at: at,
-        },
-        { onConflict: "org_id,external_id", ignoreDuplicates: true }
-      )
-      .select("id");
-    if (!inserted?.length) continue;
-    if (inbound) {
-      await db.rpc("bump_conversation_inbound", { conv_id: conversation.id, at, preview: preview(body) });
-      await cancelWaitingRunsOnReply(db, channel.org_id, contact.id);
-    } else {
-      await db.from("conversations").update({ last_message_at: at, last_message_preview: preview(body) }).eq("id", conversation.id);
+  const list: Row[] = Array.isArray(data) ? data : [data];
+  // A message revoked ("delete for everyone") arrives as a protocol message.
+  for (const m of list) {
+    const proto = unwrap(m.message).protocolMessage;
+    if (proto?.type === 0 || proto?.type === "REVOKE") {
+      const id = proto.key?.id;
+      if (id) await markDeleted(db, channel, id);
     }
   }
+  await ingestMessages(db, channel, list, false);
   return null;
 }

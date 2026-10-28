@@ -88,7 +88,7 @@ export async function handleMessagesField(db: Db, channel: Row, value: Row): Pro
           status: "received",
           created_at: at,
         },
-        { onConflict: "org_id,external_id", ignoreDuplicates: true }
+        { onConflict: "conversation_id,external_id", ignoreDuplicates: true }
       )
       .select("id");
     if (!inserted?.length) continue; // redelivery of a message we already have
@@ -160,7 +160,7 @@ export async function handleEchoesField(db: Db, channel: Row, value: Row): Promi
           status: "sent",
           created_at: at,
         },
-        { onConflict: "org_id,external_id", ignoreDuplicates: true }
+        { onConflict: "conversation_id,external_id", ignoreDuplicates: true }
       )
       .select("id");
     if (inserted?.length) await touchConversation(db, conversation.id, at, preview(body));
@@ -218,7 +218,7 @@ export async function handleHistoryField(db: Db, channel: Row, value: Row): Prom
       });
 
       for (let i = 0; i < rows.length; i += 500) {
-        await db.from("messages").upsert(rows.slice(i, i + 500), { onConflict: "org_id,external_id", ignoreDuplicates: true });
+        await db.from("messages").upsert(rows.slice(i, i + 500), { onConflict: "conversation_id,external_id", ignoreDuplicates: true });
       }
 
       const { data: conv } = await db

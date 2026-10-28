@@ -29,17 +29,45 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   }
 }
 
-const WEBHOOK_EVENTS = ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE"];
+// Everything needed to mirror a WhatsApp like WhatsApp Web: messages (live and
+// the history WhatsApp sends when a device is linked), names, groups, deletes.
+const WEBHOOK_EVENTS = [
+  "MESSAGES_UPSERT",
+  "MESSAGES_UPDATE",
+  "MESSAGES_SET",
+  "MESSAGES_DELETE",
+  "CONNECTION_UPDATE",
+  "CONTACTS_UPSERT",
+  "CONTACTS_UPDATE",
+  "CONTACTS_SET",
+  "CHATS_UPSERT",
+  "CHATS_SET",
+  "GROUPS_UPSERT",
+  "GROUP_UPDATE",
+];
+
+// Instance behaviour: groups included, and ask WhatsApp for the history when
+// the device is (re)linked — we keep the last 30 days of it.
+export async function applySettings(name: string): Promise<void> {
+  await call("POST", `/settings/set/${encodeURIComponent(name)}`, {
+    rejectCall: false,
+    msgCall: "",
+    groupsIgnore: false,
+    alwaysOnline: false,
+    readMessages: false,
+    readStatus: false,
+    syncFullHistory: true,
+  });
+}
 
 export async function createInstance(name: string, webhookUrl: string): Promise<void> {
   await call("POST", "/instance/create", {
     instanceName: name,
     qrcode: true,
     integration: "WHATSAPP-BAILEYS",
-    // Groups never reach the CRM anyway; don't mark chats read or pull history.
-    groupsIgnore: true,
+    groupsIgnore: false,
     readMessages: false,
-    syncFullHistory: false,
+    syncFullHistory: true,
     webhook: { url: webhookUrl, byEvents: false, base64: false, events: WEBHOOK_EVENTS },
   });
 }
@@ -109,4 +137,15 @@ export async function sendVoice(name: string, digits: string, url: string): Prom
 
 export async function logout(name: string): Promise<void> {
   await call("DELETE", `/instance/logout/${encodeURIComponent(name)}`);
+}
+
+// Downloads and decrypts a media message from WhatsApp. We pass the message
+// itself (from the webhook), since the server keeps no messages of its own.
+export async function getMediaBase64(name: string, message: unknown): Promise<{ base64: string; mimetype?: string; fileName?: string }> {
+  const r = await call<{ base64?: string; mimetype?: string; fileName?: string; mediaType?: string }>("POST", `/chat/getBase64FromMediaMessage/${encodeURIComponent(name)}`, {
+    message,
+    convertToMp4: false,
+  });
+  if (!r.base64) throw new EvolutionError("המדיה לא זמינה");
+  return { base64: r.base64.replace(/^data:[^;]+;base64,/, ""), mimetype: r.mimetype, fileName: r.fileName };
 }

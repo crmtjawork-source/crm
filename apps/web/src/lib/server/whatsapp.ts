@@ -320,3 +320,51 @@ export async function sendToContact(
     .eq("id", conversation.id);
   return message;
 }
+
+// A message into any chat of a linked number — including chats with people who
+// aren't leads, and groups (WhatsApp Web style). `to` is the phone number or
+// the group id.
+export async function sendToConversation(
+  db: Db,
+  args: { conversationId: string; content: OutgoingContent; sentBy?: string | null }
+): Promise<Row> {
+  const { data: conversation } = await db.from("conversations").select("*").eq("id", args.conversationId).single();
+  if (!conversation) throw new Error("השיחה לא נמצאה");
+  const { data: channel } = await db.from("channels").select("*").eq("id", conversation.channel_id).single();
+  if (!channel) throw new Error("הערוץ לא נמצא");
+  if (channel.provider !== "evolution") throw new Error("שליחה לשיחה כזו נתמכת רק בחיבור וואטסאפ של המערכת");
+  const c = args.content;
+  if (c.kind === "template") throw new Error("תבניות של מטא לא נשלחות מחיבור אישי");
+
+  const to = conversation.external_thread_id as string;
+  const body = c.kind === "text" ? c.body : `[${MEDIA_LABELS[c.mediaType === "gif" ? "video" : c.mediaType]}]${c.caption ? ` ${c.caption}` : ""}`;
+  const base = {
+    org_id: conversation.org_id,
+    conversation_id: conversation.id,
+    direction: "outbound",
+    origin: "crm",
+    type: c.kind === "media" ? (c.mediaType === "voice" ? "audio" : c.mediaType === "gif" ? "video" : c.mediaType) : "text",
+    body,
+    payload: null,
+    sent_by: args.sentBy ?? null,
+  };
+  let wamid: string;
+  try {
+    wamid =
+      c.kind === "text" ? await evolutionSendText(channel.external_id, to, c.body)
+      : c.mediaType === "voice" ? await evolutionSendVoice(channel.external_id, to, c.url)
+      : await evolutionSendMedia(channel.external_id, to, c.url, c.mediaType === "gif" ? "video" : c.mediaType, c.caption, c.fileName, c.mediaType === "gif");
+  } catch (err) {
+    await db.from("messages").insert({ ...base, status: "failed", error: err instanceof Error ? err.message : String(err) });
+    throw err;
+  }
+  const now = new Date().toISOString();
+  const { data: message, error } = await db
+    .from("messages")
+    .insert({ ...base, status: "sent", external_id: wamid, created_at: now, media_mime: null })
+    .select()
+    .single();
+  if (error) throw error;
+  await db.from("conversations").update({ last_message_at: now, last_message_preview: preview(body) }).eq("id", conversation.id);
+  return message;
+}

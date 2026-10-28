@@ -20,13 +20,28 @@ function mapConversation(r: Row): Conversation {
   return {
     id: r.id,
     channelId: r.channel_id,
-    contactId: r.contact_id,
+    contactId: r.contact_id ?? undefined,
+    chatName: r.chat_name ?? undefined,
+    isGroup: Boolean(r.is_group),
+    waJid: r.wa_jid ?? undefined,
+    externalThreadId: r.external_thread_id,
     lastMessageAt: r.last_message_at ?? undefined,
     lastMessagePreview: r.last_message_preview ?? undefined,
     lastInboundAt: r.last_inbound_at ?? undefined,
     unreadCount: r.unread_count ?? 0,
     createdAt: r.created_at,
   };
+}
+
+// The message this one answers, from WhatsApp's own payload.
+function quotedOf(payload: Row | null | undefined): Message["quoted"] {
+  let m: Row = payload?.message ?? {};
+  for (const w of ["ephemeralMessage", "viewOnceMessage", "viewOnceMessageV2", "documentWithCaptionMessage", "editedMessage"]) if (m[w]?.message) m = m[w].message;
+  const ctx = Object.values(m).map((v) => (v as Row)?.contextInfo).find((c) => c?.quotedMessage);
+  if (!ctx) return undefined;
+  const q: Row = ctx.quotedMessage;
+  const text = q.conversation ?? q.extendedTextMessage?.text ?? q.imageMessage?.caption ?? q.videoMessage?.caption ?? q.documentMessage?.fileName ?? (q.imageMessage ? "תמונה" : q.videoMessage ? "סרטון" : q.audioMessage ? "הודעה קולית" : q.stickerMessage ? "סטיקר" : "");
+  return text ? { text: String(text).slice(0, 200), author: ctx.participant ? String(ctx.participant).split("@")[0] : undefined } : undefined;
 }
 
 function mapMessage(r: Row): Message {
@@ -40,6 +55,12 @@ function mapMessage(r: Row): Message {
     status: r.status,
     error: r.error ?? undefined,
     createdAt: r.created_at,
+    senderName: r.sender_name ?? undefined,
+    mediaMime: r.media_mime ?? undefined,
+    mediaName: r.media_name ?? undefined,
+    mediaSize: r.media_size ?? undefined,
+    mediaFailed: Boolean(r.media_failed),
+    quoted: quotedOf(r.payload),
   };
 }
 
@@ -57,7 +78,7 @@ export function useConversations(orgId: string) {
       .from("conversations")
       .select("*")
       .order("last_message_at", { ascending: false, nullsFirst: false })
-      .limit(300)
+      .limit(1000)
       .then(({ data }) => {
         if (cancelled) return;
         setConversations((data ?? []).map(mapConversation).sort(byLastMessageDesc));

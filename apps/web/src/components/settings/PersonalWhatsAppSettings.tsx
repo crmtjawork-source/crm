@@ -29,8 +29,9 @@ export function PersonalWhatsAppSettings({ isAdmin }: { isAdmin: boolean }) {
     <section className="mb-10">
       <h2 className="text-base font-semibold mb-1">הוואטסאפ שלי</h2>
       <p className="text-sm text-neutral-500 mb-3 leading-relaxed">
-        מחברים את הוואטסאפ שלך פעם אחת (סריקת קוד, כמו וואטסאפ ווב), ומאז ההודעות מהכפתורים בכרטיס הליד — ללא מענה, אישור פגישה,
-        תזכורות ואחרי פגישה — נשלחות לבד מהמספר שלך, והתשובות של הלידים נכנסות למסך השיחות. שיחות עם מי שאינו ליד במערכת לא נשמרות.
+        מחברים את הוואטסאפ שלך פעם אחת (סריקת קוד, כמו וואטסאפ ווב). כל השיחות שלך מופיעות במסך &quot;וואטסאפ אישי&quot; כמו בוואטסאפ ווב —
+        שיחות רגילות, קבוצות ותמונות, כולל ההיסטוריה של 30 הימים האחרונים. השיחות פרטיות: רק אתה רואה אותן, גם מנהלים לא. ההודעות מהכפתורים
+        בכרטיס הליד (ללא מענה, אישור פגישה, תזכורות) נשלחות לבד מהמספר שלך.
       </p>
       <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 rounded-md p-2 mb-4 leading-relaxed">
         זה חיבור לא רשמי (כמו וואטסאפ ווב). וואטסאפ עלולה לחסום מספר ששולח הרבה הודעות אוטומטיות לאנשים שלא שמרו אותו — כדאי להתחיל
@@ -46,20 +47,21 @@ export function PersonalWhatsAppSettings({ isAdmin }: { isAdmin: boolean }) {
           להודעות לעסק כולו — וולקאם, תזכורות ולידים בלי בעלים.
         </p>
         {business.length > 0 ? (
-          business.map((c) =>
-            isAdmin ? (
+          <div className="space-y-2">
+            {business.map((c) => (
               <Connected key={c.id} channel={c} onChange={reloadIntegrations} />
-            ) : (
-              <p key={c.id} className="text-sm border border-neutral-200 dark:border-neutral-800 rounded-md px-3 py-2">
-                {c.displayPhone ? <span dir="ltr">+{c.displayPhone}</span> : c.name} ·{" "}
-                <span className={c.status === "authorized" ? "text-emerald-600" : "text-amber-600"}>{STATE_LABELS[c.status ?? ""] ?? c.status ?? "—"}</span>
-              </p>
-            )
-          )
-        ) : isAdmin ? (
-          <ConnectForm onDone={reloadIntegrations} shared />
+            ))}
+          </div>
         ) : (
-          <p className="text-xs text-neutral-400">מנהל עוד לא חיבר את מספר העסק.</p>
+          <ConnectForm onDone={reloadIntegrations} shared />
+        )}
+        {business.length > 0 && (
+          <details className="mt-2">
+            <summary className="text-xs text-neutral-500 cursor-pointer">חיבור מספר עסק נוסף</summary>
+            <div className="mt-2">
+              <ConnectForm onDone={reloadIntegrations} shared />
+            </div>
+          </details>
         )}
       </div>
 
@@ -203,6 +205,17 @@ export function Connected({ channel, onChange }: { channel: Channel; onChange: (
     };
   }, [channel.status, refresh, onChange]);
 
+  // WhatsApp only sends history when a device is newly linked: log out and scan again.
+  async function relinkForHistory() {
+    if (!confirm("לקבל את ההיסטוריה של 30 הימים האחרונים? הוואטסאפ ינותק ויופיע קוד חדש שצריך לסרוק מהטלפון.")) return;
+    try {
+      await apiPost("/api/channels/gateway", { action: "connect_evolution", shared: !channel.ownerMembershipId, fresh: true });
+      await onChange();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "החיבור מחדש נכשל");
+    }
+  }
+
   async function disconnect() {
     if (!confirm(channel.ownerMembershipId ? "לנתק את הוואטסאפ שלך מהמערכת? ההודעות האוטומטיות יפסיקו להישלח." : "לנתק את מספר העסק? הוולקאם, התזכורות וההודעות ממספר העסק יפסיקו להישלח.")) return;
     await apiPost("/api/channels/gateway", { action: "disconnect", id: channel.id });
@@ -216,9 +229,16 @@ export function Connected({ channel, onChange }: { channel: Channel; onChange: (
           {channel.displayPhone ? <span dir="ltr">+{channel.displayPhone}</span> : channel.ownerMembershipId ? "הוואטסאפ שלי" : "מספר העסק"} ·{" "}
           <span className={state === "authorized" ? "text-emerald-600" : "text-amber-600"}>{STATE_LABELS[state] ?? state ?? "—"}</span>
         </span>
-        <button onClick={disconnect} className="text-xs text-neutral-400 hover:text-red-500">
-          ניתוק
-        </button>
+        <span className="flex gap-3">
+          {channel.provider === "evolution" && channel.ownerMembershipId && (
+            <button onClick={relinkForHistory} className="text-xs text-neutral-500 hover:underline">
+              סנכרון היסטוריה (30 ימים)
+            </button>
+          )}
+          <button onClick={disconnect} className="text-xs text-neutral-400 hover:text-red-500">
+            ניתוק
+          </button>
+        </span>
       </div>
       {qr && (
         <div className="text-center">

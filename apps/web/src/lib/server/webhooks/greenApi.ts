@@ -87,7 +87,7 @@ export async function handleGreenApiEvent(db: Db, channel: Row, p: Row): Promise
         status: inbound ? "received" : "sent",
         created_at: at,
       },
-      { onConflict: "org_id,external_id", ignoreDuplicates: true }
+      { onConflict: "conversation_id,external_id", ignoreDuplicates: true }
     )
     .select("id");
   if (!inserted?.length) return null; // redelivery

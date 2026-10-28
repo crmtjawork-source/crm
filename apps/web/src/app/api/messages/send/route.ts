@@ -1,6 +1,7 @@
 import { errorResponse, HttpError, requireUser } from "@/lib/server/auth";
 import { supabaseAdmin } from "@/lib/server/supabaseAdmin";
-import { sendToContact, WindowClosedError, type OutgoingContent } from "@/lib/server/whatsapp";
+import { sendToContact, sendToConversation, WindowClosedError, type MediaType, type OutgoingContent } from "@/lib/server/whatsapp";
+import { env } from "@/lib/server/env";
 
 type Body = {
   conversationId?: string;
@@ -8,9 +9,28 @@ type Body = {
   channelId?: string;
   text?: string;
   template?: { name?: string; language?: string; params?: string[]; buttonParam?: string };
+  // A file already uploaded to our storage (by public URL).
+  media?: { url?: string; mediaType?: MediaType; fileName?: string; caption?: string };
 };
 
+// Only files in this project's own storage may be sent.
+function checkMediaUrl(url: string) {
+  let host: string;
+  try {
+    host = new URL(url).host;
+  } catch {
+    throw new HttpError(400, "כתובת הקובץ לא תקינה");
+  }
+  if (host !== new URL(env.supabaseUrl()).host) throw new HttpError(400, "אפשר לשלוח רק קבצים שהועלו למערכת");
+}
+
 function parseContent(body: Body): OutgoingContent {
+  if (body.media?.url) {
+    checkMediaUrl(body.media.url);
+    const mediaType = body.media.mediaType;
+    if (!mediaType || !["image", "video", "gif", "document", "voice"].includes(mediaType)) throw new HttpError(400, "סוג קובץ לא נתמך");
+    return { kind: "media", url: body.media.url, mediaType, fileName: body.media.fileName?.slice(0, 200), caption: body.media.caption?.slice(0, 1000) || undefined };
+  }
   if (body.template?.name) {
     const name = body.template.name.trim();
     if (!/^[a-z0-9_]+$/.test(name)) throw new HttpError(400, "שם תבנית יכול להכיל רק אותיות קטנות באנגלית, ספרות וקו תחתון");
@@ -37,17 +57,19 @@ export async function POST(request: Request) {
     // Reads go through the user's RLS-scoped client: finding the row is the
     // proof that this user belongs to its org.
     let orgId: string;
-    let contactId: string;
+    let contactId: string | null;
     let channelId: string | null = body.channelId ?? null;
+    let isGroup = false;
     if (body.conversationId) {
       const { data } = await user.db
         .from("conversations")
-        .select("org_id, contact_id, channel_id")
+        .select("org_id, contact_id, channel_id, is_group")
         .eq("id", body.conversationId)
         .maybeSingle();
       if (!data) throw new HttpError(404, "השיחה לא נמצאה");
       ({ org_id: orgId, contact_id: contactId } = data);
       channelId = data.channel_id;
+      isGroup = Boolean(data.is_group);
     } else if (body.contactId) {
       const { data } = await user.db.from("contacts").select("id, org_id").eq("id", body.contactId).maybeSingle();
       if (!data) throw new HttpError(404, "הליד לא נמצא");
@@ -67,6 +89,12 @@ export async function POST(request: Request) {
       }
     }
 
+    // A chat with someone who isn't a lead, or a group: straight to the chat.
+    if (body.conversationId && (!contactId || isGroup)) {
+      const message = await sendToConversation(supabaseAdmin(), { conversationId: body.conversationId, content, sentBy: user.userId });
+      return Response.json({ message });
+    }
+    if (!contactId) throw new HttpError(400, "לשיחה אין ליד");
     const message = await sendToContact(supabaseAdmin(), {
       orgId,
       contactId,
