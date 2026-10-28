@@ -125,8 +125,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navLinks = (
     // Scrolls on its own when the menu is taller than the screen.
     <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-1 px-2 pb-2">
-      {before.map((item) => link(item))}
-      {groups.map(({ category, items }) => {
+      {/* Until the person's role has loaded, show no items — otherwise everyone briefly sees the full manager menu. */}
+      {loading &&
+        [0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-9 rounded-md bg-neutral-100 dark:bg-neutral-900 animate-pulse" />
+        ))}
+      {!loading && before.map((item) => link(item))}
+      {!loading && groups.map(({ category, items }) => {
         const hasActive = items.some((i) => pathname.startsWith(i.href));
         const open = openCats[category.id] ?? hasActive;
         return (
@@ -146,7 +151,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         );
       })}
-      {after.map((item) => link(item))}
+      {!loading && after.map((item) => link(item))}
     </nav>
   );
 
@@ -209,7 +214,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-3 border-t border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-950/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-        {MOBILE_TABS.filter((item) => canSeeHref(role, item.href)).map((item) => {
+        {(loading ? [] : MOBILE_TABS.filter((item) => canSeeHref(role, item.href))).map((item) => {
           const active = pathname.startsWith(item.href) || (item.href === "/pipeline" && pathname.startsWith("/contacts"));
           return (
             <Link key={item.href} href={item.href} className={`flex flex-col items-center py-2 text-[11px] ${active ? "text-neutral-900 dark:text-white font-semibold" : "text-neutral-400"}`}>
