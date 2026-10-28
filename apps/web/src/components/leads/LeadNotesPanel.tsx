@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import type { Contact } from "@/lib/types";
+import { NoteItem } from "./NoteItem";
 
 // The lead's notes and history as a side panel (wide screens): write a note
 // at the top, read everything below — notes only, or notes with the system
@@ -57,10 +58,7 @@ export function LeadNotesPanel({ contact }: { contact: Contact }) {
       <ul className="overflow-y-auto p-3 space-y-3 min-h-24">
         {list.length === 0 && <li className="text-sm text-neutral-400">{onlyNotes ? "אין עדיין הערות." : "אין עדיין פעילות."}</li>}
         {list.map((a) => (
-          <li key={a.id} className={`text-sm rounded-lg px-3 py-2 ${a.type === "note" ? "bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40" : "text-neutral-500"}`}>
-            <p className="whitespace-pre-line break-words">{a.text}</p>
-            <p className="text-[11px] text-neutral-400 mt-1">{new Date(a.createdAt).toLocaleString("he-IL")}</p>
-          </li>
+          <NoteItem key={a.id} activity={a} />
         ))}
       </ul>
     </aside>

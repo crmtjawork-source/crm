@@ -154,6 +154,8 @@ type Store = State & {
   moveOpportunity: (opportunityId: string, stageId: string) => Promise<void>;
 
   addNote: (contactId: string, text: string) => Promise<void>;
+  updateNote: (activityId: string, text: string) => Promise<void>;
+  deleteNote: (activityId: string) => Promise<void>;
   activitiesFor: (contactId: string) => Activity[];
   loadActivitiesFor: (contactId: string) => Promise<void>;
 
@@ -1171,6 +1173,18 @@ export function StoreProvider({
     if (data) setState((s) => ({ ...s, activities: [...s.activities, mapActivity(data)] }));
   };
 
+  const updateNote: Store["updateNote"] = async (activityId, text) => {
+    const { data, error } = await supabase.from("activities").update({ text }).eq("id", activityId).eq("type", "note").select().single();
+    if (error || !data) throw error ?? new Error("עדכון ההערה נכשל");
+    setState((s) => ({ ...s, activities: upsertById(s.activities, mapActivity(data)) }));
+  };
+
+  const deleteNote: Store["deleteNote"] = async (activityId) => {
+    const { error } = await supabase.from("activities").delete().eq("id", activityId).eq("type", "note");
+    if (error) throw error;
+    setState((s) => ({ ...s, activities: s.activities.filter((a) => a.id !== activityId) }));
+  };
+
   const addPipeline: Store["addPipeline"] = async (name) => {
     const { data: pipelineRow, error } = await supabase.from("pipelines").insert({ org_id: orgId, name }).select().single();
     if (error || !pipelineRow) throw error;
@@ -2115,6 +2129,8 @@ export function StoreProvider({
         setOpportunityStatus,
         moveOpportunity,
         addNote,
+        updateNote,
+        deleteNote,
         activitiesFor,
         loadActivitiesFor,
         addPipeline,

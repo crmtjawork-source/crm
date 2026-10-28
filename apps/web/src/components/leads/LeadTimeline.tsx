@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import type { Contact } from "@/lib/types";
 import { Sheet } from "@/components/ui/Sheet";
+import { NoteItem } from "./NoteItem";
 
 // The lead's history. On the card it's one line (add a note + the latest
 // entry); the full timeline opens in a window so the card stays short.
@@ -61,13 +62,7 @@ export function LeadTimeline({ contact }: { contact: Contact }) {
           {noteForm()}
           <ul className="space-y-3">
             {activities.map((a) => (
-              <li key={a.id} className="text-sm flex gap-2">
-                <span className={a.type === "note" ? "text-neutral-400" : "text-neutral-300"}>{a.type === "note" ? "📝" : "→"}</span>
-                <div className="min-w-0">
-                  <p className="whitespace-pre-line break-words">{a.text}</p>
-                  <p className="text-xs text-neutral-400">{new Date(a.createdAt).toLocaleString("he-IL")}</p>
-                </div>
-              </li>
+              <NoteItem key={a.id} activity={a} />
             ))}
           </ul>
         </Sheet>
