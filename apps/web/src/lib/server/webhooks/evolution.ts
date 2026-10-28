@@ -406,13 +406,21 @@ export async function syncChatList(
   ];
   await ensureChats(db, channel, chats.map((c) => c.remoteJid).filter(Boolean));
   for (const part of chunk(names, 500)) await db.rpc("apply_wa_names", { p_channel: channel.id, p_names: part });
-  let unread = 0;
-  const withUnread = chats.filter((c) => (c.unreadMessages ?? 0) > 0);
-  for (const c of withUnread) {
+  await syncUnread(db, channel, chats);
+  return { chats: chats.length, unread: chats.filter((c) => (c.unreadMessages ?? 0) !== 0).length };
+}
+
+// The light, frequent sync: only the unread counters of the gateway's chats.
+export async function syncUnread(db: Db, channel: Row, chats: Array<{ remoteJid: string; unreadMessages?: number }>): Promise<number> {
+  const list: { thread: string; n: number }[] = [];
+  for (const c of chats) {
     const chat = chatOf({ remoteJid: c.remoteJid });
-    if (!chat) continue;
-    await db.from("conversations").update({ unread_count: c.unreadMessages }).eq("channel_id", channel.id).eq("external_thread_id", chat.thread);
-    unread++;
+    if (chat) list.push({ thread: chat.thread, n: c.unreadMessages ?? 0 });
   }
-  return { chats: chats.length, unread };
+  let changed = 0;
+  for (const part of chunk(list, 800)) {
+    const { data } = await db.rpc("apply_wa_unread", { p_channel: channel.id, p_unread: part });
+    changed += Number(data ?? 0);
+  }
+  return changed;
 }

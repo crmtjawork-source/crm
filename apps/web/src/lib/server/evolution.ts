@@ -163,3 +163,9 @@ export async function findContacts(name: string): Promise<Array<{ remoteJid?: st
   const r = await call<Array<{ remoteJid?: string; id?: string; pushName?: string; profileName?: string }>>("POST", `/chat/findContacts/${encodeURIComponent(name)}`, { where: {} });
   return Array.isArray(r) ? r : [];
 }
+
+// Marks messages as read on the phone (the blue ticks / cleared badge), like opening the chat in WhatsApp Web.
+export async function markRead(name: string, keys: Array<{ remoteJid: string; fromMe: boolean; id: string }>): Promise<void> {
+  if (!keys.length) return;
+  await call("POST", `/chat/markMessageAsRead/${encodeURIComponent(name)}`, { readMessages: keys });
+}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import { apiPost } from "./api";
 import type { Conversation, Message } from "./types";
 
 // Conversations/messages live outside the global store on purpose: message
@@ -25,6 +26,7 @@ function mapConversation(r: Row): Conversation {
     isGroup: Boolean(r.is_group),
     waJid: r.wa_jid ?? undefined,
     lastDirection: r.last_direction ?? undefined,
+    pinnedAt: r.pinned_at ?? undefined,
     externalThreadId: r.external_thread_id,
     lastMessageAt: r.last_message_at ?? undefined,
     lastMessagePreview: r.last_message_preview ?? undefined,
@@ -68,6 +70,12 @@ function mapMessage(r: Row): Message {
 // Newest activity first; chats with no message at all (older than the kept
 // history) go to the end instead of floating up by their creation time.
 function byLastMessageDesc(a: Conversation, b: Conversation) {
+  // Pinned chats first (most recently pinned on top).
+  if (a.pinnedAt || b.pinnedAt) {
+    if (!a.pinnedAt) return 1;
+    if (!b.pinnedAt) return -1;
+    return b.pinnedAt.localeCompare(a.pinnedAt);
+  }
   if (!a.lastMessageAt && !b.lastMessageAt) return (a.chatName ?? "").localeCompare(b.chatName ?? "");
   if (!a.lastMessageAt) return 1;
   if (!b.lastMessageAt) return -1;
@@ -112,10 +120,18 @@ export function useConversations(orgId: string) {
 
   const markRead = useCallback(async (conversationId: string) => {
     setConversations((list) => list.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c)));
-    await supabase.from("conversations").update({ unread_count: 0 }).eq("id", conversationId);
+    await supabase.from("conversations").update({ unread_count: 0, read_locally_at: new Date().toISOString() }).eq("id", conversationId);
+    // Opening a chat reads it on the phone as well (WhatsApp Web does the same).
+    void apiPost("/api/channels/mark-read", { conversationId }).catch(() => undefined);
   }, []);
 
-  return { conversations, loading, markRead };
+  const togglePin = useCallback(async (conversationId: string, pinned: boolean) => {
+    const pinnedAt = pinned ? null : new Date().toISOString();
+    setConversations((list) => list.map((c) => (c.id === conversationId ? { ...c, pinnedAt: pinnedAt ?? undefined } : c)).sort(byLastMessageDesc));
+    await supabase.from("conversations").update({ pinned_at: pinnedAt }).eq("id", conversationId);
+  }, []);
+
+  return { conversations, loading, markRead, togglePin };
 }
 
 function upsertMessage(list: Message[], msg: Message): Message[] {

@@ -61,12 +61,14 @@ function ConversationList({
   channelsById,
   selectedId,
   onSelect,
+  onPin,
 }: {
   conversations: Conversation[];
   contactsById: Map<string, Contact>;
   channelsById: Map<string, Channel>;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onPin: (id: string, pinned: boolean) => void;
 }) {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<ListTab>("all");
@@ -132,7 +134,7 @@ function ConversationList({
           const title = chatTitle(c, contactsById);
           const channel = channelsById.get(c.channelId);
           return (
-            <li key={c.id}>
+            <li key={c.id} className="group relative">
               <button
                 onClick={() => onSelect(c.id)}
                 className={`w-full text-start px-3 py-2.5 border-b border-neutral-100 dark:border-neutral-900 flex items-center gap-3 ${
@@ -154,6 +156,14 @@ function ConversationList({
                   </span>
                   {channelsById.size > 1 && channel && <span className="block text-[11px] text-neutral-400 mt-0.5">{channel.name}</span>}
                 </span>
+              </button>
+              <button
+                onClick={() => onPin(c.id, Boolean(c.pinnedAt))}
+                title={c.pinnedAt ? "ביטול נעיצה" : "נעיצת השיחה למעלה"}
+                aria-label={c.pinnedAt ? "ביטול נעיצה" : "נעיצת השיחה"}
+                className={`absolute end-2 bottom-1.5 text-xs ${c.pinnedAt ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"} text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100`}
+              >
+                {c.pinnedAt ? "📌" : "📍"}
               </button>
             </li>
           );
@@ -466,7 +476,7 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
   const { contacts, channels, members, currentMemberId, reloadIntegrations } = useStore();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { conversations, loading, markRead } = useConversations(membership!.orgId);
+  const { conversations, loading, markRead, togglePin } = useConversations(membership!.orgId);
   const me = members.find((m) => m.id === currentMemberId);
   const isAdmin = me?.role !== "agent";
   const viewing = currentMemberId;
@@ -523,6 +533,20 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
     }
   }, [boxChannels]);
 
+  // The phone's unread counters, mirrored: when the screen opens, on focus, and every minute while it's open.
+  useEffect(() => {
+    const evo = boxChannels.filter((c) => c.provider === "evolution" && c.active && c.status === "authorized");
+    if (!evo.length) return;
+    const run = () => evo.forEach((c) => void apiPost("/api/channels/gateway", { action: "sync_unread", id: c.id }).catch(() => undefined));
+    run();
+    const timer = setInterval(run, 60_000);
+    window.addEventListener("focus", run);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", run);
+    };
+  }, [boxChannels]);
+
   const title = box === "business" ? "וואטסאפ חברה" : "וואטסאפ אישי";
 
   // My own number: link it right here.
@@ -576,6 +600,7 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
           channelsById={channelsById}
           selectedId={selectedId}
           onSelect={(id) => router.replace(`${basePath}?c=${id}`)}
+          onPin={togglePin}
         />
       </div>
       {selected ? (

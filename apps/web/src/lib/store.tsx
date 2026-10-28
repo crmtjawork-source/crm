@@ -1107,14 +1107,30 @@ export function StoreProvider({
   };
 
   const addOpportunity: Store["addOpportunity"] = async (o) => {
+    // A lead keeps one open deal per pipeline: if it has one, move that deal instead of opening a second.
+    const existing = state.opportunities.find((x) => x.contactId === o.contactId && x.pipelineId === o.pipelineId && x.status === "open");
+    if (existing) {
+      if (existing.stageId !== o.stageId) await moveOpportunity(existing.id, o.stageId);
+      return existing;
+    }
     const { data, error } = await supabase
       .from("opportunities")
       .insert({ org_id: orgId, contact_id: o.contactId, pipeline_id: o.pipelineId, stage_id: o.stageId, title: o.title, value: o.value })
       .select()
       .single();
+    if (error?.code === "23505") {
+      // The database already has an open deal for this lead (our state was behind): use it.
+      const { data: found } = await supabase.from("opportunities").select("*").eq("contact_id", o.contactId).eq("pipeline_id", o.pipelineId).eq("status", "open").maybeSingle();
+      if (found) {
+        const opp = mapOpportunity(found);
+        setState((s) => ({ ...s, opportunities: upsertById(s.opportunities, opp) }));
+        if (opp.stageId !== o.stageId) await moveOpportunity(opp.id, o.stageId);
+        return opp;
+      }
+    }
     if (error || !data) throw error;
     const opp = mapOpportunity(data);
-    setState((s) => ({ ...s, opportunities: [...s.opportunities, opp] }));
+    setState((s) => ({ ...s, opportunities: upsertById(s.opportunities, opp) }));
     // A deal entering a stage is a stage change too (same as moving into it).
     await runAutomations("stage_change", o.contactId, { pipelineId: o.pipelineId, stageId: o.stageId });
     return opp;

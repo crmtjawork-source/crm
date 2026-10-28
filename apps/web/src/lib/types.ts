@@ -245,6 +245,7 @@ export type Conversation = {
   isGroup: boolean;
   waJid?: string;
   lastDirection?: "inbound" | "outbound"; // who wrote last
+  pinnedAt?: string; // pinned to the top of the list (kept in the CRM)
   externalThreadId: string; // phone number, or the group id
   lastMessageAt?: string;
   lastMessagePreview?: string;
