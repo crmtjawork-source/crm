@@ -26,6 +26,9 @@ export default function ContactDetailPage() {
   const {
     getContact,
     opportunities,
+    pipelines,
+    lostReasons,
+    updateOpportunity,
     updateContact,
     deleteContact,
     addTag,
@@ -177,15 +180,40 @@ export default function ContactDetailPage() {
 
       <LeadUpcoming contact={contact} />
 
-      <div className="flex items-center gap-2 mb-2 text-sm">
-        <span className="text-neutral-500">שלב:</span>
-        {(() => {
-          // The lead's current deal: the open one if any, else the latest.
-          const deals = opportunities.filter((o) => o.contactId === contact.id);
-          const deal = deals.find((o) => o.status === "open") ?? [...deals].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-          return <StageSelect contact={contact} deal={deal} afterMove={stagePrompt.afterMove} />;
-        })()}
-      </div>
+      {(() => {
+        // The lead's current deal: the open one if any, else the latest.
+        const deals = opportunities.filter((o) => o.contactId === contact.id);
+        const deal = deals.find((o) => o.status === "open") ?? [...deals].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+        const stage = deal && pipelines.find((p) => p.id === deal.pipelineId)?.stages.find((st) => st.id === deal.stageId);
+        // In a "not closed" stage the reason is shown right under the stage, and can be changed.
+        const showReason = deal && (stage?.asksLostReason || deal.lostReason);
+        return (
+          <>
+            <div className="flex items-center gap-2 mb-2 text-sm">
+              <span className="text-neutral-500">שלב:</span>
+              <StageSelect contact={contact} deal={deal} afterMove={stagePrompt.afterMove} />
+            </div>
+            {showReason && deal && (
+              <label className="flex items-center gap-2 mb-2 text-sm">
+                <span className="text-neutral-500">סיבת אי-סגירה:</span>
+                <select
+                  value={deal.lostReason ?? ""}
+                  onChange={(e) => updateOpportunity(deal.id, { lostReason: e.target.value || undefined })}
+                  className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent font-medium max-w-72"
+                >
+                  <option value="">לא נבחרה סיבה</option>
+                  {lostReasons.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                  {deal.lostReason && !lostReasons.includes(deal.lostReason) && <option value={deal.lostReason}>{deal.lostReason}</option>}
+                </select>
+              </label>
+            )}
+          </>
+        );
+      })()}
       {stagePrompt.element}
 
       {leadStatuses.length > 0 && (
