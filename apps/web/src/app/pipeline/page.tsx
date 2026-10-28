@@ -241,6 +241,14 @@ export default function PipelinePage() {
         {dealFilter.controls}
       </div>
       {dealFilter.chips}
+      {search.trim() && (
+        <p className="mb-3 text-xs text-neutral-500">
+          מוצגות תוצאות החיפוש בפייפליין הזה (עסקאות פתוחות) — הסינון לא חל בזמן חיפוש.{" "}
+          <Link href={`/contacts?q=${encodeURIComponent(search.trim())}`} className="underline">
+            חיפוש בכל הלידים, כולל סגורים ובפייפליינים אחרים
+          </Link>
+        </p>
+      )}
       {view === "board" ? (
         <PipelineBoard pipeline={pipeline} search={search} filter={dealFilter.matches} />
       ) : (

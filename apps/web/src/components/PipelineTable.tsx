@@ -24,7 +24,7 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
   const rows = opportunities
     .filter((o) => o.pipelineId === pipeline.id && o.status === "open")
     .filter((o) => {
-      if (filter && !filter(o)) return false;
+      if (!needle && filter && !filter(o)) return false; // searching beats filtering
       if (!needle) return true;
       const c = contacts.find((x) => x.id === o.contactId);
       return (c?.name ?? "").toLowerCase().includes(needle) || (digits.length >= 3 && (c?.phone ?? "").replace(/\D/g, "").includes(digits));

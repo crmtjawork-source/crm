@@ -34,7 +34,7 @@ function ContactsList() {
   const fromQuery = (key: string) => params.get(key);
   const { contacts, members, campaigns, opportunities, pipelines, leadStatuses, leadFields } = useStore();
   const { session } = useAuth();
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(() => fromQuery("q") ?? "");
   const isAgent = members.find((m) => m.email.toLowerCase() === (session?.user.email ?? "").toLowerCase())?.role === "agent";
   // all | mine | none | <email>; "?owner=none" (from the pipeline's unassigned banner) opens on unowned leads.
   // "?new=1" (the pipeline's banner) opens on exactly the new leads nobody owns yet.
@@ -87,20 +87,24 @@ function ContactsList() {
     email ? members.find((m) => m.email.toLowerCase() === email.toLowerCase())?.name ?? email : "";
 
   const needle = q.trim().toLowerCase();
+  const needleDigits = needle.replace(/\D/g, "");
+  // Searching beats filtering: with text in the search box every lead is
+  // searched, whatever the owner / "new leads" / advanced filters say.
+  const searching = needle.length > 0;
   const filtered = contacts
     .filter((c) => {
       const ownerEmail = c.ownerEmail?.toLowerCase() ?? "";
+      if (searching) {
+        // A phone matches in any format (0541234567, +972 54-123-4567…).
+        const phoneDigits = (c.phone ?? "").replace(/\D/g, "");
+        const phoneHit = needleDigits.length >= 3 && (phoneDigits.includes(needleDigits) || (needleDigits.startsWith("0") && phoneDigits.includes(needleDigits.slice(1))));
+        return c.name.toLowerCase().includes(needle) || phoneHit || Boolean(c.phone?.toLowerCase().includes(needle)) || Boolean(c.email?.toLowerCase().includes(needle));
+      }
       if (newOnly && !needsAssignment(c)) return false;
       if (owner === "mine" && ownerEmail !== myEmail) return false;
       if (owner === "none" && ownerEmail) return false;
       if (!["all", "mine", "none"].includes(owner) && ownerEmail !== owner) return false;
-      if (!matches(c)) return false;
-      if (!needle) return true;
-      return (
-        c.name.toLowerCase().includes(needle) ||
-        c.phone?.toLowerCase().includes(needle) ||
-        c.email?.toLowerCase().includes(needle)
-      );
+      return matches(c);
     })
     .sort((a, b) => (sortBy === "activity" ? b.lastActivityAt.localeCompare(a.lastActivityAt) : b.createdAt.localeCompare(a.createdAt)));
 
@@ -185,7 +189,10 @@ function ContactsList() {
         <span className="text-sm text-neutral-500">{filtered.length} מתוך {contacts.length}</span>
       </div>
 
-      {newOnly && (
+      {searching && (newOnly || owner !== "all" || filterChips) && (
+        <p className="mb-3 text-xs text-neutral-500">מוצגות תוצאות חיפוש מכל הלידים — הסינון הפעיל לא חל בזמן חיפוש.</p>
+      )}
+      {newOnly && !searching && (
         <div className="flex flex-wrap items-center gap-2 mb-4 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
           <span className="flex-1">⚠ מוצגים רק הלידים החדשים שממתינים לשיוך ({filtered.length}) — בחרו נציג בעמודת &quot;בעלים&quot;.</span>
           <button onClick={() => setNewOnly(false)} className="text-xs underline">

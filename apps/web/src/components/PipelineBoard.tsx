@@ -280,7 +280,7 @@ export function PipelineBoard({ pipeline, search = "", filter }: { pipeline: Pip
   const unassignedFirst = (a: Opportunity, b: Opportunity) => Number(flagged.has(b.contactId)) - Number(flagged.has(a.contactId));
   const opportunities = all
     .filter((o) => {
-      if (filter && !filter(o)) return false;
+      if (!needle && filter && !filter(o)) return false; // searching beats filtering
       if (!needle) return true;
       const c = contactById.get(o.contactId);
       return (
