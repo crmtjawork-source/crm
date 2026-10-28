@@ -495,6 +495,22 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
     return () => window.removeEventListener("focus", onFocus);
   }, [reloadIntegrations]);
 
+  // Numbers linked before the full-sync update get the new settings (groups,
+  // all events) once per session — the WhatsApp session itself is untouched.
+  useEffect(() => {
+    for (const c of boxChannels) {
+      if (c.provider !== "evolution" || !c.active) continue;
+      const key = `crm-wa-configured:${c.id}`;
+      try {
+        if (sessionStorage.getItem(key)) continue;
+        sessionStorage.setItem(key, "1");
+      } catch {
+        // no storage: configure on every load, harmless
+      }
+      void apiPost("/api/channels/gateway", { action: "configure", id: c.id }).catch(() => undefined);
+    }
+  }, [boxChannels]);
+
   const title = box === "business" ? "וואטסאפ חברה" : "וואטסאפ אישי";
 
   // My own number: link it right here.

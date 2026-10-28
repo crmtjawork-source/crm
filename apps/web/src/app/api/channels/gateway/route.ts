@@ -10,6 +10,7 @@ type Body =
   | { action: "config" }
   | { action: "connect_evolution"; name?: string; shared?: boolean; fresh?: boolean }
   | { action: "connect"; name?: string; idInstance?: string; apiToken?: string; apiUrl?: string; ownerMembershipId?: string }
+  | { action: "configure"; id: string }
   | { action: "status"; id: string }
   | { action: "disconnect"; id: string };
 
@@ -119,6 +120,15 @@ export async function POST(request: Request) {
 
     if (channel.provider === "evolution") {
       const name = channel.external_id as string;
+      // Brings an already-linked instance up to the current settings (groups on,
+      // the full event list) without touching the WhatsApp session.
+      if (body.action === "configure") {
+        const { data: creds } = await db.from("channel_credentials").select("webhook_secret").eq("channel_id", channel.id).maybeSingle();
+        if (!creds?.webhook_secret) throw new HttpError(404, "חסר מפתח חיבור");
+        await evo.setWebhook(name, `${new URL(request.url).origin}/api/webhooks/evolution/${creds.webhook_secret}`);
+        await evo.applySettings(name);
+        return Response.json({ ok: true });
+      }
       if (body.action === "status") {
         const raw = await evo.getState(name);
         const state = raw === "open" ? "authorized" : "notAuthorized";
