@@ -17,7 +17,7 @@ export default function Home() {
     if (loading) return;
     const me = members.find((m) => m.id === currentMemberId);
     const role = effectiveRole(me, roles);
-    if (canAssignLeads(me, role) && canSeeHref(role, "/contacts") && contacts.some(needsAssignment)) return router.replace("/contacts?owner=none");
+    if (canAssignLeads(me, role) && canSeeHref(role, "/contacts") && contacts.some(needsAssignment)) return router.replace("/contacts?new=1");
     const first = ["/pipeline", "/dashboard", "/tasks", "/calendar", "/inbox", "/documents"].find((href) => canSeeHref(role, href));
     router.replace(first ?? "/settings");
   }, [loading, contacts, members, currentMemberId, roles, router]);

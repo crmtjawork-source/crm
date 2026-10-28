@@ -225,7 +225,7 @@ export default function PipelinePage() {
       )}
 
       {unassigned > 0 && (
-        <Link href="/contacts?owner=none" className="mb-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-sm text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-950/50">
+        <Link href="/contacts?new=1" className="mb-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-sm text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-950/50">
           <span>⚠</span>
           <span className="flex-1">{unassigned} לידים חדשים ממתינים לשיוך לנציג</span>
           <span className="text-xs underline">הצגה ‹</span>

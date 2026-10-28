@@ -16,14 +16,18 @@ import { buildLeadCols, formatEntered, useColumnPrefs, type LeadCol } from "@/li
 
 const PAGE_SIZE = 100;
 
+const fromQuery = (key: string) => (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get(key) : null);
+
 export default function ContactsPage() {
   const { contacts, members, campaigns, opportunities, pipelines, leadStatuses, leadFields } = useStore();
   const { session } = useAuth();
   const [q, setQ] = useState("");
   const isAgent = members.find((m) => m.email.toLowerCase() === (session?.user.email ?? "").toLowerCase())?.role === "agent";
   // all | mine | none | <email>; "?owner=none" (from the pipeline's unassigned banner) opens on unowned leads.
-  const [owner, setOwner] = useState(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("owner") === "none" ? "none" : isAgent ? "mine" : "all"));
-  const [sortBy, setSortBy] = useState<"activity" | "created">(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("owner") === "none" ? "created" : "activity"));
+  // "?new=1" (the pipeline's banner) opens on exactly the new leads nobody owns yet.
+  const [newOnly, setNewOnly] = useState(() => fromQuery("new") === "1");
+  const [owner, setOwner] = useState(() => (fromQuery("new") === "1" ? "all" : fromQuery("owner") === "none" ? "none" : isAgent ? "mine" : "all"));
+  const [sortBy, setSortBy] = useState<"activity" | "created">(() => (fromQuery("new") === "1" || fromQuery("owner") === "none" ? "created" : "activity"));
   // Each lead's current deal: the open one if any, else the latest.
   const dealOf = useMemo(() => {
     const m = new Map<string, (typeof opportunities)[number]>();
@@ -72,6 +76,7 @@ export default function ContactsPage() {
   const filtered = contacts
     .filter((c) => {
       const ownerEmail = c.ownerEmail?.toLowerCase() ?? "";
+      if (newOnly && !needsAssignment(c)) return false;
       if (owner === "mine" && ownerEmail !== myEmail) return false;
       if (owner === "none" && ownerEmail) return false;
       if (!["all", "mine", "none"].includes(owner) && ownerEmail !== owner) return false;
@@ -162,6 +167,14 @@ export default function ContactsPage() {
         <span className="text-sm text-neutral-500">{filtered.length} מתוך {contacts.length}</span>
       </div>
 
+      {newOnly && (
+        <div className="flex flex-wrap items-center gap-2 mb-4 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
+          <span className="flex-1">⚠ מוצגים רק הלידים החדשים שממתינים לשיוך ({filtered.length}) — בחרו נציג בעמודת &quot;בעלים&quot;.</span>
+          <button onClick={() => setNewOnly(false)} className="text-xs underline">
+            הצגת כל הלידים
+          </button>
+        </div>
+      )}
       {filterChips}
       {stagePrompt.element}
 
