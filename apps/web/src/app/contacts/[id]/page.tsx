@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { canAssignLeads, canEditCampaign, effectiveRole } from "@/lib/permissions";
+import { canAssignLeads, canDeleteLeads, canEditCampaign, effectiveRole } from "@/lib/permissions";
 import { BackLink } from "@/components/BackLink";
 import { useLeadChatHref } from "@/lib/useMyGateway";
 import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
@@ -50,8 +50,8 @@ export default function ContactDetailPage() {
   useEffect(() => {
     loadActivitiesFor(id);
   }, [id, loadActivitiesFor]);
-  const canDelete = members.find((m) => m.id === currentMemberId)?.role !== "agent";
   const me = members.find((m) => m.id === currentMemberId);
+  const canDelete = canDeleteLeads(me, effectiveRole(me, roles));
   const canAssign = canAssignLeads(me, effectiveRole(me, roles));
   const canCampaign = canEditCampaign(me, effectiveRole(me, roles));
 

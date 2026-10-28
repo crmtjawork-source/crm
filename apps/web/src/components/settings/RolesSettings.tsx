@@ -44,7 +44,7 @@ export function RolesSettings({ isAdmin }: { isAdmin: boolean }) {
 
 function RoleEditor({ role, onClose }: { role: Role | null; onClose: () => void }) {
   const { objectTypes, roles, saveRole, deleteRole } = useStore();
-  const [r, setR] = useState<Omit<Role, "id"> & { id?: string }>(role ?? { name: "", leadsScope: "own_unassigned", meetingsScope: "all", tasksScope: "all", objectAccess: {}, canAssignLeads: false, canEditCampaign: false, position: roles.length });
+  const [r, setR] = useState<Omit<Role, "id"> & { id?: string }>(role ?? { name: "", leadsScope: "own_unassigned", meetingsScope: "all", tasksScope: "all", objectAccess: {}, canAssignLeads: false, canEditCampaign: false, canDeleteLeads: false, position: roles.length });
   const [error, setError] = useState("");
   const features = r.features ?? FEATURES.map((f) => f.id);
 
@@ -92,6 +92,10 @@ function RoleEditor({ role, onClose }: { role: Role | null; onClose: () => void 
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={r.canAssignLeads} onChange={(e) => setR({ ...r, canAssignLeads: e.target.checked })} />
             לשייך ליד לנציג (לשנות בעלים)
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={r.canDeleteLeads} onChange={(e) => setR({ ...r, canDeleteLeads: e.target.checked })} />
+            למחוק לידים
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={r.canEditCampaign} onChange={(e) => setR({ ...r, canEditCampaign: e.target.checked })} />

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Sheet } from "@/components/ui/Sheet";
-import { canAssignLeads, canEditCampaign, effectiveRole } from "@/lib/permissions";
+import { canAssignLeads, canDeleteLeads, canEditCampaign, effectiveRole } from "@/lib/permissions";
 import type { Contact } from "@/lib/types";
 
 type Action = "owner" | "status" | "stage" | "campaign" | "tag" | "field" | "delete";
@@ -40,7 +40,7 @@ export function BulkBar({ contacts, onClear }: { contacts: Contact[]; onClear: (
   const role = effectiveRole(me, roles);
   const canAssign = canAssignLeads(me, role);
   const canCampaign = canEditCampaign(me, role);
-  const canDelete = me?.role !== "agent";
+  const canDelete = canDeleteLeads(me, role);
 
   const [action, setAction] = useState<Action | null>(null);
   const [value, setValue] = useState("");

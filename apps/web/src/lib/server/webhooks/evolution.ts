@@ -61,10 +61,20 @@ function describe(raw: Row | undefined): Described | null {
 
 // The chat a message belongs to: a 1:1 chat is keyed by the phone number, a
 // group by its id. Broadcast lists, status updates and channels are skipped.
-function chatOf(key: Row): { thread: string; jid: string; isGroup: boolean } | null {
-  let jid: string = key?.remoteJid ?? "";
-  // WhatsApp's newer anonymous ids: use the real number when we're given it.
-  if (jid.endsWith("@lid") && key.remoteJidAlt) jid = key.remoteJidAlt;
+type Chat = { thread: string; jid: string; isGroup: boolean; lid?: string };
+
+function chatOf(key: Row, lidMap?: Map<string, string>): Chat | null {
+  const jid: string = key?.remoteJid ?? "";
+  // WhatsApp's newer anonymous ids ("@lid"): the real number when we know it
+  // (given with the message, or learned earlier); otherwise the chat is kept
+  // under the anonymous id until we learn the number.
+  if (jid.endsWith("@lid")) {
+    const lid = jid.split("@")[0];
+    const phone = key.remoteJidAlt?.endsWith("@s.whatsapp.net") ? key.remoteJidAlt.split("@")[0].split(":")[0] : lidMap?.get(lid);
+    if (!phone) return { thread: jid, jid, isGroup: false, lid };
+    const c = chatOf({ remoteJid: `${phone}@s.whatsapp.net` })!;
+    return { ...c, lid };
+  }
   if (jid.endsWith("@g.us")) return { thread: jid, jid, isGroup: true };
   if (jid.endsWith("@s.whatsapp.net")) return { thread: jid.split("@")[0].split(":")[0], jid: `${jid.split("@")[0].split(":")[0]}@s.whatsapp.net`, isGroup: false };
   return null;
@@ -77,11 +87,18 @@ const tsOf = (m: Row) => (m.messageTimestamp ? new Date(Number(m.messageTimestam
 // each chat, links 1:1 chats to leads by phone, and writes the messages.
 async function ingestMessages(db: Db, channel: Row, msgs: Row[], history: boolean): Promise<void> {
   const cutoff = Date.now() - HISTORY_DAYS * 86400000;
-  type Item = { m: Row; chat: NonNullable<ReturnType<typeof chatOf>>; d: Described; at: Date; fromMe: boolean };
+  type Item = { m: Row; chat: Chat; d: Described; at: Date; fromMe: boolean };
+  // Anonymous chat ids we already know the number of.
+  const lidsInBatch = [...new Set(msgs.map((m) => String(m?.key?.remoteJid ?? "")).filter((j) => j.endsWith("@lid")).map((j) => j.split("@")[0]))];
+  const lidMap = new Map<string, string>();
+  for (const part of chunk(lidsInBatch, 200)) {
+    const { data } = await db.from("wa_lid_map").select("lid, phone").eq("channel_id", channel.id).in("lid", part);
+    for (const r of data ?? []) lidMap.set(r.lid, r.phone);
+  }
   const items: Item[] = [];
   for (const m of msgs) {
     if (!m?.key?.id) continue;
-    const chat = chatOf(m.key);
+    const chat = chatOf(m.key, lidMap);
     if (!chat) continue;
     const d = describe(m.message);
     if (!d) continue;
@@ -92,7 +109,7 @@ async function ingestMessages(db: Db, channel: Row, msgs: Row[], history: boolea
   if (!items.length) return;
 
   // Leads by phone (1:1 chats only).
-  const digits = [...new Set(items.filter((i) => !i.chat.isGroup).map((i) => i.chat.thread))];
+  const digits = [...new Set(items.filter((i) => !i.chat.isGroup && !i.chat.thread.includes("@")).map((i) => i.chat.thread))];
   const contactOf = new Map<string, string>();
   for (const part of chunk(digits, 200)) {
     const { data } = await db.from("contacts").select("id, phone_digits").eq("org_id", channel.org_id).in("phone_digits", part).order("created_at");
@@ -142,6 +159,19 @@ async function ingestMessages(db: Db, channel: Row, msgs: Row[], history: boolea
     if (!conv.wa_jid) patch.wa_jid = chat.jid;
     if (!conv.chat_name && nameOf.get(chat.jid)) patch.chat_name = nameOf.get(chat.jid);
     if (Object.keys(patch).length) await db.from("conversations").update(patch).eq("id", conv.id);
+  }
+
+  // Learned the number behind an anonymous id: remember it, and fold a chat
+  // that was kept under the anonymous id into the phone-number chat.
+  const learned = new Map<string, string>();
+  for (const i of items) if (i.chat.lid && !i.chat.thread.includes("@")) learned.set(i.chat.lid, i.chat.thread);
+  if (learned.size) {
+    await db.from("wa_lid_map").upsert([...learned].map(([lid, phone]) => ({ channel_id: channel.id, lid, phone })), { onConflict: "channel_id,lid", ignoreDuplicates: true });
+    for (const [lid, phone] of learned) {
+      const { data: old } = await db.from("conversations").select("id").eq("channel_id", channel.id).eq("external_thread_id", `${lid}@lid`).maybeSingle();
+      const target = convOf.get(phone);
+      if (old && target) await db.rpc("merge_wa_conversations", { p_from: old.id, p_to: target.id });
+    }
   }
 
   // Messages, in bulk; only genuinely new ones come back.
@@ -204,11 +234,58 @@ async function markDeleted(db: Db, channel: Row, externalId: string) {
   for (const msg of found ?? []) await db.from("messages").update({ type: "deleted", body: "[הודעה נמחקה]", media_path: null }).eq("id", msg.id);
 }
 
+// Every chat WhatsApp lists gets a conversation — even one with no message in
+// the last 30 days — so the list matches the phone. Such chats show empty until
+// something new arrives.
+async function ensureChats(db: Db, channel: Row, jids: string[]): Promise<void> {
+  const lids = jids.filter((j) => j.endsWith("@lid")).map((j) => j.split("@")[0]);
+  const lidMap = new Map<string, string>();
+  for (const part of chunk(lids, 200)) {
+    const { data } = await db.from("wa_lid_map").select("lid, phone").eq("channel_id", channel.id).in("lid", part);
+    for (const r of data ?? []) lidMap.set(r.lid, r.phone);
+  }
+  const chats = new Map<string, Chat>();
+  for (const jid of jids) {
+    const chat = chatOf({ remoteJid: jid }, lidMap);
+    if (chat) chats.set(chat.thread, chat);
+  }
+  const threads = [...chats.keys()];
+  if (!threads.length) return;
+  const have = new Set<string>();
+  for (const part of chunk(threads, 200)) {
+    const { data } = await db.from("conversations").select("external_thread_id").eq("channel_id", channel.id).in("external_thread_id", part);
+    for (const c of data ?? []) have.add(c.external_thread_id);
+  }
+  const missing = threads.filter((t) => !have.has(t));
+  if (!missing.length) return;
+
+  const contactOf = new Map<string, string>();
+  const digits = missing.filter((t) => !chats.get(t)!.isGroup && !t.includes("@"));
+  for (const part of chunk(digits, 200)) {
+    const { data } = await db.from("contacts").select("id, phone_digits").eq("org_id", channel.org_id).in("phone_digits", part).order("created_at");
+    for (const c of data ?? []) if (!contactOf.has(c.phone_digits)) contactOf.set(c.phone_digits, c.id);
+  }
+  const nameOf = new Map<string, string>();
+  for (const part of chunk(missing.map((t) => chats.get(t)!.jid), 200)) {
+    const { data } = await db.from("wa_chat_names").select("jid, name").eq("channel_id", channel.id).in("jid", part);
+    for (const n of data ?? []) nameOf.set(n.jid, n.name);
+  }
+  for (const part of chunk(missing, 300)) {
+    await db.from("conversations").upsert(
+      part.map((t) => {
+        const c = chats.get(t)!;
+        return { org_id: channel.org_id, channel_id: channel.id, contact_id: c.isGroup ? null : contactOf.get(t) ?? null, external_thread_id: t, wa_jid: c.jid, is_group: c.isGroup, chat_name: nameOf.get(c.jid) ?? null };
+      }),
+      { onConflict: "channel_id,external_thread_id", ignoreDuplicates: true }
+    );
+  }
+}
+
 function namesFrom(list: unknown, pick: (x: Row) => { jid?: string; name?: string }): { jid: string; name: string }[] {
   const out: { jid: string; name: string }[] = [];
   for (const x of Array.isArray(list) ? list : []) {
     const { jid, name } = pick(x ?? {});
-    if (jid && name && (jid.endsWith("@s.whatsapp.net") || jid.endsWith("@g.us"))) out.push({ jid: jid.replace(/:\d+@/, "@"), name });
+    if (jid && name && (jid.endsWith("@s.whatsapp.net") || jid.endsWith("@g.us") || jid.endsWith("@lid"))) out.push({ jid: jid.replace(/:\d+@/, "@"), name });
   }
   return out;
 }
@@ -255,6 +332,8 @@ export async function handleEvolutionEvent(db: Db, channel: Row, p: Row): Promis
     return null;
   }
   if (event === "chats.upsert" || event === "chats.set" || event === "chats.update") {
+    const raw: Row[] = Array.isArray(data) ? data : data.chats ?? [];
+    if (event !== "chats.update") await ensureChats(db, channel, raw.map((c) => c?.remoteJid ?? c?.id).filter((j): j is string => typeof j === "string"));
     const list = namesFrom(Array.isArray(data) ? data : data.chats ?? [], (c) => ({ jid: c.remoteJid ?? c.id, name: c.name ?? c.subject }));
     for (const part of chunk(list, 500)) await db.rpc("apply_wa_names", { p_channel: channel.id, p_names: part });
     return null;

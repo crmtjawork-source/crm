@@ -32,7 +32,8 @@ function chatTitle(c: Conversation, contactsById: Map<string, Contact>): string 
   const lead = c.contactId ? contactsById.get(c.contactId) : undefined;
   if (lead) return lead.name;
   if (c.chatName) return c.chatName;
-  return c.isGroup ? "קבוצה" : `+${c.externalThreadId}`;
+  if (c.isGroup) return "קבוצה";
+  return c.externalThreadId.includes("@") ? "איש קשר" : `+${c.externalThreadId}`; // anonymous WhatsApp id: no number to show
 }
 
 function Avatar({ title, group, size = 40 }: { title: string; group: boolean; size?: number }) {
@@ -267,7 +268,7 @@ function Thread({
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm truncate">{title}</p>
           <p className="text-xs text-neutral-500 truncate">
-            {conversation.isGroup ? "קבוצה" : <span dir="ltr">+{conversation.externalThreadId}</span>}
+            {conversation.isGroup ? "קבוצה" : conversation.externalThreadId.includes("@") ? "מספר לא מוכר (מזהה אנונימי של וואטסאפ)" : <span dir="ltr">+{conversation.externalThreadId}</span>}
             {channel && <> · דרך {channel.name}</>}
           </p>
         </div>
@@ -276,7 +277,7 @@ function Thread({
             כרטיס ליד
           </Link>
         ) : (
-          !conversation.isGroup && (
+          !conversation.isGroup && !conversation.externalThreadId.includes("@") && (
             <button onClick={makeLead} disabled={busy} className="text-xs px-2.5 py-1 rounded-md border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 shrink-0 disabled:opacity-50">
               הפוך לליד
             </button>

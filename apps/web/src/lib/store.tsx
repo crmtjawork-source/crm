@@ -409,6 +409,7 @@ function mapRole(r: Row): Role {
     objectAccess: r.object_access ?? {},
     canAssignLeads: r.can_assign_leads ?? true,
     canEditCampaign: r.can_edit_campaign ?? true,
+    canDeleteLeads: r.can_delete_leads ?? false,
     features: r.features ?? undefined,
     position: r.position ?? 0,
   };
@@ -1429,9 +1430,24 @@ export function StoreProvider({
     if (data) setState((s) => ({ ...s, appointments: s.appointments.map((a) => (a.id === id ? mapAppointment(data) : a)) }));
   };
 
+  // Cancelling a meeting also cancels what was lined up for it: the pending
+  // reminder messages and the reminder tasks. The lead's timeline records it.
   const deleteAppointment: Store["deleteAppointment"] = async (id) => {
-    await supabase.from("appointments").delete().eq("id", id);
-    setState((s) => ({ ...s, appointments: s.appointments.filter((a) => a.id !== id) }));
+    const appointment = state.appointments.find((a) => a.id === id);
+    await supabase.from("scheduled_messages").update({ status: "cancelled" }).eq("appointment_id", id).eq("status", "pending");
+    await supabase.from("tasks").delete().eq("appointment_id", id).eq("done", false);
+    const { error } = await supabase.from("appointments").delete().eq("id", id);
+    if (error) throw error;
+    setState((s) => ({
+      ...s,
+      appointments: s.appointments.filter((a) => a.id !== id),
+      scheduledMessages: s.scheduledMessages.map((m) => (m.appointmentId === id && m.status === "pending" ? { ...m, status: "cancelled" as const } : m)),
+      tasks: s.tasks.filter((t) => !(t.appointmentId === id && !t.done)),
+    }));
+    if (appointment?.contactId) {
+      const when = new Date(appointment.startAt).toLocaleString("he-IL", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      await addNote(appointment.contactId, `❌ הפגישה בוטלה: ${appointment.title} (${when})`);
+    }
   };
 
   const setAvailability: Store["setAvailability"] = async (rules) => {
@@ -1531,6 +1547,7 @@ export function StoreProvider({
       object_access: r.objectAccess,
       can_assign_leads: r.canAssignLeads,
       can_edit_campaign: r.canEditCampaign,
+      can_delete_leads: r.canDeleteLeads,
       features: r.features ?? null,
       position: r.position,
     };

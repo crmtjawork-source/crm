@@ -12,7 +12,7 @@ const when = (iso: string) => new Date(iso).toLocaleString("he-IL", { weekday: "
 // a one-line summary that opens the full list in a window, so it never
 // stretches the lead card.
 export function LeadUpcoming({ contact }: { contact: Contact }) {
-  const { tasks, appointments, scheduledMessages, cancelScheduledMessage } = useStore();
+  const { tasks, appointments, scheduledMessages, cancelScheduledMessage, deleteAppointment } = useStore();
   const [open, setOpen] = useState(false);
   const nowIso = new Date().toISOString();
   const today = nowIso.slice(0, 10);
@@ -43,8 +43,16 @@ export function LeadUpcoming({ contact }: { contact: Contact }) {
             <section className="mb-4">
               <h3 className="text-xs font-medium text-neutral-500 mb-1">פגישות</h3>
               {upcoming.map((a) => (
-                <p key={a.id} className="text-sm py-1">
-                  📅 {a.title} · {when(a.startAt)}
+                <p key={a.id} className="text-sm py-1 flex items-center gap-2">
+                  <span className="flex-1 min-w-0">
+                    📅 {a.title} · {when(a.startAt)}
+                  </span>
+                  <button
+                    onClick={() => window.confirm(`לבטל את הפגישה "${a.title}"? ההודעות המתוזמנות והמשימות של הפגישה יבוטלו, והיא תוסר מהיומן.`) && void deleteAppointment(a.id)}
+                    className="text-xs text-red-500 hover:underline shrink-0"
+                  >
+                    ביטול פגישה
+                  </button>
                 </p>
               ))}
             </section>

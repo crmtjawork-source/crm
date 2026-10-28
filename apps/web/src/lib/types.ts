@@ -465,6 +465,7 @@ export type Role = {
   objectAccess: Record<string, "all" | "own" | "none">;
   canAssignLeads: boolean; // change a lead's owner (assign it to an agent)
   canEditCampaign: boolean; // change a lead's campaign
+  canDeleteLeads: boolean; // delete leads
   features?: string[]; // menu screens; undefined = all
   position: number;
 };

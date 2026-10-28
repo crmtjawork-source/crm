@@ -41,6 +41,10 @@ export function canAssignLeads(member: Member | undefined, role: Role | undefine
   if (!member || member.role === "owner" || member.role === "admin") return true;
   return role ? role.canAssignLeads : member.role !== "agent";
 }
+export function canDeleteLeads(member: Member | undefined, role: Role | undefined): boolean {
+  if (!member || member.role === "owner" || member.role === "admin") return true;
+  return role ? role.canDeleteLeads : member.role !== "agent";
+}
 export function canEditCampaign(member: Member | undefined, role: Role | undefined): boolean {
   if (!member || member.role === "owner" || member.role === "admin") return true;
   return role ? role.canEditCampaign : member.role !== "agent";
