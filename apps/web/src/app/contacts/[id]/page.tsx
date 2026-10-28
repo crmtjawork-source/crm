@@ -13,6 +13,7 @@ import { StageSelect } from "@/components/leads/StageSelect";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { LeadUpcoming } from "@/components/leads/LeadUpcoming";
 import { LeadTimeline } from "@/components/leads/LeadTimeline";
+import { LeadNotesPanel } from "@/components/leads/LeadNotesPanel";
 import { LeadDocuments } from "@/components/documents/LeadDocuments";
 import { LeadCalls } from "@/components/leads/LeadCalls";
 import { colorAt } from "@/components/ui/ColorChip";
@@ -104,8 +105,11 @@ export default function ContactDetailPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl">
+    <div className="p-4 md:p-6 max-w-6xl">
       <BackLink fallback="/contacts" />
+      {/* Wide screens: the lead's details on the start side, notes and history beside them. */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,42rem)_minmax(20rem,1fr)] lg:gap-8 lg:items-start">
+      <div className="min-w-0">
       <div className="flex items-start justify-between mb-1">
         {editingInfo ? (
           <form onSubmit={saveInfo} className="w-full space-y-2 mb-4">
@@ -327,7 +331,15 @@ export default function ContactDetailPage() {
       <LeadCalls contactId={contact.id} />
       <FilesSection contactId={contact.id} />
 
-      <LeadTimeline contact={contact} />
+      {/* Phones and narrow windows keep the compact timeline under the details. */}
+      <div className="lg:hidden">
+        <LeadTimeline contact={contact} />
+      </div>
+      </div>
+      <div className="hidden lg:block">
+        <LeadNotesPanel contact={contact} />
+      </div>
+      </div>
     </div>
   );
 }
