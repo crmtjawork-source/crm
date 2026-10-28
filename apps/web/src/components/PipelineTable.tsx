@@ -7,6 +7,7 @@ import { useStore } from "@/lib/store";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { colorAt } from "@/components/ui/ColorChip";
 import { needsAssignment } from "@/components/leads/OwnerSelect";
+import { setLeadNav } from "@/lib/leadNav";
 import { BulkBar } from "@/components/leads/BulkBar";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import { ColumnPicker } from "@/components/ColumnPicker";
@@ -118,7 +119,7 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
                   <input type="checkbox" aria-label="בחירת שורה" checked={selected.has(o.contactId)} onChange={() => setSelected((prev) => { const next = new Set(prev); if (next.has(o.contactId)) next.delete(o.contactId); else next.add(o.contactId); return next; })} />
                 </td>
                 <td className="px-4 py-3">
-                  <Link href={`/contacts/${o.contactId}`} className="font-medium hover:underline">
+                  <Link href={`/contacts/${o.contactId}`} onClick={() => setLeadNav(rows.map((r) => r.contactId))} className="font-medium hover:underline">
                     {lead?.name ?? "—"}
                   </Link>
                 </td>

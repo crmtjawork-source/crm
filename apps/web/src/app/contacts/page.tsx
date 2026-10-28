@@ -10,6 +10,7 @@ import { buildFilterFields } from "@/lib/leadFilters";
 import { useRecordFilter } from "@/components/FilterBar";
 import { BackLink } from "@/components/BackLink";
 import { needsAssignment } from "@/components/leads/OwnerSelect";
+import { setLeadNav } from "@/lib/leadNav";
 import { BulkBar } from "@/components/leads/BulkBar";
 import { StageSelect } from "@/components/leads/StageSelect";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
@@ -234,7 +235,7 @@ function ContactsList() {
                   <input type="checkbox" aria-label={`בחירת ${c.name}`} checked={selected.has(c.id)} onChange={() => setSelected((prev) => { const next = new Set(prev); if (next.has(c.id)) next.delete(c.id); else next.add(c.id); return next; })} />
                 </td>
                 <td className="px-4 py-3">
-                  <Link href={`/contacts/${c.id}`} className="font-medium hover:underline">
+                  <Link href={`/contacts/${c.id}`} onClick={() => setLeadNav(filtered.map((x) => x.id))} className="font-medium hover:underline">
                     {c.name}
                   </Link>
                 </td>

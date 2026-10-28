@@ -5,6 +5,7 @@ import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-
 import Link from "next/link";
 import type { Pipeline, Opportunity, Contact } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { setLeadNav } from "@/lib/leadNav";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import { needsAssignment, OwnerSelect } from "@/components/leads/OwnerSelect";
 import { StatusSelect } from "@/components/leads/StatusSelect";
@@ -55,7 +56,7 @@ function CloseForm({ opp, onDone }: { opp: Opportunity; onDone: () => void }) {
   );
 }
 
-function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contactName: string; color?: string }) {
+function OpportunityCard({ opp, contactName, color, onOpen }: { opp: Opportunity; contactName: string; color?: string; onOpen: () => void }) {
   const { deleteOpportunity, members, currentMemberId, contacts, leadStatuses } = useStore();
   const contact = contacts.find((c) => c.id === opp.contactId);
   const [closing, setClosing] = useState(false);
@@ -84,7 +85,7 @@ function OpportunityCard({ opp, contactName, color }: { opp: Opportunity; contac
       } ${isDragging ? "opacity-50" : ""}`}
     >
       <div className="flex items-start justify-between gap-1">
-        <Link href={`/contacts/${opp.contactId}`} className="font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
+        <Link href={`/contacts/${opp.contactId}`} className="font-medium hover:underline" onClick={(e) => (e.stopPropagation(), onOpen())}>
           {contactName}
         </Link>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 shrink-0">
@@ -211,6 +212,7 @@ function StageColumn({
             opp={o}
             contactName={contacts.find((c) => c.id === o.contactId)?.name ?? "—"}
             color={color}
+            onOpen={() => setLeadNav(opportunities.map((x) => x.contactId))}
           />
         ))}
       </div>

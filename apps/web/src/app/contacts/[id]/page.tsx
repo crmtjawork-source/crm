@@ -12,6 +12,7 @@ import { QuickActions } from "@/components/leads/QuickActions";
 import { StageSelect } from "@/components/leads/StageSelect";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { LeadUpcoming } from "@/components/leads/LeadUpcoming";
+import { LeadStepper } from "@/components/leads/LeadStepper";
 import { LeadTimeline } from "@/components/leads/LeadTimeline";
 import { LeadNotesPanel } from "@/components/leads/LeadNotesPanel";
 import { LeadDocuments } from "@/components/documents/LeadDocuments";
@@ -106,7 +107,10 @@ export default function ContactDetailPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-6xl">
-      <BackLink fallback="/contacts" />
+      <div className="flex items-start gap-3 flex-wrap">
+        <BackLink fallback="/contacts" />
+        <LeadStepper contactId={contact.id} />
+      </div>
       {/* Wide screens: the lead's details on the start side, notes and history beside them. */}
       <div className="lg:grid lg:grid-cols-[minmax(0,42rem)_minmax(20rem,1fr)] lg:gap-8 lg:items-start">
       <div className="min-w-0">
