@@ -64,8 +64,13 @@ function mapMessage(r: Row): Message {
   };
 }
 
+// Newest activity first; chats with no message at all (older than the kept
+// history) go to the end instead of floating up by their creation time.
 function byLastMessageDesc(a: Conversation, b: Conversation) {
-  return (b.lastMessageAt ?? b.createdAt).localeCompare(a.lastMessageAt ?? a.createdAt);
+  if (!a.lastMessageAt && !b.lastMessageAt) return (a.chatName ?? "").localeCompare(b.chatName ?? "");
+  if (!a.lastMessageAt) return 1;
+  if (!b.lastMessageAt) return -1;
+  return b.lastMessageAt.localeCompare(a.lastMessageAt);
 }
 
 export function useConversations(orgId: string) {

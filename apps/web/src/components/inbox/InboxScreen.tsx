@@ -68,6 +68,8 @@ function ConversationList({
   const digits = needle.replace(/\D/g, "");
   const unreadTotal = conversations.filter((c) => c.unreadCount > 0).length;
   const visible = conversations.filter((c) => {
+    // A chat with no messages and no name (an anonymous contact we know nothing about) has nothing to show.
+    if (!c.lastMessageAt && !c.chatName && !c.contactId) return false;
     if (channelFilter && c.channelId !== channelFilter) return false;
     if (tab === "unread" && !c.unreadCount) return false;
     if (tab === "groups" && !c.isGroup) return false;
@@ -138,7 +140,7 @@ function ConversationList({
                     <span className={`text-[11px] shrink-0 ${c.unreadCount ? "text-emerald-600 font-medium" : "text-neutral-400"}`}>{formatListTime(c.lastMessageAt)}</span>
                   </span>
                   <span className="flex items-center justify-between gap-2 mt-0.5">
-                    <span className="text-xs text-neutral-500 truncate">{c.lastMessagePreview ?? ""}</span>
+                    <span className="text-xs text-neutral-500 truncate">{c.lastMessagePreview ?? (c.lastMessageAt ? "" : "אין הודעות ב־30 הימים האחרונים")}</span>
                     {c.unreadCount > 0 && <span className="text-[11px] min-w-[1.25rem] text-center px-1 rounded-full bg-emerald-500 text-white shrink-0">{c.unreadCount}</span>}
                   </span>
                   {channelsById.size > 1 && channel && <span className="block text-[11px] text-neutral-400 mt-0.5">{channel.name}</span>}
