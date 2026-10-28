@@ -11,7 +11,7 @@ import { isWindowOpen, useConversations, useMessages } from "@/lib/messaging";
 import type { Channel, Contact, Conversation } from "@/lib/types";
 import { MessageBubble } from "@/components/inbox/MessageBubble";
 import { TemplateForm, type TemplateInput } from "@/components/inbox/TemplateForm";
-import { ConnectForm, Connected } from "@/components/settings/PersonalWhatsAppSettings";
+import { ConnectForm, Connected, LinkControls } from "@/components/settings/PersonalWhatsAppSettings";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
@@ -537,6 +537,11 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
   return (
     <div className="flex h-[calc(100dvh-3rem)]">
       <div className={`${selected || startContact ? "hidden md:flex" : "flex"} flex-col min-h-0 w-full md:w-auto`}>
+        {box === "personal" && myPersonal && (
+          <div className="md:w-96 border-e border-neutral-200 dark:border-neutral-800">
+            <LinkControls channel={myPersonal} onChange={reloadIntegrations} />
+          </div>
+        )}
         <ConversationList
           conversations={boxConversations}
           contactsById={contactsById}

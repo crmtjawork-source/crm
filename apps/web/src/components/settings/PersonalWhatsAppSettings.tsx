@@ -253,3 +253,51 @@ export function Connected({ channel, onChange }: { channel: Channel; onChange: (
     </div>
   );
 }
+
+// Compact link controls for the WhatsApp screen itself: reconnect (log out and
+// scan again — also what fetches the 30-day history) or disconnect.
+export function LinkControls({ channel, onChange }: { channel: Channel; onChange: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function relink() {
+    if (!confirm("לחבר מחדש? הוואטסאפ ינותק ויופיע קוד חדש לסריקה מהטלפון — כך מתקבלת גם ההיסטוריה של 30 הימים האחרונים.")) return;
+    setBusy(true);
+    setError("");
+    try {
+      await apiPost("/api/channels/gateway", { action: "connect_evolution", shared: !channel.ownerMembershipId, fresh: true });
+      await onChange();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "החיבור מחדש נכשל");
+    }
+    setBusy(false);
+  }
+
+  async function disconnect() {
+    if (!confirm("להתנתק מהוואטסאפ? ההודעות יפסיקו להיכנס עד שתחבר שוב.")) return;
+    setBusy(true);
+    await apiPost("/api/channels/gateway", { action: "disconnect", id: channel.id }).catch(() => undefined);
+    await onChange();
+    setBusy(false);
+  }
+
+  return (
+    <div className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 text-xs flex items-center gap-3 flex-wrap">
+      <span className={channel.status === "authorized" ? "text-emerald-600" : "text-amber-600"}>{channel.status === "authorized" ? "מחובר ✓" : "לא מחובר"}</span>
+      {channel.displayPhone && (
+        <span className="text-neutral-500" dir="ltr">
+          +{channel.displayPhone}
+        </span>
+      )}
+      <span className="ms-auto flex gap-3">
+        <button onClick={relink} disabled={busy} className="text-neutral-600 dark:text-neutral-300 hover:underline disabled:opacity-50">
+          חיבור מחדש
+        </button>
+        <button onClick={disconnect} disabled={busy} className="text-neutral-400 hover:text-red-500 disabled:opacity-50">
+          התנתקות
+        </button>
+      </span>
+      {error && <span className="w-full text-red-500">{error}</span>}
+    </div>
+  );
+}
