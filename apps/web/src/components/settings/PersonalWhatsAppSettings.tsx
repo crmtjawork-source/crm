@@ -196,7 +196,7 @@ export function Connected({ channel, onChange }: { channel: Channel; onChange: (
         await onChange();
         return;
       }
-      timer = setTimeout(tick, 4000);
+      timer = setTimeout(tick, 12000); // gentle on WhatsApp: no rapid-fire QR requests
     }
     if (channel.status !== "authorized") tick();
     return () => {
@@ -207,7 +207,7 @@ export function Connected({ channel, onChange }: { channel: Channel; onChange: (
 
   // WhatsApp only sends history when a device is newly linked: log out and scan again.
   async function relinkForHistory() {
-    if (!confirm("לקבל את ההיסטוריה של 30 הימים האחרונים? הוואטסאפ ינותק ויופיע קוד חדש שצריך לסרוק מהטלפון.")) return;
+    if (!confirm("לקבל את ההיסטוריה של 30 הימים האחרונים? הוואטסאפ ינותק ויופיע קוד חדש שצריך לסרוק מהטלפון. חשוב: אם וואטסאפ מגביל קישור מכשירים (\"כרגע אי אפשר לקשר מכשירים חדשים\") החיבור לא יחזור עד שההגבלה תסתיים, ולכן כדאי לעשות את זה רק פעם אחת ולא לנסות שוב ושוב.")) return;
     try {
       await apiPost("/api/channels/gateway", { action: "connect_evolution", shared: !channel.ownerMembershipId, fresh: true });
       await onChange();
@@ -261,7 +261,7 @@ export function LinkControls({ channel, onChange }: { channel: Channel; onChange
   const [error, setError] = useState("");
 
   async function relink() {
-    if (!confirm("לחבר מחדש? הוואטסאפ ינותק ויופיע קוד חדש לסריקה מהטלפון — כך מתקבלת גם ההיסטוריה של 30 הימים האחרונים.")) return;
+    if (!confirm("לחבר מחדש? הוואטסאפ ינותק ויופיע קוד חדש לסריקה מהטלפון — כך מתקבלת גם ההיסטוריה של 30 הימים האחרונים. אם וואטסאפ מגביל קישור מכשירים בזמן הזה, החיבור לא יחזור עד שההגבלה תסתיים — לכן עושים את זה פעם אחת ולא מנסים שוב ושוב.")) return;
     setBusy(true);
     setError("");
     try {
