@@ -44,7 +44,8 @@ export function WhatsAppSheet({
   const { mine, all: senders } = useSendChannels();
   const canSendDirect = senders.length > 0;
   const [senderId, setSenderId] = useState<string>("");
-  const sender = senders.find((c) => c.id === senderId) ?? mine ?? senders[0];
+  // Messages go from the agent's own number. If it isn't connected, the company number is used only when the agent explicitly chooses it.
+  const sender = senders.find((c) => c.id === senderId) ?? mine;
   const senderLabel = (c: (typeof senders)[number]) => (c.ownerMembershipId ? "הוואטסאפ שלי" : c.name || "מספר העסק");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -116,7 +117,19 @@ export function WhatsAppSheet({
             </p>
           )}
           {error && <p className="text-xs text-red-500">{error}</p>}
-          {canSendDirect ? (
+          {canSendDirect && !sender ? (
+            <div className="rounded-md bg-amber-50 dark:bg-amber-950/40 p-3 space-y-2 text-sm">
+              <p className="text-amber-800 dark:text-amber-300">הוואטסאפ האישי שלך לא מחובר, ולכן לא נשלח אוטומטית. אפשר לחבר אותו (הודעות הליד יוצאו מהמספר שלך), או לבחור במפורש לשלוח ממספר החברה.</p>
+              <div className="flex flex-wrap gap-2">
+                <a href="/my-whatsapp" className="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs">חיבור הוואטסאפ שלי</a>
+                {senders.map((c) => (
+                  <button key={c.id} type="button" onClick={() => setSenderId(c.id)} className="px-3 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-xs">
+                    שליחה מ{c.name || "מספר העסק"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : canSendDirect ? (
             <>
               {senders.length > 1 && (
                 <div className="flex rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden text-sm">

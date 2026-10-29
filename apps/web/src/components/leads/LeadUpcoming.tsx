@@ -14,6 +14,7 @@ function AddTaskSheet({ contact, onClose }: { contact: Contact; onClose: () => v
   const me = members.find((m) => m.id === currentMemberId);
   const [title, setTitle] = useState("");
   const [due, setDue] = useState(() => localDay(new Date(Date.now() + 86400000)));
+  const [dueTime, setDueTime] = useState("");
   const [assignee, setAssignee] = useState(me?.name ?? "");
   const [busy, setBusy] = useState(false);
   const field = "w-full px-2 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
@@ -23,7 +24,7 @@ function AddTaskSheet({ contact, onClose }: { contact: Contact; onClose: () => v
     if (!title.trim() || busy) return;
     setBusy(true);
     try {
-      await addTask({ title: title.trim(), contactId: contact.id, assignee: assignee || undefined, dueDate: due || undefined });
+      await addTask({ title: title.trim(), contactId: contact.id, assignee: assignee || undefined, dueDate: due || undefined, dueTime: due && dueTime ? dueTime : undefined });
       onClose();
     } catch {
       setBusy(false);
@@ -37,10 +38,14 @@ function AddTaskSheet({ contact, onClose }: { contact: Contact; onClose: () => v
           <span className="block text-neutral-500 mb-1">מה צריך לעשות</span>
           <input autoFocus required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="למשל: לחזור אליו עם הצעה" className={field} />
         </label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <label className="block text-xs">
             <span className="block text-neutral-500 mb-1">תאריך יעד</span>
             <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className={field} />
+          </label>
+          <label className="block text-xs">
+            <span className="block text-neutral-500 mb-1">שעה (לא חובה)</span>
+            <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} disabled={!due} className={field} />
           </label>
           <label className="block text-xs">
             <span className="block text-neutral-500 mb-1">אחראי</span>

@@ -15,6 +15,7 @@ export default function TasksPage() {
   const [mine, setMine] = useState(true);
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
   const [contactId, setContactId] = useState("");
   const [showDone, setShowDone] = useState(false);
 
@@ -22,7 +23,7 @@ export default function TasksPage() {
   const filterFields = useMemo(() => buildTaskFilterFields(contacts, members), [contacts, members]);
   const taskFilter = useRecordFilter("tasks", filterFields, "סינון משימות");
   const visible = tasks.filter((t) => (!mine || !myName || t.assignee === myName) && taskFilter.matches(t));
-  const open = visible.filter((t) => !t.done).sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
+  const open = visible.filter((t) => !t.done).sort((a, b) => `${a.dueDate ?? "9999"} ${a.dueTime ?? "99:99"}`.localeCompare(`${b.dueDate ?? "9999"} ${b.dueTime ?? "99:99"}`));
   const groups: [string, Task[]][] = [
     ["באיחור", open.filter((t) => t.dueDate && t.dueDate < today)],
     ["היום", open.filter((t) => t.dueDate === today)],
@@ -34,9 +35,10 @@ export default function TasksPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
-    addTask({ title: title.trim(), dueDate: dueDate || undefined, contactId: contactId || undefined, assignee: myName });
+    addTask({ title: title.trim(), dueDate: dueDate || undefined, dueTime: dueDate && dueTime ? dueTime : undefined, contactId: contactId || undefined, assignee: myName });
     setTitle("");
     setDueDate("");
+    setDueTime("");
     setContactId("");
   }
 
@@ -70,6 +72,10 @@ export default function TasksPage() {
         <label className="text-sm">
           <span className="block text-xs text-neutral-500 mb-1">תאריך יעד</span>
           <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={field} />
+        </label>
+        <label className="text-sm">
+          <span className="block text-xs text-neutral-500 mb-1">שעה</span>
+          <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} disabled={!dueDate} className={field} />
         </label>
         <label className="text-sm">
           <span className="block text-xs text-neutral-500 mb-1">ליד (לא חובה)</span>

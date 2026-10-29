@@ -84,14 +84,24 @@ export async function composeForLead(
   return { text, templateName: template.name, attachment, contact };
 }
 
-// Which WhatsApp sends to this lead: the lead owner's linked WhatsApp when
-// asked for, otherwise (or when the owner has none) the business's default
-// number.
-export async function pickChannel(db: Db, orgId: string, contact: Row, preferOwner: boolean): Promise<string | null> {
-  if (preferOwner && contact.owner_email) {
-    const { data: u } = await db.from("users").select("id").ilike("email", contact.owner_email).maybeSingle();
-    const own = u ? await userGatewayChannel(db, orgId, u.id) : null;
-    if (own) return own.id;
+// Which WhatsApp sends to this lead. With preferOwner (everything except the
+// welcome message) it is the personal WhatsApp of whoever handles the lead: its
+// owner, or — when nobody owns it — the person who acted (booked the meeting…).
+// It never quietly falls back to the company number: a handled lead whose agent
+// has no WhatsApp linked is an error to fix, not a message from the wrong sender.
+// Only unowned leads with no acting person (and the welcome) use the business number.
+export async function pickChannel(db: Db, orgId: string, contact: Row, preferOwner: boolean, actingUserId?: string | null): Promise<string | null> {
+  if (preferOwner) {
+    let handlerId: string | null = null;
+    if (contact.owner_email) {
+      const { data: u } = await db.from("users").select("id").ilike("email", contact.owner_email).maybeSingle();
+      handlerId = u?.id ?? null;
+    } else handlerId = actingUserId ?? null;
+    if (handlerId) {
+      const own = await userGatewayChannel(db, orgId, handlerId);
+      if (own) return own.id;
+      throw new Error("לאיש הצוות שמטפל בליד אין וואטסאפ אישי מחובר — צריך לחבר אותו בהגדרות (ההודעה לא נשלחת ממספר החברה)");
+    }
   }
   const { data: def } = await db.from("channels").select("id").eq("org_id", orgId).eq("active", true).eq("is_default", true).limit(1).maybeSingle();
   return def?.id ?? null;
@@ -148,7 +158,7 @@ export async function sendDueScheduledMessages(db: Db): Promise<number> {
       }
       const { text, attachment, contact } = await composeForLead(db, { orgId: row.org_id, contactId: row.contact_id, userId: row.created_by, templateId: row.template_id, appointmentId: row.appointment_id });
       // Queued by the database (any meeting) → decided now: owner's WhatsApp, else the business number.
-      const channelId = row.channel_id ?? (await pickChannel(db, row.org_id, contact, true));
+      const channelId = row.channel_id ?? (await pickChannel(db, row.org_id, contact, true, row.created_by));
       if (!channelId) throw new Error("אין חיבור וואטסאפ לשליחה");
       await sendLeadMessage(db, { orgId: row.org_id, channelId, contactId: row.contact_id, text, attachment, label: `נשלח אוטומטית: ${row.label}`, userId: row.created_by, origin: "automation" });
       await db.from("scheduled_messages").update({ status: "sent", sent_at: new Date().toISOString(), error: null }).eq("id", row.id);

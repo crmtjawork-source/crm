@@ -39,7 +39,7 @@ function useAgenda(mineOnly: boolean) {
     const myMeetings = appointments.filter((a) => !mineOnly || a.ownerUserId === session?.user.id);
     const meetingDay = (a: Appointment) => dayKey(new Date(a.startAt));
     const inRange = (from: string, to: string) => ({
-      tasks: myTasks.filter((t) => t.dueDate && t.dueDate >= from && t.dueDate <= to),
+      tasks: myTasks.filter((t) => t.dueDate && t.dueDate >= from && t.dueDate <= to).sort((a, b) => `${a.dueDate} ${a.dueTime ?? "99:99"}`.localeCompare(`${b.dueDate} ${b.dueTime ?? "99:99"}`)),
       meetings: myMeetings.filter((a) => meetingDay(a) >= from && meetingDay(a) <= to).sort((a, b) => a.startAt.localeCompare(b.startAt)),
     });
     return {
@@ -174,6 +174,11 @@ function AgendaPanel({ onClose }: { onClose: () => void }) {
                     {!mineOnly && t.assignee && <span>· {t.assignee}</span>}
                   </p>
                 </div>
+                {t.dueTime && (
+                  <span className="text-[11px] shrink-0 text-neutral-500 tabular-nums" dir="ltr">
+                    {t.dueTime}
+                  </span>
+                )}
                 {(tab === "week" || tab === "overdue") && t.dueDate && (
                   <span className={`text-[11px] shrink-0 ${tab === "overdue" ? "text-red-500" : "text-neutral-400"}`}>{new Date(t.dueDate).toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}</span>
                 )}

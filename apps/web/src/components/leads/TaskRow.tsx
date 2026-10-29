@@ -22,7 +22,7 @@ export function TaskRow({ task, showContact = true }: { task: Task; showContact?
       <div className="flex-1 min-w-0">
         <p className={task.done ? "line-through text-neutral-400" : ""}>{task.title}</p>
         <p className="text-xs text-neutral-400">
-          {task.dueDate && <span className={overdue ? "text-red-500" : ""}>{new Date(task.dueDate).toLocaleDateString("he-IL")}</span>}
+          {task.dueDate && <span className={overdue ? "text-red-500" : ""}>{new Date(task.dueDate).toLocaleDateString("he-IL")}{task.dueTime ? ` · ${task.dueTime}` : ""}</span>}
           {task.assignee && ` · ${task.assignee}`}
           {showContact && contact && (
             <>

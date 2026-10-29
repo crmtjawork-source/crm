@@ -202,7 +202,9 @@ async function executeStep(
     }
     case "send_message": {
       // From the lead owner's own WhatsApp and/or with a ready-made message.
-      if (step.sender === "owner" || step.message_template_id) {
+      // Every automation but the welcome (a brand-new lead) goes out from the personal WhatsApp of whoever handles the lead.
+      const welcome = automation.trigger_type === "new_contact";
+      if (!welcome || step.sender === "owner" || step.message_template_id) {
         try {
           let ownerUserId: string | null = null;
           if (contact.owner_email) {
@@ -210,7 +212,7 @@ async function executeStep(
             ownerUserId = u?.id ?? null;
           }
           // Owner's WhatsApp when linked; otherwise the business's default number.
-          const channelId: string | null = step.channel_id ?? (await pickChannel(db, automation.org_id, contact, step.sender === "owner"));
+          const channelId: string | null = welcome && step.channel_id ? step.channel_id : await pickChannel(db, automation.org_id, contact, !welcome || step.sender === "owner");
           if (!channelId) throw new Error("לא הוגדר ערוץ וואטסאפ לשליחה");
           const { text, templateName, attachment } = await composeForLead(db, {
             orgId: automation.org_id,

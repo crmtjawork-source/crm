@@ -169,7 +169,7 @@ type Store = State & {
   deletePipeline: (pipelineId: string) => Promise<{ ok: boolean; reason?: string }>;
   setStageColor: (pipelineId: string, stageId: string, color: string) => Promise<void>;
 
-  addTask: (t: { title: string; contactId?: string; assignee?: string; dueDate?: string; templateId?: string; appointmentId?: string }) => Promise<Task>;
+  addTask: (t: { title: string; contactId?: string; assignee?: string; dueDate?: string; dueTime?: string; templateId?: string; appointmentId?: string }) => Promise<Task>;
   toggleTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
 
@@ -522,6 +522,7 @@ function mapTask(r: Row): Task {
     recordId: r.record_id ?? undefined,
     assignee: r.assignee ?? undefined,
     dueDate: r.due_date ?? undefined,
+    dueTime: r.due_time ?? undefined,
     done: r.done,
     templateId: r.template_id ?? undefined,
     appointmentId: r.appointment_id ?? undefined,
@@ -1332,6 +1333,7 @@ export function StoreProvider({
         contact_id: t.contactId,
         assignee: t.assignee,
         due_date: t.dueDate,
+        due_time: t.dueDate && t.dueTime ? t.dueTime : null,
         template_id: t.templateId ?? null,
         appointment_id: t.appointmentId ?? null,
       })

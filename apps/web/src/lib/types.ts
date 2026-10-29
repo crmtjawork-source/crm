@@ -71,6 +71,7 @@ export type Task = {
   contactId?: string;
   assignee?: string;
   dueDate?: string; // yyyy-mm-dd
+  dueTime?: string; // HH:MM, optional
   done: boolean;
   recordId?: string; // a task on a custom-object record (client, property…)
   templateId?: string; // a message to send when doing the task (e.g. a meeting reminder)
