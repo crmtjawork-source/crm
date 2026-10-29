@@ -12,15 +12,13 @@ import { MeetingSheet } from "./MeetingSheet";
 // name contains this. "No answer" only moves a deal still in the first stage.
 export const STAGE_FOR = { noAnswer: "ללא מענה", meeting: "נקבעה פגישה", afterMeeting: "אחרי פגישה" };
 
-const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
 type Composer = { templateId?: string; appointment?: Appointment } | null;
 
 // The lead-card actions (no answer / meeting / after meeting), shared by the
 // card's buttons and by moving a lead between pipeline stages. `moved` means
 // the deal is already in the action's stage (it was just dragged there).
 export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
-  const { opportunities, pipelines, messageTemplates, members, currentMemberId, leadStatuses, automations, moveOpportunity, updateContact, addTask, addNote, setHandlingStatus } =
+  const { opportunities, pipelines, messageTemplates, members, currentMemberId, leadStatuses, automations, moveOpportunity, updateContact, addNote, setHandlingStatus } =
     useStore();
   const [composer, setComposer] = useState<Composer>(null);
   const [scheduling, setScheduling] = useState<{ moved: boolean } | null>(openMeeting ? { moved: true } : null);
@@ -73,9 +71,6 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
     await updateContact(contact.id, { noAnswerCount: attempt });
     await addNote(contact.id, `📵 ללא מענה — ניסיון ${attempt}${agentName ? ` (${agentName})` : ""}`);
     const movedNow = moved || (await moveTo(STAGE_FOR.noAnswer, true));
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    await addTask({ title: `לחייג שוב ל${contact.name} (ניסיון ${attempt + 1})`, contactId: contact.id, assignee: agentName, dueDate: localDay(tomorrow) });
     // If the business keeps a "no answer N" handling status, set it — and if an
     // automation sends a message on that status, let it do the sending.
     const statusName = leadStatuses.find((st) => st.name === `ללא מענה ${attempt}`)?.name;

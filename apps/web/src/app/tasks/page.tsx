@@ -7,6 +7,8 @@ import type { Task } from "@/lib/types";
 import { buildTaskFilterFields } from "@/lib/leadFilters";
 import { useRecordFilter } from "@/components/FilterBar";
 
+type View = "overdue" | "today" | "tomorrow" | "nextweek" | "month" | "open";
+
 const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 export default function TasksPage() {
@@ -18,18 +20,40 @@ export default function TasksPage() {
   const [dueTime, setDueTime] = useState("");
   const [contactId, setContactId] = useState("");
   const [showDone, setShowDone] = useState(false);
+  const [view, setView] = useState<View>("today");
 
   const today = localDay(new Date());
   const filterFields = useMemo(() => buildTaskFilterFields(contacts, members), [contacts, members]);
   const taskFilter = useRecordFilter("tasks", filterFields, "סינון משימות");
   const visible = tasks.filter((t) => (!mine || !myName || t.assignee === myName) && taskFilter.matches(t));
   const open = visible.filter((t) => !t.done).sort((a, b) => `${a.dueDate ?? "9999"} ${a.dueTime ?? "99:99"}`.localeCompare(`${b.dueDate ?? "9999"} ${b.dueTime ?? "99:99"}`));
-  const groups: [string, Task[]][] = [
-    ["באיחור", open.filter((t) => t.dueDate && t.dueDate < today)],
-    ["היום", open.filter((t) => t.dueDate === today)],
-    ["הבאות", open.filter((t) => t.dueDate && t.dueDate > today)],
-    ["ללא תאריך", open.filter((t) => !t.dueDate)],
+
+  // Time windows (the week runs Sunday–Saturday): today, tomorrow, next week, this month, all open.
+  const now = new Date();
+  const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const tomorrow = localDay(addDays(now, 1));
+  const nextWeekStart = localDay(addDays(now, 7 - now.getDay()));
+  const nextWeekEnd = localDay(addDays(now, 13 - now.getDay()));
+  const monthPrefix = today.slice(0, 7);
+  const VIEWS: { id: View; label: string; match: (t: Task) => boolean }[] = [
+    { id: "overdue", label: "באיחור", match: (t) => Boolean(t.dueDate && t.dueDate < today) },
+    { id: "today", label: "היום", match: (t) => t.dueDate === today },
+    { id: "tomorrow", label: "מחר", match: (t) => t.dueDate === tomorrow },
+    { id: "nextweek", label: "שבוע הבא", match: (t) => Boolean(t.dueDate && t.dueDate >= nextWeekStart && t.dueDate <= nextWeekEnd) },
+    { id: "month", label: "החודש", match: (t) => Boolean(t.dueDate?.startsWith(monthPrefix)) },
+    { id: "open", label: "פתוח", match: () => true },
   ];
+  const current = VIEWS.find((v) => v.id === view)!;
+  const shownTasks = open.filter(current.match);
+  // Longer views are split by day.
+  const dayLabel = (d?: string) => (!d ? "ללא תאריך" : d === today ? "היום" : d === tomorrow ? "מחר" : d < today ? `באיחור · ${new Date(d).toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}` : new Date(d).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "numeric" }));
+  const groups: [string, Task[]][] = [];
+  for (const t of shownTasks) {
+    const label = view === "today" || view === "tomorrow" ? "" : dayLabel(t.dueDate);
+    const last = groups[groups.length - 1];
+    if (last && last[0] === label) last[1].push(t);
+    else groups.push([label, [t]]);
+  }
   const done = visible.filter((t) => t.done);
 
   function handleSubmit(e: React.FormEvent) {
@@ -96,21 +120,40 @@ export default function TasksPage() {
       <div className="flex flex-wrap items-center gap-2 mb-3">{taskFilter.controls}</div>
       {taskFilter.chips}
 
-      {open.length === 0 && <p className="text-sm text-neutral-400 mb-6">אין משימות פתוחות.</p>}
-      {groups
-        .filter(([, list]) => list.length)
-        .map(([label, list]) => (
-          <section key={label} className="mb-6">
-            <h2 className={`text-sm font-semibold mb-1 ${label === "באיחור" ? "text-red-500" : "text-neutral-500"}`}>
+      <div className="flex gap-1.5 overflow-x-auto mb-4 pb-1">
+        {VIEWS.map((v) => {
+          const n = open.filter(v.match).length;
+          return (
+            <button
+              key={v.id}
+              onClick={() => setView(v.id)}
+              className={`shrink-0 px-3 py-1.5 text-sm rounded-full border ${
+                view === v.id
+                  ? "bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-900 dark:border-white"
+                  : `border-neutral-200 dark:border-neutral-800 ${v.id === "overdue" && n ? "text-red-500" : ""}`
+              }`}
+            >
+              {v.label} <span className="opacity-60">{n}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {shownTasks.length === 0 && <p className="text-sm text-neutral-400 mb-6">אין משימות ב{current.label === "פתוח" ? "רשימה" : `"${current.label}"`}.</p>}
+      {groups.map(([label, list], i) => (
+        <section key={`${label}-${i}`} className="mb-5">
+          {label && (
+            <h2 className={`text-sm font-semibold mb-1 ${label.startsWith("באיחור") ? "text-red-500" : "text-neutral-500"}`}>
               {label} ({list.length})
             </h2>
-            <ul className="divide-y divide-neutral-100 dark:divide-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3">
-              {list.map((t) => (
-                <TaskRow key={t.id} task={t} />
-              ))}
-            </ul>
-          </section>
-        ))}
+          )}
+          <ul className="divide-y divide-neutral-100 dark:divide-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3">
+            {list.map((t) => (
+              <TaskRow key={t.id} task={t} />
+            ))}
+          </ul>
+        </section>
+      ))}
 
       {done.length > 0 && (
         <section>

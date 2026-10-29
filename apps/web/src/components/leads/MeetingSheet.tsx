@@ -26,8 +26,7 @@ export function MeetingSheet({
   onClose: () => void;
   onScheduled: (a: Appointment, online: boolean) => void;
 }) {
-  const { appointmentTypes, messageTemplates, members, currentMemberId, addAppointment, addTask, updateContact, addScheduledMessages, meetingReminders } = useStore();
-  const agentName = members.find((m) => m.id === currentMemberId)?.name;
+  const { appointmentTypes, messageTemplates, addAppointment, updateContact, addScheduledMessages, meetingReminders } = useStore();
   const [typeId, setTypeId] = useState(appointmentTypes[0]?.id ?? "");
   const [date, setDate] = useState(() => localDay(new Date(Date.now() + 86400000)));
   const [time, setTime] = useState("11:00");
@@ -53,7 +52,6 @@ export function MeetingSheet({
         endAt: end.toISOString(),
         notes: where.trim() || undefined,
       });
-      const today = localDay(new Date());
       // 3 days before (same time), a day before (same time), and the
       // morning of the meeting (09:00, or 2 hours before an early meeting).
       const morning = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 9, 0);
@@ -64,23 +62,14 @@ export function MeetingSheet({
       ];
       const queued: { templateId: string; sendAt: string; appointmentId: string; label: string }[] = [];
       // With automatic reminders on, the server queues them for every new meeting.
-      for (const [action, daysBefore, sendAt] of meetingReminders ? [] : reminders) {
+      for (const [action, , sendAt] of meetingReminders ? [] : reminders) {
         const template = messageTemplates.find((t) => t.quickAction === action);
         if (!template) continue;
         if (autoSend && template.body.trim()) {
           if (sendAt > new Date()) queued.push({ templateId: template.id, sendAt: sendAt.toISOString(), appointmentId: appointment.id, label: template.name });
           continue;
         }
-        const due = localDay(new Date(start.getFullYear(), start.getMonth(), start.getDate() - daysBefore));
-        if (due < today) continue;
-        await addTask({
-          title: `לשלוח ל${contact.name}: ${template.name}`,
-          contactId: contact.id,
-          assignee: agentName,
-          dueDate: due,
-          templateId: template.id,
-          appointmentId: appointment.id,
-        });
+        // No task is made for it: with no linked WhatsApp the reminder simply isn't sent (the sheet says so).
       }
       if (queued.length) {
         const { scheduled } = await apiPost<{ scheduled: Record<string, unknown>[] }>(`/api/leads/${contact.id}/schedule`, { items: queued });
@@ -129,7 +118,7 @@ export function MeetingSheet({
               ? "הפגישה תיכנס ליומן, הליד יעבור לשלב \"נקבעה פגישה\", ותזכורות הפגישה (3 ימים לפני, יום לפני ובבוקר הפגישה) יישלחו לבד בזמן."
               : autoSend
               ? "הפגישה תיכנס ליומן, הליד יעבור לשלב \"נקבעה פגישה\", אישור הפגישה יישלח עכשיו מהוואטסאפ שלך, והתזכורות (3 ימים לפני, יום לפני ובבוקר הפגישה) יישלחו לבד בזמן."
-              : "הפגישה תיכנס ליומן, הליד יעבור לשלב \"נקבעה פגישה\", ויווצרו משימות תזכורת עם הודעה מוכנה (3 ימים לפני, יום לפני ובבוקר הפגישה)."}
+              : "הפגישה תיכנס ליומן והליד יעבור לשלב \"נקבעה פגישה\". הוואטסאפ האישי שלך לא מחובר, ולכן תזכורות הפגישה (3 ימים לפני, יום לפני ובבוקר הפגישה) לא יישלחו — כדאי לחבר אותו."}
           </p>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button type="submit" disabled={busy} className="w-full py-2.5 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium disabled:opacity-50">
