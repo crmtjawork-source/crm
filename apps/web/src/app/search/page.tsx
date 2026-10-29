@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
+import { RecentSearchInput } from "@/components/RecentSearchInput";
 
 function SearchResults() {
   const searchParams = useSearchParams();
@@ -29,13 +30,7 @@ function SearchResults() {
   return (
     <div className="p-6 max-w-2xl">
       <h1 className="text-xl font-bold mb-4">חיפוש</h1>
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="חיפוש בלידים, הזדמנויות ומשימות…"
-        autoFocus
-        className="w-full px-3 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent mb-6"
-      />
+      <RecentSearchInput value={q} onChange={setQ} placeholder="חיפוש בלידים, הזדמנויות ומשימות…" autoFocus className="mb-6" />
 
       {!needle ? (
         <p className="text-sm text-neutral-400">הקלידו כדי לחפש.</p>

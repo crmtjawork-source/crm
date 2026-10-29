@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { TopBarButtons } from "./TopBar";
+import { RecentSearchInput } from "./RecentSearchInput";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { canSeeHref, effectiveRole, screenOf } from "@/lib/permissions";
@@ -36,20 +37,19 @@ function SearchBox() {
   const router = useRouter();
   const [q, setQ] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!q.trim()) return;
-    router.push(`/search?q=${encodeURIComponent(q.trim())}`);
-  }
+  const go = (term: string) => {
+    if (term.trim()) router.push(`/search?q=${encodeURIComponent(term.trim())}`);
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="px-2 mb-2">
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="חיפוש…"
-        className="w-full px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
-      />
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        go(q);
+      }}
+      className="px-2 mb-2"
+    >
+      <RecentSearchInput value={q} onChange={setQ} onPick={go} placeholder="חיפוש…" />
     </form>
   );
 }

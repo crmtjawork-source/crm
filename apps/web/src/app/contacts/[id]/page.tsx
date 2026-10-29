@@ -10,6 +10,7 @@ import { useLeadChatHref } from "@/lib/useMyGateway";
 import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
 import { QuickActions } from "@/components/leads/QuickActions";
 import { StageSelect } from "@/components/leads/StageSelect";
+import { StatusSelect } from "@/components/leads/StatusSelect";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { LeadUpcoming } from "@/components/leads/LeadUpcoming";
 import { LeadStepper } from "@/components/leads/LeadStepper";
@@ -17,7 +18,6 @@ import { LeadTimeline } from "@/components/leads/LeadTimeline";
 import { LeadNotesPanel } from "@/components/leads/LeadNotesPanel";
 import { LeadDocuments } from "@/components/documents/LeadDocuments";
 import { LeadCalls } from "@/components/leads/LeadCalls";
-import { colorAt } from "@/components/ui/ColorChip";
 import { LeadFieldsCard } from "@/components/leads/LeadFieldsCard";
 import { LeadRecords } from "@/components/leads/LeadRecords";
 import { FilesSection } from "@/components/FilesSection";
@@ -41,7 +41,6 @@ export default function ContactDetailPage() {
     loadActivitiesFor,
     campaigns,
     leadStatuses,
-    setHandlingStatus,
   } = useStore();
   const contact = getContact(id);
   const chatHref = useLeadChatHref(id);
@@ -152,9 +151,16 @@ export default function ContactDetailPage() {
         ) : (
           <div className="mb-4">
             <h1 className="text-xl font-bold mb-1">{contact.name}</h1>
-            <p className="text-sm text-neutral-500">
-              <span dir="ltr">{contact.phone ?? "אין טלפון"}</span> · {contact.email ?? "אין אימייל"}
+            <p className="text-2xl font-bold tracking-wide text-neutral-900 dark:text-neutral-50 mb-0.5">
+              {contact.phone ? (
+                <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`} dir="ltr" className="hover:underline">
+                  {contact.phone}
+                </a>
+              ) : (
+                <span className="text-base font-normal text-neutral-400">אין טלפון</span>
+              )}
             </p>
+            <p className="text-sm text-neutral-500">{contact.email ?? "אין אימייל"}</p>
             <p className="text-xs text-neutral-400 mt-0.5">
               נכנס ב־{new Date(contact.createdAt).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
             </p>
@@ -199,7 +205,7 @@ export default function ContactDetailPage() {
           <>
             <div className="flex items-center gap-2 mb-2 text-sm">
               <span className="text-neutral-500">שלב:</span>
-              <StageSelect contact={contact} deal={deal} afterMove={stagePrompt.afterMove} />
+              <StageSelect contact={contact} deal={deal} afterMove={stagePrompt.afterMove} large />
             </div>
             {showReason && deal && (
               <label className="flex items-center gap-2 mb-2 text-sm">
@@ -225,27 +231,10 @@ export default function ContactDetailPage() {
       {stagePrompt.element}
 
       {leadStatuses.length > 0 && (
-        <label className="flex items-center gap-2 mb-2 text-sm">
+        <div className="flex items-center gap-2 mb-2 text-sm">
           <span className="text-neutral-500">סטטוס ליד:</span>
-          <select
-            value={contact.handlingStatus ?? ""}
-            onChange={(e) => setHandlingStatus(contact.id, e.target.value || null)}
-            className="px-2 py-1 rounded-md border bg-transparent font-medium"
-            style={(() => {
-              const i = leadStatuses.findIndex((st) => st.name === contact.handlingStatus);
-              const c = i >= 0 ? colorAt(leadStatuses[i].color, i) : undefined;
-              return c ? { color: c, borderColor: c, backgroundColor: `${c}14` } : undefined;
-            })()}
-          >
-            <option value="">—</option>
-            {leadStatuses.map((st) => (
-              <option key={st.id} value={st.name}>
-                {st.name}
-              </option>
-            ))}
-            {contact.handlingStatus && !leadStatuses.some((st) => st.name === contact.handlingStatus) && <option value={contact.handlingStatus}>{contact.handlingStatus}</option>}
-          </select>
-        </label>
+          <StatusSelect contact={contact} large />
+        </div>
       )}
 
       <label className="flex items-center gap-2 mb-4 text-sm">

@@ -8,6 +8,7 @@ import { PipelineTable } from "@/components/PipelineTable";
 import { downloadCsv } from "@/lib/exportCsv";
 import { buildDealFilterFields, buildFilterFields } from "@/lib/leadFilters";
 import { useRecordFilter } from "@/components/FilterBar";
+import { RecentSearchInput } from "@/components/RecentSearchInput";
 import { needsAssignment } from "@/components/leads/OwnerSelect";
 import { canAssignLeads, effectiveRole } from "@/lib/permissions";
 
@@ -232,12 +233,7 @@ export default function PipelinePage() {
         </Link>
       )}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="חיפוש בפייפליין לפי שם או טלפון…"
-          className="w-full sm:w-72 px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
-        />
+        <RecentSearchInput value={search} onChange={setSearch} placeholder="חיפוש בפייפליין לפי שם או טלפון…" className="w-full sm:w-72" />
         {dealFilter.controls}
       </div>
       {dealFilter.chips}

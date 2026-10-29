@@ -6,7 +6,7 @@ import type { Contact } from "@/lib/types";
 
 // The lead's handling status as a coloured pill that doubles as the control to
 // change it — same behaviour as on the lead card (automations on status run).
-export function StatusSelect({ contact }: { contact: Contact }) {
+export function StatusSelect({ contact, large }: { contact: Contact; large?: boolean }) {
   const { leadStatuses, setHandlingStatus } = useStore();
   const i = leadStatuses.findIndex((st) => st.name === contact.handlingStatus);
   const color = i >= 0 ? colorAt(leadStatuses[i].color, i) : "#94a3b8";
@@ -16,7 +16,7 @@ export function StatusSelect({ contact }: { contact: Contact }) {
     <span
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
-      className="relative inline-flex items-center gap-1 rounded-full ps-2 pe-1 py-0.5 text-xs whitespace-nowrap"
+      className={`relative inline-flex items-center gap-1 rounded-full ps-2 pe-1 py-0.5 whitespace-nowrap font-medium ${large ? "text-sm" : "text-xs"}`}
       style={{ backgroundColor: `${color}1f`, color }}
     >
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
@@ -24,7 +24,7 @@ export function StatusSelect({ contact }: { contact: Contact }) {
         value={contact.handlingStatus ?? ""}
         aria-label="סטטוס ליד"
         onChange={(e) => setHandlingStatus(contact.id, e.target.value || null)}
-        className="appearance-none bg-transparent outline-none cursor-pointer pe-1 py-0.5 text-xs"
+        className={`appearance-none bg-transparent outline-none cursor-pointer pe-1 py-0.5 font-medium ${large ? "text-sm" : "text-xs"}`}
         style={{ color }}
       >
         <option value="">ללא סטטוס</option>

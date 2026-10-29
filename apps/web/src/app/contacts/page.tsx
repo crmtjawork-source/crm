@@ -9,6 +9,7 @@ import { downloadCsv } from "@/lib/exportCsv";
 import { buildFilterFields } from "@/lib/leadFilters";
 import { useRecordFilter } from "@/components/FilterBar";
 import { BackLink } from "@/components/BackLink";
+import { RecentSearchInput } from "@/components/RecentSearchInput";
 import { needsAssignment } from "@/components/leads/OwnerSelect";
 import { setLeadNav } from "@/lib/leadNav";
 import { BulkBar } from "@/components/leads/BulkBar";
@@ -150,14 +151,14 @@ function ContactsList() {
 
       <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          <input
+          <RecentSearchInput
             value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
+            onChange={(v) => {
+              setQ(v);
               setVisible(PAGE_SIZE);
             }}
             placeholder="חיפוש לפי שם, טלפון או אימייל…"
-            className="w-full md:w-72 px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+            className="w-full md:w-72"
           />
           <select
             value={owner}
