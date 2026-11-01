@@ -1,18 +1,50 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { colorAt } from "@/components/ui/ColorChip";
 import type { Contact } from "@/lib/types";
+import { NO_ANSWER_STATUS, STAGE_FOR, useLeadActions } from "./useLeadActions";
+
+// Mounted only when a message has to go out for a just-picked "no answer N" status.
+function StatusSender({ contact, status }: { contact: Contact; status: string }) {
+  const { sendForStatus, notice, overlays } = useLeadActions(contact);
+  const sent = useRef(false);
+  useEffect(() => {
+    if (sent.current) return;
+    sent.current = true;
+    void sendForStatus(status);
+  });
+  return (
+    <>
+      {notice && <span className={`ms-2 text-xs ${notice.ok ? "text-emerald-600" : "text-amber-600"}`}>{notice.text}</span>}
+      {overlays}
+    </>
+  );
+}
 
 // The lead's handling status as a coloured pill that doubles as the control to
 // change it — same behaviour as on the lead card (automations on status run).
 export function StatusSelect({ contact, large }: { contact: Contact; large?: boolean }) {
-  const { leadStatuses, setHandlingStatus } = useStore();
+  const { leadStatuses, setHandlingStatus, opportunities, pipelines } = useStore();
+  const [send, setSend] = useState<{ n: number; status: string } | null>(null);
+
+  // While the lead's open deal sits in the "no answer" stage, picking another
+  // "no answer N" status sends that status's message.
+  async function change(value: string) {
+    await setHandlingStatus(contact.id, value || null);
+    if (!value || !NO_ANSWER_STATUS.test(value)) return;
+    const opp = opportunities.find((o) => o.contactId === contact.id && o.status === "open");
+    const stage = pipelines.find((p) => p.id === opp?.pipelineId)?.stages.find((st) => st.id === opp?.stageId);
+    if (stage?.name.includes(STAGE_FOR.noAnswer)) setSend({ n: Date.now(), status: value });
+  }
+
   const i = leadStatuses.findIndex((st) => st.name === contact.handlingStatus);
   const color = i >= 0 ? colorAt(leadStatuses[i].color, i) : "#94a3b8";
   if (leadStatuses.length === 0) return <span className="text-neutral-400">—</span>;
   return (
-    // Don't let a click start a card drag or open the card behind it.
+    <>
+    {/* Don't let a click start a card drag or open the card behind it. */}
     <span
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
@@ -23,7 +55,7 @@ export function StatusSelect({ contact, large }: { contact: Contact; large?: boo
       <select
         value={contact.handlingStatus ?? ""}
         aria-label="סטטוס ליד"
-        onChange={(e) => setHandlingStatus(contact.id, e.target.value || null)}
+        onChange={(e) => change(e.target.value)}
         className={`appearance-none bg-transparent outline-none cursor-pointer pe-1 py-0.5 font-medium ${large ? "text-sm" : "text-xs"}`}
         style={{ color }}
       >
@@ -37,5 +69,7 @@ export function StatusSelect({ contact, large }: { contact: Contact; large?: boo
         {contact.handlingStatus && i < 0 && <option value={contact.handlingStatus}>{contact.handlingStatus}</option>}
       </select>
     </span>
+    {send && <StatusSender key={send.n} contact={contact} status={send.status} />}
+    </>
   );
 }

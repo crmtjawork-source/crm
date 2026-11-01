@@ -10,6 +10,8 @@ import { MeetingSheet } from "./MeetingSheet";
 
 // Stage each action moves the lead's open deal to: the first stage whose
 // name contains this. "No answer" only moves a deal still in the first stage.
+// A "no answer N" handling status (also the short "ללמ N" spelling).
+export const NO_ANSWER_STATUS = /^(ללא מענה|ללמ) ?\d/;
 export const STAGE_FOR = { noAnswer: "ללא מענה", meeting: "נקבעה פגישה", afterMeeting: "אחרי פגישה" };
 
 type Composer = { templateId?: string; appointment?: Appointment } | null;
@@ -69,7 +71,7 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
     // advances by itself: marked "no answer 1" → message 1, again → message 1
     // again. Moving on to 2 is the agent changing the status. With no such
     // status yet, it starts at 1. noAnswerCount only counts the tries.
-    const markedStatus = contact.handlingStatus && /^(ללא מענה|ללמ) ?\d/.test(contact.handlingStatus) ? contact.handlingStatus : undefined;
+    const markedStatus = contact.handlingStatus && NO_ANSWER_STATUS.test(contact.handlingStatus) ? contact.handlingStatus : undefined;
     const level = Number(markedStatus?.match(/\d/)?.[0] ?? 1);
     const attempt = contact.noAnswerCount + 1;
     await updateContact(contact.id, { noAnswerCount: attempt });
@@ -85,6 +87,22 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
       (movedNow && stageAutomated(STAGE_FOR.noAnswer));
     if (automated) {
       setNotice({ ok: true, text: statusName ? `הסטטוס עודכן ל"${statusName}" — ההודעה נשלחת באוטומציה` : 'הליד עבר לשלב "ללא מענה" — ההודעה נשלחת באוטומציה' });
+      return;
+    }
+    await deliver(templateFor(`no_answer_${Math.min(level, 4)}`));
+  }
+
+  // The agent picked a "no answer N" status on a lead that already sits in the
+  // "no answer" stage: send that status's message, with no need to move the lead
+  // out and back into the stage. (The status itself is already saved.)
+  async function sendForStatus(statusName: string) {
+    const level = Number(statusName.match(/\d/)?.[0] ?? 1);
+    const attempt = contact.noAnswerCount + 1;
+    await updateContact(contact.id, { noAnswerCount: attempt });
+    await addNote(contact.id, `📵 ללא מענה — ${statusName} (ניסיון ${attempt})${agentName ? ` · ${agentName}` : ""}`);
+    const automated = automations.some((a) => a.active && a.trigger.type === "status_changed" && a.trigger.status === statusName && a.steps.some((st) => st.type === "send_message"));
+    if (automated) {
+      setNotice({ ok: true, text: `הסטטוס עודכן ל"${statusName}" — ההודעה נשלחת באוטומציה` });
       return;
     }
     await deliver(templateFor(`no_answer_${Math.min(level, 4)}`));
@@ -128,5 +146,5 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
     </>
   );
 
-  return { noAnswer, afterMeeting, startMeeting, notice, overlays, busy: Boolean(scheduling || composer) };
+  return { noAnswer, sendForStatus, afterMeeting, startMeeting, notice, overlays, busy: Boolean(scheduling || composer) };
 }
