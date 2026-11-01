@@ -6,6 +6,7 @@ import type { FieldValue as Value } from "@/lib/objects";
 import type { Contact, ObjectField } from "@/lib/types";
 import { FieldValue } from "@/components/objects/FieldValue";
 import { FieldInput } from "@/components/objects/FieldInput";
+import { CopyButton } from "@/components/CopyButton";
 
 // Lead values live as text in contacts.fields; these convert to / from the
 // typed controls.
@@ -38,6 +39,17 @@ export function LeadFieldsCard({ contact }: { contact: Contact }) {
   const extra = Object.entries(contact.fields).filter(([k]) => !leadFields.some((f) => f.key === k));
   const hasAny = leadFields.some((f) => contact.fields[f.key]) || extra.length > 0;
 
+  // Everything about the lead as plain text, for pasting elsewhere.
+  const allText = [
+    contact.name,
+    contact.phone && `טלפון: ${contact.phone}`,
+    contact.email && `אימייל: ${contact.email}`,
+    ...leadFields.filter((f) => contact.fields[f.key]).map((f) => `${f.label}: ${contact.fields[f.key]}`),
+    ...extra.map(([k, v]) => `${k}: ${v}`),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   async function save() {
     if (!editing) return;
     const changed = Object.fromEntries(Object.entries(editing).filter(([k, v]) => (contact.fields[k] ?? "") !== v));
@@ -50,9 +62,12 @@ export function LeadFieldsCard({ contact }: { contact: Contact }) {
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-sm font-semibold text-neutral-500">פרטים נוספים</h2>
         {!editing ? (
-          <button onClick={() => setEditing({ ...contact.fields })} className="text-xs px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800">
-            עריכה
-          </button>
+          <div className="flex items-center gap-2">
+            <CopyButton text={allText} label="העתקת כל פרטי הליד" className="!text-neutral-500 border border-neutral-200 dark:border-neutral-800 py-1 px-2 rounded-md" />
+            <button onClick={() => setEditing({ ...contact.fields })} className="text-xs px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800">
+              עריכה
+            </button>
+          </div>
         ) : (
           <div className="flex gap-2">
             <button onClick={save} className="text-xs px-2 py-1 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
@@ -80,7 +95,10 @@ export function LeadFieldsCard({ contact }: { contact: Contact }) {
                       {editing ? (
                         <FieldInput field={f} value={toValue(f, editing[f.key])} onChange={(v) => setEditing((e) => ({ ...e!, [f.key]: toText(f, v) }))} />
                       ) : (
-                        <FieldValue field={f} value={toValue(f, contact.fields[f.key])} members={members} />
+                        <span className="inline-flex items-start gap-1.5">
+                          <FieldValue field={f} value={toValue(f, contact.fields[f.key])} members={members} />
+                          <CopyButton text={contact.fields[f.key] ?? ""} label={`העתקת ${f.label}`} />
+                        </span>
                       )}
                     </dd>
                   </div>
@@ -98,7 +116,10 @@ export function LeadFieldsCard({ contact }: { contact: Contact }) {
                   {editing ? (
                     <input value={editing[k] ?? ""} onChange={(e) => setEditing((x) => ({ ...x!, [k]: e.target.value }))} className="w-full px-2 py-1 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
                   ) : (
-                    <span className="whitespace-pre-wrap">{v}</span>
+                    <span className="inline-flex items-start gap-1.5">
+                      <span className="whitespace-pre-wrap">{v}</span>
+                      <CopyButton text={v} label={`העתקת ${k}`} />
+                    </span>
                   )}
                 </dd>
               </div>

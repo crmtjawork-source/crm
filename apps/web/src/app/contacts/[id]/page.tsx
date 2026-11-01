@@ -9,6 +9,7 @@ import { BackLink } from "@/components/BackLink";
 import { useLeadChatHref } from "@/lib/useMyGateway";
 import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
 import { QuickActions } from "@/components/leads/QuickActions";
+import { CopyButton } from "@/components/CopyButton";
 import { StageSelect } from "@/components/leads/StageSelect";
 import { StatusSelect } from "@/components/leads/StatusSelect";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
@@ -151,16 +152,22 @@ export default function ContactDetailPage() {
         ) : (
           <div className="mb-4">
             <h1 className="text-xl font-bold mb-1">{contact.name}</h1>
-            <p className="text-2xl font-bold tracking-wide text-neutral-900 dark:text-neutral-50 mb-0.5">
+            <p className="flex items-center gap-2 text-2xl font-bold tracking-wide text-neutral-900 dark:text-neutral-50 mb-0.5">
               {contact.phone ? (
-                <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`} dir="ltr" className="hover:underline">
-                  {contact.phone}
-                </a>
+                <>
+                  <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`} dir="ltr" className="hover:underline">
+                    {contact.phone}
+                  </a>
+                  <CopyButton text={contact.phone} label="העתקת מספר טלפון" className="!text-base" />
+                </>
               ) : (
                 <span className="text-base font-normal text-neutral-400">אין טלפון</span>
               )}
             </p>
-            <p className="text-sm text-neutral-500">{contact.email ?? "אין אימייל"}</p>
+            <p className="flex items-center gap-1.5 text-sm text-neutral-500">
+              {contact.email ?? "אין אימייל"}
+              {contact.email && <CopyButton text={contact.email} label="העתקת אימייל" />}
+            </p>
             <p className="text-xs text-neutral-400 mt-0.5">
               נכנס ב־{new Date(contact.createdAt).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
             </p>
