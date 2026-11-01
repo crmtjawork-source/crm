@@ -171,6 +171,7 @@ type Store = State & {
 
   addTask: (t: { title: string; contactId?: string; assignee?: string; dueDate?: string; dueTime?: string; templateId?: string; appointmentId?: string }) => Promise<Task>;
   toggleTask: (taskId: string) => Promise<void>;
+  updateTask: (taskId: string, patch: { title?: string; assignee?: string | null; dueDate?: string | null; dueTime?: string | null; contactId?: string | null }) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
 
   addFieldDef: (name: string) => Promise<void>;
@@ -1352,6 +1353,18 @@ export function StoreProvider({
     if (data) setState((s) => ({ ...s, tasks: s.tasks.map((t) => (t.id === taskId ? mapTask(data) : t)) }));
   };
 
+  const updateTask: Store["updateTask"] = async (taskId, patch) => {
+    const row: Row = {};
+    if (patch.title !== undefined) row.title = patch.title;
+    if (patch.assignee !== undefined) row.assignee = patch.assignee;
+    if (patch.dueDate !== undefined) row.due_date = patch.dueDate;
+    // A time of day only makes sense with a date.
+    if (patch.dueTime !== undefined || patch.dueDate === null) row.due_time = patch.dueDate === null ? null : patch.dueTime;
+    if (patch.contactId !== undefined) row.contact_id = patch.contactId;
+    const { data } = await supabase.from("tasks").update(row).eq("id", taskId).select().single();
+    if (data) setState((s) => ({ ...s, tasks: s.tasks.map((t) => (t.id === taskId ? mapTask(data) : t)) }));
+  };
+
   const deleteTask: Store["deleteTask"] = async (taskId) => {
     await supabase.from("tasks").delete().eq("id", taskId);
     setState((s) => ({ ...s, tasks: s.tasks.filter((t) => t.id !== taskId) }));
@@ -2179,6 +2192,7 @@ export function StoreProvider({
         deleteStage,
         addTask,
         toggleTask,
+        updateTask,
         deleteTask,
         addFieldDef,
         saveLeadField,
