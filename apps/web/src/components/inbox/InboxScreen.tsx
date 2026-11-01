@@ -146,7 +146,6 @@ function ConversationList({
                   <span className="flex items-center justify-between gap-2">
                     <span className={`text-sm truncate ${c.unreadCount ? "font-semibold" : "font-medium"}`}>
                       {title}
-                      {c.contactId && <span className="ms-1.5 text-[10px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300 align-middle">ליד</span>}
                     </span>
                     <span className={`text-[11px] shrink-0 ${c.unreadCount ? "text-emerald-600 font-medium" : "text-neutral-400"}`}>{formatListTime(c.lastMessageAt)}</span>
                   </span>
