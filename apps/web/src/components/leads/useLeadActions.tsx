@@ -10,8 +10,8 @@ import { MeetingSheet } from "./MeetingSheet";
 
 // Stage each action moves the lead's open deal to: the first stage whose
 // name contains this. "No answer" only moves a deal still in the first stage.
-// A "no answer N" handling status (also the short "ללמ N" spelling).
-export const NO_ANSWER_STATUS = /^(ללא מענה|ללמ) ?\d/;
+// A "no answer N" handling status (also the short "ללמ N" spelling, and "ללמ קבענו").
+export const NO_ANSWER_STATUS = /^((ללא מענה|ללמ) ?\d|ללמ קבענו)/;
 export const STAGE_FOR = { noAnswer: "ללא מענה", meeting: "נקבעה פגישה", afterMeeting: "אחרי פגישה" };
 
 type Composer = { templateId?: string; appointment?: Appointment } | null;
