@@ -11,7 +11,8 @@ type Prompt = { key: number; contact: Contact; kind: Kind } | { key: number; con
 
 // Moving a lead on the pipeline (board or table) into a stage that has a
 // lead-card action does what that button does: opens the meeting form, or
-// logs "no answer" / sends the after-meeting message automatically.
+// sends the after-meeting message. ("No answer" does nothing on a move — the
+// agent's chosen status decides.)
 export function useStageMovePrompt() {
   const { opportunities, contacts, pipelines } = useStore();
   const [prompt, setPrompt] = useState<Prompt | null>(null);
@@ -30,6 +31,9 @@ export function useStageMovePrompt() {
     }
     const kind = (Object.keys(STAGE_FOR) as Kind[]).find((k) => stageName.includes(STAGE_FOR[k]));
     const contact = contacts.find((c) => c.id === opp.contactId);
+    // Moving a lead into "no answer" sends nothing by itself — the message goes
+    // out only once the agent picks a "no answer N" status (see StatusSelect).
+    if (kind === "noAnswer") return;
     if (kind && contact) setPrompt({ key: Date.now(), contact, kind });
   }
 
