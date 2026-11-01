@@ -65,15 +65,18 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
   }
 
   async function noAnswer({ moved = false } = {}) {
-    // Continue from the current "no answer N" status too (e.g. imported leads).
-    const fromStatus = Number(contact.handlingStatus?.match(/ללא מענה (\d)/)?.[1] ?? 0);
-    const attempt = Math.max(contact.noAnswerCount, fromStatus) + 1;
+    // The message follows the status marked on the lead — never a sequence that
+    // advances by itself: marked "no answer 1" → message 1, again → message 1
+    // again. Moving on to 2 is the agent changing the status. With no such
+    // status yet, it starts at 1. noAnswerCount only counts the tries.
+    const markedStatus = contact.handlingStatus && /^(ללא מענה|ללמ) ?\d/.test(contact.handlingStatus) ? contact.handlingStatus : undefined;
+    const level = Number(markedStatus?.match(/\d/)?.[0] ?? 1);
+    const attempt = contact.noAnswerCount + 1;
     await updateContact(contact.id, { noAnswerCount: attempt });
-    await addNote(contact.id, `📵 ללא מענה — ניסיון ${attempt}${agentName ? ` (${agentName})` : ""}`);
+    await addNote(contact.id, `📵 ללא מענה — ${markedStatus ?? "ללא מענה 1"} (ניסיון ${attempt})${agentName ? ` · ${agentName}` : ""}`);
     const movedNow = moved || (await moveTo(STAGE_FOR.noAnswer, true));
-    // If the business keeps a "no answer N" handling status, set it — and if an
-    // automation sends a message on that status, let it do the sending.
-    const statusName = leadStatuses.find((st) => st.name === `ללא מענה ${attempt}`)?.name;
+    // Set (or re-set) the marked status — an automation on it sends the message.
+    const statusName = markedStatus ?? leadStatuses.find((st) => st.name === "ללא מענה 1")?.name;
     if (statusName) await setHandlingStatus(contact.id, statusName);
     // Either the new status or the "no answer" stage the deal just entered may have an automation that sends.
     const automated =
@@ -84,7 +87,7 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
       setNotice({ ok: true, text: statusName ? `הסטטוס עודכן ל"${statusName}" — ההודעה נשלחת באוטומציה` : 'הליד עבר לשלב "ללא מענה" — ההודעה נשלחת באוטומציה' });
       return;
     }
-    await deliver(templateFor(`no_answer_${Math.min(attempt, 4)}`));
+    await deliver(templateFor(`no_answer_${Math.min(level, 4)}`));
   }
 
   async function afterMeeting({ moved = false } = {}) {
