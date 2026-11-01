@@ -28,6 +28,10 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
   const { ready: autoSend } = useMyGateway();
   const agentName = members.find((m) => m.id === currentMemberId)?.name;
   const templateFor = (action: string) => messageTemplates.find((t) => t.quickAction === action)?.id;
+  // A message written for exactly this status (a template with the status's own
+  // name, e.g. "ללמ 1 דני ואוהד"); otherwise the generic "no answer N" one.
+  const templateForStatus = (status: string | undefined, level: number) =>
+    (status && messageTemplates.find((t) => t.name === status)?.id) || templateFor(`no_answer_${Math.min(level, 4)}`);
 
   // An active automation on entering this stage sends the message itself.
   function stageAutomated(stageName: string): boolean {
@@ -89,7 +93,7 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
       setNotice({ ok: true, text: statusName ? `הסטטוס עודכן ל"${statusName}" — ההודעה נשלחת באוטומציה` : 'הליד עבר לשלב "ללא מענה" — ההודעה נשלחת באוטומציה' });
       return;
     }
-    await deliver(templateFor(`no_answer_${Math.min(level, 4)}`));
+    await deliver(templateForStatus(statusName, level));
   }
 
   // The agent picked a "no answer N" status on a lead that already sits in the
@@ -105,7 +109,7 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
       setNotice({ ok: true, text: `הסטטוס עודכן ל"${statusName}" — ההודעה נשלחת באוטומציה` });
       return;
     }
-    await deliver(templateFor(`no_answer_${Math.min(level, 4)}`));
+    await deliver(templateForStatus(statusName, level));
   }
 
   async function afterMeeting({ moved = false } = {}) {
