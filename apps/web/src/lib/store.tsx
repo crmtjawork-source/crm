@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "./supabaseClient";
 import { apiPost } from "./api";
 import type {
@@ -939,6 +939,48 @@ export function StoreProvider({
       supabase.removeChannel(channel);
     };
   }, [orgId]);
+
+  // Safety net for the stream above: a sleeping laptop, a background tab or a
+  // dropped connection loses events without any error. So new leads (and their
+  // deals) are also fetched when the tab comes back, the network returns, and
+  // every 20 seconds while it's open.
+  const contactsRef = useRef(state.contacts);
+  useEffect(() => {
+    contactsRef.current = state.contacts;
+  });
+  useEffect(() => {
+    if (!orgId || !userId) return;
+    let busy = false;
+    async function catchUp() {
+      if (busy || document.visibilityState === "hidden") return;
+      busy = true;
+      try {
+        const since = contactsRef.current.reduce((m, c) => (c.createdAt > m ? c.createdAt : m), "");
+        let q = supabase.from("contacts").select("*").eq("org_id", orgId).order("created_at", { ascending: false }).limit(100);
+        if (since) q = q.gt("created_at", since);
+        const { data: fresh } = await q;
+        if (!fresh?.length) return;
+        const { data: deals } = await supabase.from("opportunities").select("*").in("contact_id", fresh.map((c: Row) => c.id));
+        setState((st) => ({
+          ...st,
+          contacts: mergeById(st.contacts, fresh.map(mapContact)),
+          opportunities: mergeById(st.opportunities, (deals ?? []).map(mapOpportunity)),
+        }));
+      } finally {
+        busy = false;
+      }
+    }
+    const timer = setInterval(catchUp, 20000);
+    document.addEventListener("visibilitychange", catchUp);
+    window.addEventListener("focus", catchUp);
+    window.addEventListener("online", catchUp);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", catchUp);
+      window.removeEventListener("focus", catchUp);
+      window.removeEventListener("online", catchUp);
+    };
+  }, [orgId, userId]);
 
   const reloadIntegrations = useCallback(async () => {
     const [channelsRes, pagesRes] = await Promise.all([
