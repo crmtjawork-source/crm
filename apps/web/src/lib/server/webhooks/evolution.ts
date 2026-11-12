@@ -233,6 +233,12 @@ async function ingestMessages(db: Db, channel: Row, msgs: Row[], history: boolea
       await db.from("conversations").update({ last_message_at: i.at.toISOString(), last_message_preview: preview(i.d.body), last_direction: i.fromMe ? "outbound" : "inbound" }).eq("id", conv.id);
   }
   if (!history) {
+    // Replying means the chat was read (as on the phone): clear its unread badge.
+    for (const [t, i] of latest) {
+      if (!i.fromMe) continue;
+      const conv = convOf.get(t)!;
+      if (conv.unread_count) await db.from("conversations").update({ unread_count: 0, read_locally_at: new Date().toISOString() }).eq("id", conv.id);
+    }
     for (const i of fresh) {
       if (i.fromMe) continue;
       const conv = convOf.get(i.chat.thread)!;
@@ -384,6 +390,11 @@ export async function handleEvolutionEvent(db: Db, channel: Row, p: Row): Promis
     const list = namesFrom(Array.isArray(data) ? data : data.chats ?? [], (c) => ({ jid: c.remoteJid ?? c.id, name: c.name ?? c.subject }));
     for (const part of chunk(list, 500)) await db.rpc("apply_wa_names", { p_channel: channel.id, p_names: part });
     await applyChatFlags(db, channel, raw);
+    // Reading a chat on the phone (or marking it unread) arrives as its new unread count.
+    const unread = raw
+      .filter((c) => typeof c?.unreadMessages === "number" && typeof (c?.remoteJid ?? c?.id) === "string")
+      .map((c) => ({ remoteJid: String(c.remoteJid ?? c.id), unreadMessages: c.unreadMessages as number }));
+    if (unread.length) await syncUnread(db, channel, unread);
     return null;
   }
   if (event === "groups.upsert" || event === "group.update") {
