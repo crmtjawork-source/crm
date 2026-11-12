@@ -12,6 +12,7 @@ import type { Channel, Contact, Conversation } from "@/lib/types";
 import { MessageBubble } from "@/components/inbox/MessageBubble";
 import { TemplateForm, type TemplateInput } from "@/components/inbox/TemplateForm";
 import { LeadPanel } from "@/components/inbox/LeadPanel";
+import { LeadStrip } from "@/components/inbox/LeadStrip";
 import { QuickReplies } from "@/components/inbox/QuickReplies";
 import { ScheduleSheet } from "@/components/inbox/ScheduleSheet";
 import { Sheet } from "@/components/ui/Sheet";
@@ -131,7 +132,7 @@ function ConversationList({
   );
 
   return (
-    <div className="w-full md:w-96 shrink-0 border-e border-neutral-200 dark:border-neutral-800 flex flex-col min-h-0">
+    <div className="w-full md:w-80 2xl:w-96 shrink-0 border-e border-neutral-200 dark:border-neutral-800 flex flex-col min-h-0">
       <div className="p-3 space-y-2 border-b border-neutral-200 dark:border-neutral-800">
         <input
           value={q}
@@ -259,6 +260,24 @@ function Thread({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  // The lead card beside the chat can be tucked away on a narrow window (remembered).
+  const [cardHidden, setCardHidden] = useState(() => {
+    try {
+      return localStorage.getItem("crm-chat-card-hidden") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleCard = () => {
+    setCardHidden((v) => {
+      try {
+        localStorage.setItem("crm-chat-card-hidden", v ? "0" : "1");
+      } catch {
+        // not remembered
+      }
+      return !v;
+    });
+  };
   const [repliesOpen, setRepliesOpen] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -342,9 +361,9 @@ function Thread({
             <button onClick={() => setPanelOpen(true)} className="lg:hidden text-xs px-2.5 py-1 rounded-md border border-neutral-200 dark:border-neutral-700 shrink-0">
               כרטיס ליד
             </button>
-            <Link href={`/contacts/${contact.id}`} className="hidden lg:inline text-xs text-neutral-500 hover:underline shrink-0">
-              פתיחה מלאה
-            </Link>
+            <button onClick={toggleCard} className="hidden lg:inline text-xs text-neutral-500 hover:underline shrink-0">
+              {cardHidden ? "הצגת כרטיס ליד" : "הסתרת הכרטיס"}
+            </button>
           </>
         ) : (
           !conversation.isGroup && !conversation.externalThreadId.includes("@") && (
@@ -354,6 +373,8 @@ function Thread({
           )
         )}
       </div>
+
+      {contact && <LeadStrip contact={contact} onOpen={() => setPanelOpen(true)} />}
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
         {loading && <p className="text-sm text-neutral-400">טוען הודעות…</p>}
@@ -448,8 +469,8 @@ function Thread({
         )}
       </div>
     </div>
-    {contact && (
-      <aside className="hidden lg:block w-80 xl:w-96 shrink-0 border-s border-neutral-200 dark:border-neutral-800 overflow-y-auto p-3 bg-white dark:bg-neutral-950">
+    {contact && !cardHidden && (
+      <aside className="hidden lg:block w-72 xl:w-80 2xl:w-96 shrink-0 border-s border-neutral-200 dark:border-neutral-800 overflow-y-auto p-3 bg-white dark:bg-neutral-950">
         <LeadPanel contact={contact} />
       </aside>
     )}
