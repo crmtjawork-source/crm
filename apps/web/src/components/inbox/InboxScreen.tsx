@@ -11,6 +11,11 @@ import { isWindowOpen, useConversations, useMessages } from "@/lib/messaging";
 import type { Channel, Contact, Conversation } from "@/lib/types";
 import { MessageBubble } from "@/components/inbox/MessageBubble";
 import { TemplateForm, type TemplateInput } from "@/components/inbox/TemplateForm";
+import { LeadPanel } from "@/components/inbox/LeadPanel";
+import { QuickReplies } from "@/components/inbox/QuickReplies";
+import { ScheduleSheet } from "@/components/inbox/ScheduleSheet";
+import { Sheet } from "@/components/ui/Sheet";
+import { linkChatsToLeads } from "@/lib/leadMatch";
 import { ConnectForm, Connected, LinkControls } from "@/components/settings/PersonalWhatsAppSettings";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -253,11 +258,16 @@ function Thread({
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [repliesOpen, setRepliesOpen] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // A linked WhatsApp (gateway) has no 24-hour rule — only Meta's official API does.
   const windowOpen = isGateway(channel) || isWindowOpen(conversation.lastInboundAt);
   const canAttach = channel?.provider === "evolution";
+  // "/" in the box opens the ready-made messages, filtered by what follows it.
+  const slashQuery = text.startsWith("/") && !text.includes("\n") ? text.slice(1) : null;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
@@ -315,6 +325,7 @@ function Thread({
   }
 
   return (
+    <div className="flex-1 min-w-0 flex min-h-0">
     <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-neutral-50 dark:bg-neutral-950">
       <div className="px-4 py-2.5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-3 bg-white dark:bg-neutral-950">
         <BackToList onClick={onBack} />
@@ -327,9 +338,14 @@ function Thread({
           </p>
         </div>
         {contact ? (
-          <Link href={`/contacts/${contact.id}`} className="text-xs text-neutral-500 hover:underline shrink-0">
-            כרטיס ליד
-          </Link>
+          <>
+            <button onClick={() => setPanelOpen(true)} className="lg:hidden text-xs px-2.5 py-1 rounded-md border border-neutral-200 dark:border-neutral-700 shrink-0">
+              כרטיס ליד
+            </button>
+            <Link href={`/contacts/${contact.id}`} className="hidden lg:inline text-xs text-neutral-500 hover:underline shrink-0">
+              פתיחה מלאה
+            </Link>
+          </>
         ) : (
           !conversation.isGroup && !conversation.externalThreadId.includes("@") && (
             <button onClick={makeLead} disabled={busy} className="text-xs px-2.5 py-1 rounded-md border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 shrink-0 disabled:opacity-50">
@@ -371,8 +387,31 @@ function Thread({
             </button>
           </div>
         )}
+        {windowOpen && (repliesOpen || slashQuery !== null) && (
+          <QuickReplies
+            query={slashQuery ?? ""}
+            contact={contact}
+            fallbackName={title}
+            onPick={(t) => {
+              setText(t);
+              setRepliesOpen(false);
+            }}
+            onClose={() => {
+              setRepliesOpen(false);
+              if (slashQuery !== null) setText("");
+            }}
+          />
+        )}
         {windowOpen ? (
           <form onSubmit={handleSend} className="flex gap-2 items-end">
+            <button type="button" onClick={() => setRepliesOpen((v) => !v)} className="w-9 h-9 shrink-0 rounded-full border border-neutral-200 dark:border-neutral-700 text-lg hover:bg-neutral-100 dark:hover:bg-neutral-900" aria-label="תגובות מוכנות" title="תגובות מוכנות (או הקלדת /)">
+              ⚡
+            </button>
+            {contact && canAttach && (
+              <button type="button" onClick={() => setScheduling(true)} className="w-9 h-9 shrink-0 rounded-full border border-neutral-200 dark:border-neutral-700 text-lg hover:bg-neutral-100 dark:hover:bg-neutral-900" aria-label="הודעה מתוזמנת" title="הודעה מתוזמנת">
+                ⏰
+              </button>
+            )}
             {canAttach && (
               <>
                 <input ref={fileRef} type="file" className="hidden" onChange={(e) => (setFile(e.target.files?.[0] ?? null), (e.target.value = ""))} />
@@ -408,6 +447,18 @@ function Thread({
           </div>
         )}
       </div>
+    </div>
+    {contact && (
+      <aside className="hidden lg:block w-80 xl:w-96 shrink-0 border-s border-neutral-200 dark:border-neutral-800 overflow-y-auto p-3 bg-white dark:bg-neutral-950">
+        <LeadPanel contact={contact} />
+      </aside>
+    )}
+    {contact && panelOpen && (
+      <Sheet title="כרטיס ליד" onClose={() => setPanelOpen(false)}>
+        <LeadPanel contact={contact} />
+      </Sheet>
+    )}
+    {contact && scheduling && <ScheduleSheet contact={contact} channelId={conversation.channelId} initialText={text.startsWith("/") ? "" : text} onClose={() => setScheduling(false)} />}
     </div>
   );
 }
@@ -524,7 +575,7 @@ function InboxView({ box, basePath }: { box: "business" | "personal"; basePath: 
   );
   const myPersonal = channels.find((c) => gateway(c) && c.active && `mem:${c.ownerMembershipId}` === currentMemberId);
   const boxIds = useMemo(() => new Set(boxChannels.map((c) => c.id)), [boxChannels]);
-  const boxConversations = useMemo(() => conversations.filter((c) => boxIds.has(c.channelId)), [conversations, boxIds]);
+  const boxConversations = useMemo(() => linkChatsToLeads(conversations.filter((c) => boxIds.has(c.channelId)), contacts), [conversations, boxIds, contacts]);
 
   const contactsById = useMemo(() => new Map(contacts.map((c) => [c.id, c])), [contacts]);
   const activeChannels = useMemo(() => boxChannels.filter((c) => c.active), [boxChannels]);

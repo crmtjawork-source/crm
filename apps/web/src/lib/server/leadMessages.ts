@@ -156,7 +156,7 @@ export async function sendDueScheduledMessages(db: Db): Promise<number> {
           continue;
         }
       }
-      const { text, attachment, contact } = await composeForLead(db, { orgId: row.org_id, contactId: row.contact_id, userId: row.created_by, templateId: row.template_id, appointmentId: row.appointment_id });
+      const { text, attachment, contact } = await composeForLead(db, { orgId: row.org_id, contactId: row.contact_id, userId: row.created_by, templateId: row.template_id, text: row.body, appointmentId: row.appointment_id });
       // Queued by the database (any meeting) → decided now: owner's WhatsApp, else the business number.
       const channelId = row.channel_id ?? (await pickChannel(db, row.org_id, contact, true, row.created_by));
       if (!channelId) throw new Error("אין חיבור וואטסאפ לשליחה");
