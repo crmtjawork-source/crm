@@ -2,15 +2,15 @@
 
 import { confirmAction } from "@/lib/confirm";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { canAssignLeads, canDeleteLeads, canEditCampaign, effectiveRole } from "@/lib/permissions";
 import { BackLink } from "@/components/BackLink";
-import { useLeadChatHref } from "@/lib/useMyGateway";
 import { ATTRIBUTION_LABELS, platformLabel } from "@/lib/attribution";
 import { QuickActions } from "@/components/leads/QuickActions";
-import { CopyButton } from "@/components/CopyButton";
+import { LeadHero } from "@/components/leads/LeadHero";
+import { LeadStageBar } from "@/components/leads/LeadStageBar";
+import { NextStepCard } from "@/components/leads/NextStepCard";
 import { StageSelect } from "@/components/leads/StageSelect";
 import { StatusSelect } from "@/components/leads/StatusSelect";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
@@ -44,7 +44,6 @@ export default function ContactDetailPage() {
     leadStatuses,
   } = useStore();
   const contact = getContact(id);
-  const chatHref = useLeadChatHref(id);
   const stagePrompt = useStageMovePrompt();
 
   useEffect(() => {
@@ -150,54 +149,13 @@ export default function ContactDetailPage() {
             </div>
           </form>
         ) : (
-          <div className="mb-4">
-            <h1 className="text-2xl font-bold tracking-tight mb-1">{contact.name}</h1>
-            <p className="flex items-center gap-2 text-2xl font-bold tracking-wide text-neutral-900 dark:text-neutral-50 mb-0.5">
-              {contact.phone ? (
-                <>
-                  <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`} dir="ltr" className="hover:underline">
-                    {contact.phone}
-                  </a>
-                  <CopyButton text={contact.phone} label="העתקת מספר טלפון" className="!text-base" />
-                </>
-              ) : (
-                <span className="text-base font-normal text-neutral-400">אין טלפון</span>
-              )}
-            </p>
-            <p className="flex items-center gap-1.5 text-sm text-neutral-500">
-              {contact.email ?? "אין אימייל"}
-              {contact.email && <CopyButton text={contact.email} label="העתקת אימייל" />}
-            </p>
-            <p className="text-xs text-neutral-400 mt-0.5">
-              נכנס ב־{new Date(contact.createdAt).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-            </p>
-          </div>
+          <LeadHero contact={contact} canDelete={canDelete} onEdit={startEdit} onDelete={handleDeleteContact} />
         )}
       </div>
 
-      {!editingInfo && (
-        <div className="flex flex-wrap gap-2 mb-4 text-[13px] font-medium">
-          {contact.phone && (
-            <Link href={chatHref} className="rounded-lg bg-whatsapp text-white px-3 py-1.5 hover:brightness-95">
-              שיחה בוואטסאפ
-            </Link>
-          )}
-          <button onClick={startEdit} className="rounded-lg bg-black/[.06] dark:bg-white/10 text-neutral-700 dark:text-neutral-200 px-3 py-1.5 hover:bg-black/[.09]">
-            עריכת פרטים
-          </button>
-          {canDelete ? (
-            <button onClick={handleDeleteContact} className="rounded-lg bg-black/[.06] dark:bg-white/10 text-neutral-600 dark:text-neutral-300 px-3 py-1.5 hover:text-red-500">
-              מחיקת ליד
-            </button>
-          ) : (
-            <span className="rounded-lg px-3 py-1.5 text-neutral-300 dark:text-neutral-700" title="רק מנהלים ובעלים יכולים למחוק לידים">
-              מחיקת ליד
-            </span>
-          )}
-        </div>
-      )}
-
       {!editingInfo && <QuickActions contact={contact} />}
+      {!editingInfo && <LeadStageBar contact={contact} afterMove={stagePrompt.afterMove} />}
+      {!editingInfo && <NextStepCard contact={contact} />}
 
       <LeadUpcoming contact={contact} />
 

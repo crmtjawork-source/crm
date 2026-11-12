@@ -692,12 +692,21 @@ type TriggerResult = { contact: Row | null; activities: Row[]; notifications: Ro
 // would be silently truncated without paging.
 const PAGE = 1000;
 async function fetchAll(table: string, order = "created_at"): Promise<{ data: Row[] }> {
-  const rows: Row[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase.from(table).select("*").order(order).order("id").range(from, from + PAGE - 1);
-    if (error) throw error;
-    rows.push(...(data ?? []));
-    if (!data || data.length < PAGE) break;
+  const page = (from: number) =>
+    supabase.from(table).select("*", from === 0 ? { count: "exact" } : undefined).order(order).order("id").range(from, from + PAGE - 1);
+  // First page also returns the total, so the remaining pages can be fetched
+  // in parallel instead of one round trip after another.
+  const first = await page(0);
+  if (first.error) throw first.error;
+  const rows: Row[] = [...(first.data ?? [])];
+  const total = first.count ?? rows.length;
+  if (rows.length < PAGE || total <= PAGE) return { data: rows };
+  const rest = await Promise.all(
+    Array.from({ length: Math.ceil((total - PAGE) / PAGE) }, (_, i) => page((i + 1) * PAGE))
+  );
+  for (const r of rest) {
+    if (r.error) throw r.error;
+    rows.push(...(r.data ?? []));
   }
   return { data: rows };
 }
@@ -736,19 +745,16 @@ export function StoreProvider({
         invitationsRes,
         automationsRes,
         automationStepsRes,
-        automationRunsRes,
         notificationsRes,
         channelsRes,
         leadAdPagesRes,
         campaignsRes,
-        campaignSpendRes,
         leadSourcesRes,
         templatesRes,
         scheduledRes,
         leadStatusesRes,
         orgRes,
         documentTemplatesRes,
-        documentsRes,
         objectTypesRes,
         objectCategoriesRes,
         objectFieldsRes,
@@ -772,12 +778,10 @@ export function StoreProvider({
         supabase.from("invitations").select("*"),
         supabase.from("automations").select("*").order("created_at"),
         supabase.from("automation_steps").select("*"),
-        fetchAll("automation_runs", "ran_at"),
         supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(200),
         supabase.from("channels").select("*").order("created_at"),
         supabase.from("lead_ad_pages").select("*").order("created_at"),
         supabase.from("campaigns").select("*").order("created_at"),
-        fetchAll("campaign_spend"),
         supabase.from("lead_sources").select("*").order("created_at"),
         supabase.from("message_templates").select("*").order("position"),
         // Upcoming and recently failed reminders; sent ones live in the timeline.
@@ -785,7 +789,6 @@ export function StoreProvider({
         supabase.from("lead_statuses").select("*").order("position"),
         supabase.from("organizations").select("meeting_reminders, merge_repeat_leads, company_signature, lost_reasons").eq("id", orgId).maybeSingle(),
         supabase.from("document_templates").select("*").order("position"),
-        fetchAll("documents", "sent_at"),
         supabase.from("object_types").select("*").order("position"),
         supabase.from("object_categories").select("*").order("position"),
         supabase.from("object_fields").select("*").order("position"),
@@ -824,7 +827,8 @@ export function StoreProvider({
       ];
       const myMembership = (membershipsRes.data ?? []).find((m: Row) => m.user_id === userId);
 
-      setState({
+      setState((prev) => ({
+        ...prev,
         contacts: (contactsRes.data ?? []).map(mapContact),
         pipelines: (pipelinesRes.data ?? []).map((p: Row) => mapPipeline(p, stageRows)),
         opportunities: (opportunitiesRes.data ?? []).map(mapOpportunity),
@@ -839,12 +843,10 @@ export function StoreProvider({
         members,
         currentMemberId: myMembership ? `mem:${myMembership.id}` : "",
         automations: (automationsRes.data ?? []).map((a: Row) => mapAutomation(a, automationStepRows)),
-        automationRuns: (automationRunsRes.data ?? []).map(mapAutomationRun),
         notifications: (notificationsRes.data ?? []).map(mapNotification),
         channels: (channelsRes.data ?? []).map(mapChannel),
         leadAdPages: (leadAdPagesRes.data ?? []).map(mapLeadAdPage),
         campaigns: (campaignsRes.data ?? []).map(mapCampaign),
-        campaignSpend: (campaignSpendRes.data ?? []).map(mapCampaignSpend),
         leadSources: (leadSourcesRes.data ?? []).map(mapLeadSource),
         messageTemplates: (templatesRes.data ?? []).map(mapMessageTemplate),
         scheduledMessages: (scheduledRes.data ?? []).map(mapScheduledMessage),
@@ -854,12 +856,27 @@ export function StoreProvider({
         companySignature: orgRes.data?.company_signature ?? undefined,
         lostReasons: Array.isArray(orgRes.data?.lost_reasons) ? (orgRes.data.lost_reasons as string[]) : [],
         documentTemplates: (documentTemplatesRes.data ?? []).map(mapDocumentTemplate),
-        documents: (documentsRes.data ?? []).map(mapDocument),
         objectTypes: (objectTypesRes.data ?? []).map((t: Row) => mapObjectType(t, objectFieldsRes.data ?? [])),
         objectCategories: (objectCategoriesRes.data ?? []).map((c: Row) => ({ id: c.id, name: c.name, icon: c.icon ?? undefined, position: c.position })),
         roles: (rolesRes.data ?? []).map(mapRole),
-      });
+      }));
       setLoading(false);
+
+      // Heavy, rarely-needed history loads after the app is already usable
+      // (automation run log, ad spend, documents). Merged by id so rows that
+      // realtime or an action added meanwhile are kept.
+      const [runsRes, spendRes, docsRes] = await Promise.all([
+        fetchAll("automation_runs", "ran_at").catch(() => ({ data: [] as Row[] })),
+        fetchAll("campaign_spend").catch(() => ({ data: [] as Row[] })),
+        fetchAll("documents", "sent_at").catch(() => ({ data: [] as Row[] })),
+      ]);
+      if (cancelled) return;
+      setState((st) => ({
+        ...st,
+        automationRuns: mergeById(runsRes.data.map(mapAutomationRun), st.automationRuns),
+        campaignSpend: mergeById(spendRes.data.map(mapCampaignSpend), st.campaignSpend),
+        documents: mergeById(docsRes.data.map(mapDocument), st.documents),
+      }));
     }
 
     loadAll();

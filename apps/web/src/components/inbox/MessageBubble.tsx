@@ -40,7 +40,7 @@ function Linkified({ text }: { text: string }) {
     <>
       {text.split(URL_RE).map((part, i) =>
         /^https?:\/\//.test(part) ? (
-          <a key={i} href={part} target="_blank" rel="noreferrer" className="text-sky-600 dark:text-sky-400 underline break-all" dir="ltr">
+          <a key={i} href={part} target="_blank" rel="noreferrer" className="text-tint underline break-all" dir="ltr">
             {part}
           </a>
         ) : (
@@ -140,7 +140,8 @@ const MEDIA_TYPES = new Set(["image", "video", "audio", "voice", "document", "st
 // The text that goes with media: WhatsApp's caption (our stored body is "[תמונה] caption").
 const captionOf = (m: Message) => (m.body ?? "").replace(/^\[[^\]]+\]\s?/, "").replace(m.mediaName ?? "\u0000", "").trim();
 
-export function MessageBubble({ message, showSender }: { message: Message; showSender?: boolean }) {
+// `first` / `last`: position inside a run of messages from the same sender. Joined corners are squarer and only the last bubble shows the time and delivery mark.
+export function MessageBubble({ message, showSender, first = true, last = true }: { message: Message; showSender?: boolean; first?: boolean; last?: boolean }) {
   const outbound = message.direction === "outbound";
   const origin = message.origin ? ORIGIN_LABELS[message.origin] : "";
   const time = new Date(message.createdAt).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
@@ -152,6 +153,8 @@ export function MessageBubble({ message, showSender }: { message: Message; showS
     <div className={`flex ${outbound ? "justify-end" : "justify-start"}`}>
       <div
         className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-3 py-1.5 text-sm break-words shadow-sm ${
+          outbound ? `${first ? "" : "rounded-se-md"} ${last ? "" : "rounded-ee-md"}` : `${first ? "" : "rounded-ss-md"} ${last ? "" : "rounded-es-md"}`
+        } ${
           outbound ? "bg-[#d9f7e0] dark:bg-[#1f5a35] text-neutral-900 dark:text-neutral-50" : "bg-white dark:bg-neutral-800 border border-black/[.06] dark:border-white/10"
         } ${message.status === "failed" ? "border border-red-300 dark:border-red-800" : ""}`}
       >
@@ -161,8 +164,8 @@ export function MessageBubble({ message, showSender }: { message: Message; showS
           </p>
         )}
         {message.quoted && (
-          <div className="mb-1.5 rounded-md border-s-4 border-emerald-500 bg-black/5 dark:bg-white/5 px-2 py-1 text-xs">
-            {message.quoted.author && <p className="font-semibold text-emerald-700 dark:text-emerald-400" dir="ltr">{message.quoted.author}</p>}
+          <div className="mb-1.5 rounded-lg border-s-[3px] border-tint bg-black/[.05] dark:bg-white/[.07] px-2.5 py-1 text-xs">
+            {message.quoted.author && <p className="font-semibold text-tint" dir="ltr">{message.quoted.author}</p>}
             <p className="text-neutral-600 dark:text-neutral-300 line-clamp-2 whitespace-pre-wrap">{message.quoted.text}</p>
           </div>
         )}
@@ -183,11 +186,13 @@ export function MessageBubble({ message, showSender }: { message: Message; showS
           </p>
         )}
         {message.status === "failed" && message.error && <p className="text-xs text-red-500 mt-1">{message.error}</p>}
-        <div className="flex items-center gap-1.5 justify-end mt-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">
-          {origin && <span>{origin}</span>}
-          <span dir="ltr">{time}</span>
-          <StatusMark message={message} />
-        </div>
+        {(last || message.status === "failed" || isMedia) && (
+          <div className="flex items-center gap-1.5 justify-end mt-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">
+            {origin && <span>{origin}</span>}
+            <span dir="ltr">{time}</span>
+            <StatusMark message={message} />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -380,21 +380,25 @@ function Thread({
 
       {contact && <LeadStrip contact={contact} onOpen={() => setPanelOpen(true)} />}
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-[3px]">
         {loading && <p className="text-sm text-neutral-400">טוען הודעות…</p>}
         {!loading && messages.length === 0 && <p className="text-sm text-neutral-400">אין עדיין הודעות בשיחה הזו.</p>}
         {messages.map((m, i) => {
           const prev = messages[i - 1];
+          const next = messages[i + 1];
           const day = dayLabel(m.createdAt);
           const sep = !prev || dayLabel(prev.createdAt) !== day;
+          const sameRun = (a?: typeof m, b?: typeof m) => !!a && !!b && a.direction === b.direction && a.senderName === b.senderName && dayLabel(a.createdAt) === dayLabel(b.createdAt);
+          const first = sep || !sameRun(prev, m);
+          const last = !sameRun(m, next);
           return (
-            <div key={m.id} className={!sep && prev && prev.direction === m.direction && prev.senderName === m.senderName ? "" : "pt-1.5"}>
+            <div key={m.id} className={first ? "pt-2.5" : ""}>
               {sep && (
                 <div className="flex justify-center my-2">
-                  <span className="text-[11px] px-3 py-1 rounded-full bg-neutral-200/80 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">{day}</span>
+                  <span className="text-[11px] px-3 py-1 rounded-full bg-black/[.06] dark:bg-white/10 text-neutral-600 dark:text-neutral-300">{day}</span>
                 </div>
               )}
-              <MessageBubble message={m} showSender={conversation.isGroup && (!prev || prev.senderName !== m.senderName || prev.direction !== m.direction || sep)} />
+              <MessageBubble message={m} first={first} last={last} showSender={conversation.isGroup && first} />
             </div>
           );
         })}
