@@ -1,29 +1,47 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import type { Contact } from "@/lib/types";
 import { NoteItem } from "./NoteItem";
+import { joinNote, NOTE_IMAGE_MAX, uploadNoteImage } from "@/lib/noteImages";
 
 // The lead's notes and history as a side panel (wide screens) and as a block on the phone: write a note
 // at the top, read everything below — notes only, or notes with the system
 // activity (stage moves, messages sent…).
 export function LeadNotesPanel({ contact }: { contact: Contact }) {
-  const { activitiesFor, addNote } = useStore();
+  const { activitiesFor, addNote, orgId } = useStore();
   const [text, setText] = useState("");
   const [onlyNotes, setOnlyNotes] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [images, setImages] = useState<File[]>([]);
+  const [error, setError] = useState("");
+  const previews = useMemo(() => images.map((f) => URL.createObjectURL(f)), [images]);
+  useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
   const all = activitiesFor(contact.id);
   const notes = all.filter((a) => a.type === "note");
   const list = onlyNotes ? notes : all;
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault();
-    if (!text.trim() || busy) return;
+    if ((!text.trim() && images.length === 0) || busy) return;
     setBusy(true);
-    await addNote(contact.id, text.trim());
-    setText("");
+    setError("");
+    try {
+      const paths = await Promise.all(images.map((f) => uploadNoteImage(orgId, f)));
+      await addNote(contact.id, joinNote(text, paths));
+      setText("");
+      setImages([]);
+    } catch {
+      setError("העלאת התמונה נכשלה");
+    }
     setBusy(false);
+  }
+
+  function pick(files: File[]) {
+    const ok = files.filter((f) => f.type.startsWith("image/"));
+    if (ok.some((f) => f.size > NOTE_IMAGE_MAX)) setError("תמונה גדולה מ-10MB לא נוספה");
+    setImages((xs) => [...xs, ...ok.filter((f) => f.size <= NOTE_IMAGE_MAX)]);
   }
 
   return (
@@ -49,9 +67,34 @@ export function LeadNotesPanel({ contact }: { contact: Contact }) {
           rows={3}
           dir="auto"
           placeholder="כתיבת הערה… (Ctrl + Enter לשמירה)"
+          onPaste={(e) => {
+            const files = Array.from(e.clipboardData.files);
+            if (files.some((f) => f.type.startsWith("image/"))) {
+              e.preventDefault();
+              pick(files);
+            }
+          }}
           className="w-full px-3 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent resize-y"
         />
-        <button type="submit" disabled={!text.trim() || busy} className="mt-2 w-full py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-40">
+        {previews.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {previews.map((u, i) => (
+              <div key={u} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={u} alt="" className="h-16 w-16 rounded-md object-cover border border-neutral-200 dark:border-neutral-800" />
+                <button type="button" onClick={() => setImages((xs) => xs.filter((_, j) => j !== i))} aria-label="הסרת תמונה" className="absolute -top-1.5 -end-1.5 h-5 w-5 rounded-full bg-neutral-900 text-white text-xs leading-none">
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+        <label className="mt-2 block text-center text-xs py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 cursor-pointer text-neutral-600 dark:text-neutral-300">
+          📷 הוספת תמונה
+          <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => (pick(Array.from(e.target.files ?? [])), (e.target.value = ""))} />
+        </label>
+        <button type="submit" disabled={(!text.trim() && images.length === 0) || busy} className="mt-2 w-full py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-40">
           {busy ? "שומר…" : "הוספת הערה"}
         </button>
       </form>
