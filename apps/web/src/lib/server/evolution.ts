@@ -164,6 +164,16 @@ export async function findContacts(name: string): Promise<Array<{ remoteJid?: st
   return Array.isArray(r) ? r : [];
 }
 
+// The chat's profile picture (a WhatsApp CDN link), or null when it has none / hides it.
+export async function profilePictureUrl(name: string, jid: string): Promise<string | null> {
+  try {
+    const r = await call<{ profilePictureUrl?: string | null }>("POST", `/chat/fetchProfilePictureUrl/${encodeURIComponent(name)}`, { number: jid });
+    return r.profilePictureUrl || null;
+  } catch {
+    return null;
+  }
+}
+
 // Marks messages as read on the phone (the blue ticks / cleared badge), like opening the chat in WhatsApp Web.
 export async function markRead(name: string, keys: Array<{ remoteJid: string; fromMe: boolean; id: string }>): Promise<void> {
   if (!keys.length) return;

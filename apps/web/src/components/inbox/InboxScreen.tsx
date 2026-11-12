@@ -43,9 +43,16 @@ function chatTitle(c: Conversation, contactsById: Map<string, Contact>): string 
   return c.externalThreadId.includes("@") ? "איש קשר" : prettyPhone(c.externalThreadId); // anonymous WhatsApp id: no number to show
 }
 
-function Avatar({ title, group, size = 40 }: { title: string; group: boolean; size?: number }) {
+function Avatar({ title, group, size = 40, src }: { title: string; group: boolean; size?: number; src?: string }) {
+  const [brokenSrc, setBrokenSrc] = useState<string>();
+  const broken = brokenSrc === src;
   const color = AVATAR_COLORS[[...title].reduce((n, ch) => n + ch.charCodeAt(0), 0) % AVATAR_COLORS.length];
   const initials = title.replace(/[^\p{L}\p{N} ]/gu, "").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  if (src && !broken)
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBrokenSrc(src)} className="shrink-0 rounded-full object-cover bg-neutral-200 dark:bg-neutral-800" style={{ width: size, height: size }} />
+    );
   return (
     <span className="shrink-0 rounded-full flex items-center justify-center text-white font-medium" style={{ width: size, height: size, backgroundColor: color, fontSize: size * 0.38 }}>
       {group ? "👥" : initials || "#"}
@@ -53,7 +60,9 @@ function Avatar({ title, group, size = 40 }: { title: string; group: boolean; si
   );
 }
 
-type ListTab = "all" | "unread" | "waiting" | "groups" | "leads";
+const isMuted = (c: Conversation) => Boolean(c.mutedUntil && (c.mutedUntil === "infinity" || new Date(c.mutedUntil).getTime() > Date.now()));
+
+type ListTab = "all" | "unread" | "waiting" | "groups" | "leads" | "archived";
 
 function ConversationList({
   conversations,
@@ -73,10 +82,14 @@ function ConversationList({
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<ListTab>("all");
   const [channelFilter, setChannelFilter] = useState("");
+  const [avatars, setAvatars] = useState<Record<string, string | null>>({});
   const needle = q.trim().toLowerCase();
   const digits = needle.replace(/\D/g, "");
-  const unreadTotal = conversations.filter((c) => c.unreadCount > 0).length;
+  const archivedCount = conversations.filter((c) => c.archived).length;
+  const unreadTotal = conversations.filter((c) => c.unreadCount > 0 && !c.archived).length;
   const visible = conversations.filter((c) => {
+    // Archived chats live in their own view, as in WhatsApp (a search still finds them).
+    if (tab === "archived" ? !c.archived : c.archived && !needle) return false;
     // A chat with no messages and no name (an anonymous contact we know nothing about) has nothing to show.
     if (!c.lastMessageAt && !c.chatName && !c.contactId) return false;
     if (channelFilter && c.channelId !== channelFilter) return false;
@@ -92,6 +105,20 @@ function ConversationList({
       c.lastMessagePreview?.toLowerCase().includes(needle)
     );
   });
+  // Profile pictures for the chats at the top of the list (the server asks WhatsApp and remembers them).
+  const wanted = visible.filter((c) => c.avatarUrl === undefined && !(c.id in avatars)).slice(0, 30).map((c) => c.id).join(",");
+  useEffect(() => {
+    if (!wanted) return;
+    const ids = wanted.split(",");
+    let cancelled = false;
+    apiPost<{ avatars: Record<string, string | null> }>("/api/channels/avatars", { ids })
+      .then((r) => !cancelled && setAvatars((prev) => ({ ...prev, ...Object.fromEntries(ids.map((id) => [id, null])), ...r.avatars })))
+      .catch(() => !cancelled && setAvatars((prev) => ({ ...prev, ...Object.fromEntries(ids.map((id) => [id, null])) })));
+    return () => {
+      cancelled = true;
+    };
+  }, [wanted]);
+
   const tabBtn = (id: ListTab, label: string) => (
     <button key={id} onClick={() => setTab(id)} className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap ${tab === id ? "bg-emerald-600 text-white" : "bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300"}`}>
       {label}
@@ -113,6 +140,7 @@ function ConversationList({
           {tabBtn("waiting", "ממתינות למענה")}
           {tabBtn("groups", "קבוצות")}
           {tabBtn("leads", "לידים")}
+          {archivedCount > 0 && tabBtn("archived", `ארכיון (${archivedCount})`)}
         </div>
         {channelsById.size > 1 && (
           <select
@@ -133,6 +161,7 @@ function ConversationList({
         {visible.map((c) => {
           const title = chatTitle(c, contactsById);
           const channel = channelsById.get(c.channelId);
+          const muted = isMuted(c);
           return (
             <li key={c.id} className="group relative">
               <button
@@ -141,17 +170,22 @@ function ConversationList({
                   selectedId === c.id ? "bg-neutral-100 dark:bg-neutral-900" : "hover:bg-neutral-50 dark:hover:bg-neutral-950"
                 }`}
               >
-                <Avatar title={title} group={c.isGroup} />
+                <Avatar title={title} group={c.isGroup} src={c.avatarUrl ?? avatars[c.id] ?? undefined} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center justify-between gap-2">
                     <span className={`text-sm truncate ${c.unreadCount ? "font-semibold" : "font-medium"}`}>
                       {title}
                     </span>
-                    <span className={`text-[11px] shrink-0 ${c.unreadCount ? "text-emerald-600 font-medium" : "text-neutral-400"}`}>{formatListTime(c.lastMessageAt)}</span>
+                    <span className={`text-[11px] shrink-0 ${c.unreadCount && !muted ? "text-emerald-600 font-medium" : "text-neutral-400"}`}>{formatListTime(c.lastMessageAt)}</span>
                   </span>
                   <span className="flex items-center justify-between gap-2 mt-0.5">
-                    <span className="text-xs text-neutral-500 truncate">{c.lastMessagePreview ?? (c.lastMessageAt ? "" : "אין הודעות ב־30 הימים האחרונים")}</span>
-                    {c.unreadCount > 0 && <span className="text-[11px] min-w-[1.25rem] text-center px-1 rounded-full bg-emerald-500 text-white shrink-0">{c.unreadCount}</span>}
+                    <span className="text-xs text-neutral-500 truncate">
+                      {c.lastMessagePreview ? (c.lastDirection === "outbound" ? `אתה: ${c.lastMessagePreview}` : c.lastMessagePreview) : c.lastMessageAt ? "" : "אין הודעות ב־30 הימים האחרונים"}
+                    </span>
+                    <span className="flex items-center gap-1 shrink-0">
+                      {muted && <span className="text-[11px] text-neutral-400" title="מושתקת">🔕</span>}
+                      {c.unreadCount > 0 && <span className={`text-[11px] min-w-[1.25rem] text-center px-1 rounded-full text-white ${muted ? "bg-neutral-400" : "bg-emerald-500"}`}>{c.unreadCount}</span>}
+                    </span>
                   </span>
                   {channelsById.size > 1 && channel && <span className="block text-[11px] text-neutral-400 mt-0.5">{channel.name}</span>}
                 </span>
@@ -284,7 +318,7 @@ function Thread({
     <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-neutral-50 dark:bg-neutral-950">
       <div className="px-4 py-2.5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-3 bg-white dark:bg-neutral-950">
         <BackToList onClick={onBack} />
-        <Avatar title={title} group={conversation.isGroup} size={36} />
+        <Avatar title={title} group={conversation.isGroup} size={36} src={conversation.avatarUrl} />
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm truncate">{title}</p>
           <p className="text-xs text-neutral-500 truncate">

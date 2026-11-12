@@ -246,7 +246,10 @@ export type Conversation = {
   isGroup: boolean;
   waJid?: string;
   lastDirection?: "inbound" | "outbound"; // who wrote last
-  pinnedAt?: string; // pinned to the top of the list (kept in the CRM)
+  pinnedAt?: string; // pinned to the top of the list (mirrors the phone)
+  archived?: boolean; // archived on the phone
+  mutedUntil?: string; // muted until then ("infinity" = for good)
+  avatarUrl?: string; // the chat's WhatsApp profile picture
   externalThreadId: string; // phone number, or the group id
   lastMessageAt?: string;
   lastMessagePreview?: string;

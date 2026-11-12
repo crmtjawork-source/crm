@@ -311,6 +311,26 @@ function namesFrom(list: unknown, pick: (x: Row) => { jid?: string; name?: strin
   return out;
 }
 
+// Pin / archive / mute as set on the phone (needs the Evolution chat-flags patch,
+// scripts/evolution-patch-chat-flags.py). Only the settings WhatsApp actually
+// sent are applied; a database without the columns yet is tolerated.
+async function applyChatFlags(db: Db, channel: Row, chats: Row[]): Promise<void> {
+  const flags: Row[] = [];
+  for (const c of chats) {
+    const jid = typeof c?.remoteJid === "string" ? c.remoteJid : typeof c?.id === "string" ? c.id : "";
+    if (!jid) continue;
+    const f: Row = { jid: jid.replace(/:\d+@/, "@") };
+    if ("pinned" in c && c.pinned !== undefined) f.pinned = c.pinned;
+    if (typeof c.archived === "boolean") f.archived = c.archived;
+    if ("muteEndTime" in c && c.muteEndTime !== undefined) f.mute = c.muteEndTime ?? 0;
+    if (Object.keys(f).length > 1) flags.push(f);
+  }
+  for (const part of chunk(flags, 500)) {
+    const { error } = await db.rpc("apply_wa_chat_flags", { p_channel: channel.id, p_flags: part });
+    if (error) console.error("apply_wa_chat_flags failed:", error.message);
+  }
+}
+
 // Everything a linked number reports: messages (all chats, groups included),
 // the history sent at linking, and the names that go with them.
 export async function handleEvolutionEvent(db: Db, channel: Row, p: Row): Promise<string | null> {
@@ -357,6 +377,7 @@ export async function handleEvolutionEvent(db: Db, channel: Row, p: Row): Promis
     if (event !== "chats.update") await ensureChats(db, channel, raw.map((c) => c?.remoteJid ?? c?.id).filter((j): j is string => typeof j === "string"));
     const list = namesFrom(Array.isArray(data) ? data : data.chats ?? [], (c) => ({ jid: c.remoteJid ?? c.id, name: c.name ?? c.subject }));
     for (const part of chunk(list, 500)) await db.rpc("apply_wa_names", { p_channel: channel.id, p_names: part });
+    await applyChatFlags(db, channel, raw);
     return null;
   }
   if (event === "groups.upsert" || event === "group.update") {
