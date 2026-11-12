@@ -15,7 +15,6 @@ import { StatusSelect } from "@/components/leads/StatusSelect";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { LeadUpcoming } from "@/components/leads/LeadUpcoming";
 import { LeadStepper } from "@/components/leads/LeadStepper";
-import { LeadTimeline } from "@/components/leads/LeadTimeline";
 import { LeadNotesPanel } from "@/components/leads/LeadNotesPanel";
 import { LeadDocuments } from "@/components/documents/LeadDocuments";
 import { LeadCalls } from "@/components/leads/LeadCalls";
@@ -324,6 +323,11 @@ export default function ContactDetailPage() {
         </form>
       </div>
 
+      {/* Phones and narrow windows: the notes sit right under the header, in full (wide screens have them beside the details). */}
+      <div className="lg:hidden mb-6">
+        <LeadNotesPanel contact={contact} />
+      </div>
+
       <LeadFieldsCard contact={contact} />
       <LeadRecords contact={contact} />
 
@@ -331,10 +335,6 @@ export default function ContactDetailPage() {
       <LeadCalls contactId={contact.id} />
       <FilesSection contactId={contact.id} />
 
-      {/* Phones and narrow windows keep the compact timeline under the details. */}
-      <div className="lg:hidden">
-        <LeadTimeline contact={contact} />
-      </div>
       </div>
       <div className="hidden lg:block">
         <LeadNotesPanel contact={contact} />

@@ -5,7 +5,7 @@ import { useStore } from "@/lib/store";
 import type { Contact } from "@/lib/types";
 import { NoteItem } from "./NoteItem";
 
-// The lead's notes and history as a side panel (wide screens): write a note
+// The lead's notes and history as a side panel (wide screens) and as a block on the phone: write a note
 // at the top, read everything below — notes only, or notes with the system
 // activity (stage moves, messages sent…).
 export function LeadNotesPanel({ contact }: { contact: Contact }) {
@@ -55,7 +55,7 @@ export function LeadNotesPanel({ contact }: { contact: Contact }) {
           {busy ? "שומר…" : "הוספת הערה"}
         </button>
       </form>
-      <ul className="overflow-y-auto p-3 space-y-3 min-h-24">
+      <ul className="overflow-y-auto p-3 space-y-3 min-h-24 max-h-[60dvh] lg:max-h-none">
         {list.length === 0 && <li className="text-sm text-neutral-400">{onlyNotes ? "אין עדיין הערות." : "אין עדיין פעילות."}</li>}
         {list.map((a) => (
           <NoteItem key={a.id} activity={a} />
