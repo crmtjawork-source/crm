@@ -25,7 +25,7 @@ export function LeadFieldsSettings({ isAdmin }: { isAdmin: boolean }) {
     <section className="mb-10">
       <h2 className="text-base font-semibold mb-1">שדות בכרטיס הליד</h2>
       <p className="text-sm text-neutral-500 mb-3">שדות נוספים לכל ליד: רשימת בחירה עם צבעים, מספר, תאריך, טקסט ועוד, בקבוצות ובסדר שתבחרו.</p>
-      <ul className="border border-neutral-200 dark:border-neutral-800 rounded-lg divide-y divide-neutral-100 dark:divide-neutral-900 mb-3 text-sm">
+      <ul className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm divide-y divide-neutral-100 dark:divide-neutral-900 mb-3 text-sm">
         {leadFields.map((f, i) => (
           <li key={f.id} className="flex items-center gap-2 px-3 py-2">
             {isAdmin && (
@@ -50,7 +50,7 @@ export function LeadFieldsSettings({ isAdmin }: { isAdmin: boolean }) {
         {leadFields.length === 0 && <li className="px-3 py-2 text-neutral-400">אין עדיין שדות.</li>}
       </ul>
       {isAdmin && (
-        <button onClick={() => setOpen("new")} className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+        <button onClick={() => setOpen("new")} className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
           + שדה
         </button>
       )}

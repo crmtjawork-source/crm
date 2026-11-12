@@ -33,7 +33,7 @@ export function ColumnPicker({
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+      <button onClick={() => setOpen(true)} className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
         ▦ עמודות
       </button>
       {open && (

@@ -1,0 +1,51 @@
+<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet"><script src="icons.js"></script>
+<style>
+:root{--bg:#0B0D10;--p1:#12151A;--p2:#181C22;--line:#242932;--ink:#EDEFF2;--mut:#8A919C;--acc:#3DDC97;--accd:#0F2E22}
+*{box-sizing:border-box;margin:0}body{width:1440px;height:900px;font-family:Heebo,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;overflow:hidden;font-size:14px}
+.top{height:60px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 20px;background:var(--p1)}
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;margin-inline-end:18px}.logo b{width:28px;height:28px;border-radius:8px;background:var(--acc);color:#04170E;display:grid;place-items:center}
+.t{display:flex;align-items:center;gap:8px;padding:8px 13px;border-radius:9px;color:var(--mut);font-weight:500}.t.on{background:var(--p2);color:var(--ink)}
+.cmd{margin-inline-start:auto;display:flex;align-items:center;gap:10px;background:var(--p2);border:1px solid var(--line);border-radius:10px;padding:8px 14px;width:340px;color:var(--mut)}.cmd kbd{margin-inline-start:auto;font:inherit;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:0 6px}
+.ic{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;color:var(--mut);position:relative}.ic.dot::after{content:"";position:absolute;top:7px;inset-inline-start:9px;width:8px;height:8px;border-radius:50%;background:#FF5C5C;border:2px solid var(--p1)}
+.me{width:32px;height:32px;border-radius:50%;background:#2B3340;display:grid;place-items:center;font-size:12px;font-weight:600;margin-inline-start:6px}
+.head{padding:20px 24px 14px;display:flex;align-items:flex-end;gap:28px}
+h1{font-size:22px;font-weight:700}.kp{display:flex;gap:26px;margin-inline-start:20px}.kp div{display:flex;flex-direction:column}.kp small{color:var(--mut);font-size:11.5px}.kp b{font-size:20px;font-weight:700}.kp .g{color:var(--acc)}
+.chips{margin-inline-start:auto;display:flex;gap:8px}.chip{padding:7px 12px;border-radius:9px;background:var(--p2);border:1px solid var(--line);color:#c4c9d1;display:flex;gap:7px;align-items:center;font-weight:500}.chip.on{background:var(--accd);border-color:#1d5a40;color:var(--acc)}
+.board{display:flex;gap:14px;padding:0 24px 20px;flex:1;overflow:hidden}
+.col{width:268px;flex:none;display:flex;flex-direction:column;gap:10px}
+.ch{display:flex;align-items:center;gap:8px;padding:2px 4px}.ch i{width:9px;height:9px;border-radius:3px}.ch b{font-weight:600}.ch span{color:var(--mut);font-size:12.5px}.ch em{margin-inline-start:auto;font-style:normal;color:var(--mut);font-size:12px}
+.bar{height:3px;border-radius:3px;background:var(--p2);overflow:hidden;margin:-2px 0 2px}.bar u{display:block;height:100%}
+.card{background:var(--p1);border:1px solid var(--line);border-radius:12px;padding:12px 13px;display:flex;flex-direction:column;gap:9px}
+.card.hl{border-color:#2d6f52;box-shadow:0 0 0 3px rgba(61,220,151,.08)}.card.drag{transform:rotate(-2.2deg) translate(-8px,2px);box-shadow:0 18px 40px rgba(0,0,0,.55);border-color:#4c5666;background:var(--p2)}
+.r1{display:flex;gap:10px;align-items:center}.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;color:#0B0D10;flex:none}
+.r1 b{font-weight:600;display:block;font-size:14px}.r1 span{color:var(--mut);font-size:12px}
+.meta{display:flex;gap:6px;flex-wrap:wrap}.m{font-size:11.5px;padding:3px 8px;border-radius:6px;background:var(--p2);color:#b4bac4;display:flex;gap:5px;align-items:center}
+.m.w{background:#3A2A0C;color:#FBBF24}.m.r{background:#3A1417;color:#FF8A8A}.m.g{background:var(--accd);color:var(--acc)}
+.foot{display:flex;align-items:center;color:var(--mut);font-size:12px;gap:6px}.foot .o{margin-inline-start:auto;width:22px;height:22px;border-radius:50%;background:#2B3340;color:#cfd6e0;display:grid;place-items:center;font-size:9px;font-weight:700}
+.drop{border:1.5px dashed #2d6f52;border-radius:12px;height:70px;display:grid;place-items:center;color:var(--acc);font-size:12.5px;background:rgba(61,220,151,.04)}
+</style></head><body>
+<div class="top"><div class="logo"><b>I</b>Invested</div>
+ <div class="t"><i data-i="home" data-s="16"></i>בית</div><div class="t"><i data-i="users" data-s="16"></i>לידים</div><div class="t on"><i data-i="board" data-s="16"></i>פייפליין</div><div class="t"><i data-i="msg" data-s="16"></i>וואטסאפ</div><div class="t"><i data-i="cal" data-s="16"></i>יומן</div><div class="t"><i data-i="check" data-s="16"></i>משימות</div><div class="t">עוד<i data-i="down" data-s="14"></i></div>
+ <div class="cmd"><i data-i="search" data-s="16"></i>חיפוש או פעולה מהירה…<kbd dir="ltr">⌘K</kbd></div><div class="ic dot"><i data-i="bell" data-s="18"></i></div><div class="me">טש</div></div>
+<div class="head"><h1>פייפליין מכירות</h1>
+ <div class="kp"><div><small>שווי פתוח</small><b>₪4.82M</b></div><div><small>נסגרו החודש</small><b class="g">9 · ₪1.3M</b></div><div><small>אחוז סגירה</small><b>18%</b></div><div><small>דורש טיפול</small><b style="color:#FFB020">6</b></div></div>
+ <div class="chips"><span class="chip on">הכל</span><span class="chip">שלי</span><span class="chip"><i data-i="filter" data-s="14"></i>סינון</span><span class="chip"><i data-i="plus" data-s="14"></i>הזדמנות</span></div></div>
+<div class="board">
+ <div class="col"><div class="ch"><i style="background:#60A5FA"></i><b>ליד נכנס</b><span>14</span><em>₪—</em></div><div class="bar"><u style="width:100%;background:#60A5FA"></u></div>
+  <div class="card"><div class="r1"><div class="av" style="background:#F9A8D4">שמ</div><div><b>שירן מזרחי</b><span>אינסטגרם · טופס</span></div></div><div class="meta"><span class="m g">חדש</span><span class="m">לפני 12 דק׳</span></div><div class="foot"><i data-i="pin" data-s="13"></i>הרצליה פיתוח<span class="o" style="background:#3A2A0C;color:#FBBF24">?</span></div></div>
+  <div class="card"><div class="r1"><div class="av" style="background:#FDE68A">הס</div><div><b>הילה סבן</b><span>פייסבוק · חיפה</span></div></div><div class="meta"><span class="m g">חדש</span><span class="m">לפני 41 דק׳</span></div><div class="foot"><i data-i="pin" data-s="13"></i>חיפה<span class="o" style="background:#3A2A0C;color:#FBBF24">?</span></div></div>
+  <div class="card"><div class="r1"><div class="av" style="background:#A7F3D0">גמ</div><div><b>גיל מנור</b><span>גוגל · חיפוש</span></div></div><div class="meta"><span class="m">לפני 3 שעות</span></div><div class="foot"><i data-i="pin" data-s="13"></i>רמת גן<span class="o">מל</span></div></div></div>
+ <div class="col"><div class="ch"><i style="background:#FBBF24"></i><b>שיחה ראשונה</b><span>22</span><em>₪890K</em></div><div class="bar"><u style="width:78%;background:#FBBF24"></u></div>
+  <div class="card"><div class="r1"><div class="av" style="background:#67E8F9">עב</div><div><b>עידן ברק</b><span>פייסבוק · נתניה</span></div></div><div class="meta"><span class="m r"><i data-i="clock" data-s="12"></i>5 ימים בלי מענה</span><span class="m w">3 ניסיונות</span></div><div class="foot"><i data-i="phone" data-s="13"></i>₪350K<span class="o">מל</span></div></div>
+  <div class="card"><div class="r1"><div class="av" style="background:#CBD5E1">יפ</div><div><b>יונתן פרידמן</b><span>אינסטגרם</span></div></div><div class="meta"><span class="m w">ניסיון ללא מענה</span></div><div class="foot"><i data-i="phone" data-s="13"></i>₪200K<span class="o">מל</span></div></div>
+  <div class="card"><div class="r1"><div class="av" style="background:#C4B5FD">תא</div><div><b>תמר אלון</b><span>הפניה</span></div></div><div class="meta"><span class="m g">וואטסאפ פעיל</span></div><div class="foot"><i data-i="msg" data-s="13"></i>לפני 20 דק׳<span class="o">יא</span></div></div></div>
+ <div class="col"><div class="ch"><i style="background:#FB923C"></i><b>פגישה</b><span>11</span><em>₪1.4M</em></div><div class="bar"><u style="width:55%;background:#FB923C"></u></div>
+  <div class="card drag"><div class="r1"><div class="av" style="background:#FDBA74">דכ</div><div><b>דניאל כהן</b><span>פייסבוק · הרצליה</span></div></div><div class="meta"><span class="m g"><i data-i="cal" data-s="12"></i>מחר 17:30</span><span class="m">₪620K</span></div><div class="foot"><i data-i="phone" data-s="13"></i>ללמ קבענו<span class="o">מל</span></div></div>
+  <div class="drop">שחרר כאן כדי להעביר לשלב “פגישה”</div>
+  <div class="card"><div class="r1"><div class="av" style="background:#86EFAC">נג</div><div><b>נועה גולן</b><span>הפניה</span></div></div><div class="meta"><span class="m g"><i data-i="cal" data-s="12"></i>היום 19:00</span><span class="m">₪480K</span></div><div class="foot"><i data-i="msg" data-s="13"></i>פגישה שנייה<span class="o">יא</span></div></div></div>
+ <div class="col"><div class="ch"><i style="background:#A78BFA"></i><b>הצעה</b><span>8</span><em>₪1.9M</em></div><div class="bar"><u style="width:40%;background:#A78BFA"></u></div>
+  <div class="card hl"><div class="r1"><div class="av" style="background:#93C5FD">אר</div><div><b>אורי רוזנברג</b><span>גוגל · חיפוש</span></div></div><div class="meta"><span class="m g"><i data-i="file" data-s="12"></i>נצפתה פעמיים</span><span class="m">₪750K</span></div><div class="foot"><i data-i="clock" data-s="13"></i>נשלחה לפני יומיים<span class="o">יא</span></div></div>
+  <div class="card"><div class="r1"><div class="av" style="background:#F0ABFC">לש</div><div><b>ליאור שמש</b><span>פייסבוק · נתניה</span></div></div><div class="meta"><span class="m">טרם נצפתה</span><span class="m">₪540K</span></div><div class="foot"><i data-i="clock" data-s="13"></i>נשלחה אתמול<span class="o">מל</span></div></div></div>
+ <div class="col"><div class="ch"><i style="background:#3DDC97"></i><b>חתימה</b><span>3</span><em>₪1.1M</em></div><div class="bar"><u style="width:22%;background:#3DDC97"></u></div>
+  <div class="card hl"><div class="r1"><div class="av" style="background:#D8B4FE">רח</div><div><b>רון חדד</b><span>גוגל · חיפוש</span></div></div><div class="meta"><span class="m g"><i data-i="file" data-s="12"></i>ממתין לחתימה</span><span class="m">₪890K</span></div><div class="foot"><i data-i="clock" data-s="13"></i>לפני 4 שעות<span class="o">טש</span></div></div></div>
+</div></body></html>

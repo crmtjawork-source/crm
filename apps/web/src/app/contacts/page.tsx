@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
@@ -24,7 +25,7 @@ const PAGE_SIZE = 100;
 // /contacts?new=1 sees its own query right away, not the previous page's.
 export default function ContactsPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-neutral-400">טוען…</div>}>
+    <Suspense fallback={<PageSkeleton />}>
       <ContactsList />
     </Suspense>
   );
@@ -130,19 +131,19 @@ function ContactsList() {
           <ColumnPicker catalog={catalog} ids={colPrefs.ids} onChange={colPrefs.setIds} onReset={colPrefs.reset} isDefault={colPrefs.isDefault} fixed="שם" />
           <button
             onClick={handleExport}
-            className="hidden md:inline-block text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800"
+            className="hidden md:inline-block text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800"
           >
             ייצוא CSV
           </button>
           <Link
             href="/contacts/import"
-            className="hidden md:inline-block text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800"
+            className="hidden md:inline-block text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800"
           >
             ייבוא CSV
           </Link>
           <Link
             href="/contacts/new"
-            className="text-sm px-3 py-1.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+            className="text-sm px-3 py-1.5 rounded-md bg-tint text-white"
           >
             + ליד חדש
           </Link>
@@ -166,7 +167,7 @@ function ContactsList() {
               setOwner(e.target.value);
               setVisible(PAGE_SIZE);
             }}
-            className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+            className="px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
           >
             <option value="all">כל הלידים</option>
             <option value="mine">הלידים שלי</option>
@@ -181,7 +182,7 @@ function ContactsList() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as "activity" | "created")}
-            className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+            className="px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
           >
             <option value="activity">פעילות אחרונה</option>
             <option value="created">תאריך כניסה</option>
@@ -213,7 +214,7 @@ function ContactsList() {
       {stagePrompt.element}
       {selectedContacts.length > 0 && <BulkBar contacts={selectedContacts} onClear={() => setSelected(new Set())} />}
 
-      <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden">
+      <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-neutral-50 dark:bg-neutral-900 text-neutral-500">
             <tr>
@@ -267,7 +268,7 @@ function ContactsList() {
       {filtered.length > visible && (
         <button
           onClick={() => setVisible((v) => v + PAGE_SIZE)}
-          className="mt-3 w-full text-sm py-2 rounded-md border border-neutral-200 dark:border-neutral-800 text-neutral-500"
+          className="mt-3 w-full text-sm py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 text-neutral-500"
         >
           הצגת עוד {Math.min(PAGE_SIZE, filtered.length - visible)} (מוצגים {visible} מתוך {filtered.length})
         </button>

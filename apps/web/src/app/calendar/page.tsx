@@ -97,23 +97,23 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
         <h1 className="text-xl font-bold">יומן</h1>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-md border border-neutral-200 dark:border-neutral-800 overflow-hidden text-sm">
+          <div className="flex rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden text-sm">
             <button
               onClick={() => setView("month")}
-              className={`px-3 py-1.5 ${view === "month" ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : ""}`}
+              className={`px-3 py-1.5 ${view === "month" ? "bg-tint text-white" : ""}`}
             >
               לוח חודשי
             </button>
             <button
               onClick={() => setView("list")}
-              className={`px-3 py-1.5 ${view === "list" ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : ""}`}
+              className={`px-3 py-1.5 ${view === "list" ? "bg-tint text-white" : ""}`}
             >
               רשימה
             </button>
           </div>
           <button
             onClick={() => setShowForm((v) => !v)}
-            className="text-sm px-3 py-1.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+            className="text-sm px-3 py-1.5 rounded-md bg-tint text-white"
           >
             + פגישה חדשה
           </button>
@@ -121,14 +121,14 @@ export default function CalendarPage() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="mb-6 space-y-3 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+        <form onSubmit={handleSubmit} className="mb-6 space-y-3 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-4">
           <div className="flex flex-wrap gap-2">
             <label className="text-sm">
               <span className="block text-xs text-neutral-500 mb-1">ליד (אופציונלי)</span>
               <select
                 value={contactId}
                 onChange={(e) => setContactId(e.target.value)}
-                className="px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                className="px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
               >
                 <option value="">ללא</option>
                 {contacts.map((c) => (
@@ -144,7 +144,7 @@ export default function CalendarPage() {
                 value={typeId}
                 onChange={(e) => setTypeId(e.target.value)}
                 required
-                className="px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                className="px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
               >
                 {appointmentTypes.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -160,7 +160,7 @@ export default function CalendarPage() {
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
                 required
-                className="px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                className="px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
               />
             </label>
           </div>
@@ -169,10 +169,10 @@ export default function CalendarPage() {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             />
           </label>
-          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <button type="submit" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             קביעת פגישה
           </button>
         </form>
@@ -251,7 +251,7 @@ export default function CalendarPage() {
               <select
                 value={t.defaultOwnerEmail ?? ""}
                 onChange={(e) => setAppointmentTypeOwner(t.id, e.target.value || null)}
-                className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
               >
                 <option value="">בעל הליד (אם יש)</option>
                 {members
@@ -271,16 +271,16 @@ export default function CalendarPage() {
               value={newTypeName}
               onChange={(e) => setNewTypeName(e.target.value)}
               placeholder="שם הסוג"
-              className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             />
             <input
               value={newTypeDuration}
               onChange={(e) => setNewTypeDuration(e.target.value)}
               type="number"
               placeholder="משך (דק')"
-              className="w-28 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="w-28 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             />
-            <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+            <button type="submit" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
               הוספה
             </button>
           </form>
@@ -304,14 +304,14 @@ export default function CalendarPage() {
                       type="time"
                       value={rule.startTime}
                       onChange={(e) => updateDayTime(day, "startTime", e.target.value)}
-                      className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                      className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
                     />
                     <span className="text-neutral-400">עד</span>
                     <input
                       type="time"
                       value={rule.endTime}
                       onChange={(e) => updateDayTime(day, "endTime", e.target.value)}
-                      className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                      className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
                     />
                   </>
                 )}
@@ -373,7 +373,7 @@ function MonthCalendar({
         <div className="flex items-center gap-2">
           <button
             onClick={() => changeMonth(-1)}
-            className="w-7 h-7 flex items-center justify-center rounded-md border border-neutral-200 dark:border-neutral-800"
+            className="w-7 h-7 flex items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-800"
           >
             ‹
           </button>
@@ -382,7 +382,7 @@ function MonthCalendar({
           </h2>
           <button
             onClick={() => changeMonth(1)}
-            className="w-7 h-7 flex items-center justify-center rounded-md border border-neutral-200 dark:border-neutral-800"
+            className="w-7 h-7 flex items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-800"
           >
             ›
           </button>
@@ -427,7 +427,7 @@ function MonthCalendar({
               <span
                 className={`text-xs mb-1 ${
                   isToday
-                    ? "w-5 h-5 flex items-center justify-center rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+                    ? "w-5 h-5 flex items-center justify-center rounded-full bg-tint text-white"
                     : "text-neutral-500"
                 }`}
               >
@@ -450,14 +450,14 @@ function MonthCalendar({
       </div>
 
       {selectedDate && (
-        <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+        <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold">
               {selectedDate.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" })}
             </h3>
             <button
               onClick={() => onSelectDay(selectedDate)}
-              className="text-xs px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800"
+              className="text-xs px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800"
             >
               + פגישה ביום זה
             </button>

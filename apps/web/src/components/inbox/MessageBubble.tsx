@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiPost } from "@/lib/api";
 import type { Message } from "@/lib/types";
+import { AlertCircle, Ban, Check, CheckCheck, Clock, FileText, Image as ImageIcon, Mic, Video } from "lucide-react";
 
 const ORIGIN_LABELS: Record<NonNullable<Message["origin"]>, string> = {
   crm: "",
@@ -15,15 +16,15 @@ function StatusMark({ message }: { message: Message }) {
   if (message.direction === "inbound") return null;
   switch (message.status) {
     case "pending":
-      return <span className="text-neutral-400">🕓</span>;
+      return <Clock size={12} className="inline text-neutral-400" aria-label="ממתינה" />;
     case "sent":
-      return <span className="text-neutral-400">✓</span>;
+      return <Check size={13} className="inline text-neutral-400" aria-label="נשלחה" />;
     case "delivered":
-      return <span className="text-neutral-400">✓✓</span>;
+      return <CheckCheck size={13} className="inline text-neutral-400" aria-label="נמסרה" />;
     case "read":
-      return <span className="text-sky-500">✓✓</span>;
+      return <CheckCheck size={13} className="inline text-tint" aria-label="נקראה" />;
     case "failed":
-      return <span className="text-red-500" title={message.error}>⚠ נכשל</span>;
+      return <span className="text-red-500 inline-flex items-center gap-1" title={message.error}><AlertCircle size={13} aria-hidden />נכשל</span>;
     default:
       return null;
   }
@@ -87,7 +88,7 @@ function MediaView({ message }: { message: Message }) {
     return () => io.disconnect();
   }, [state, message.id]);
 
-  const icon = message.type === "image" || message.type === "sticker" ? "🖼" : message.type === "video" ? "🎥" : message.type === "voice" || message.type === "audio" ? "🎤" : "📄";
+  const icon = message.type === "image" || message.type === "sticker" ? <ImageIcon size={22} aria-hidden /> : message.type === "video" ? <Video size={22} aria-hidden /> : message.type === "voice" || message.type === "audio" ? <Mic size={22} aria-hidden /> : <FileText size={22} aria-hidden />;
   if (state === "idle" || state === "loading")
     return (
       <div ref={ref} className="flex items-center justify-center w-56 h-32 rounded-md bg-neutral-200/60 dark:bg-neutral-800 text-neutral-400 text-2xl animate-pulse">
@@ -125,7 +126,7 @@ function MediaView({ message }: { message: Message }) {
   if (message.type === "voice" || message.type === "audio") return <audio src={url} controls preload="metadata" className="w-60 max-w-full" />;
   return (
     <a href={url} target="_blank" rel="noreferrer" download={state.name ?? message.mediaName} className="flex items-center gap-3 rounded-md bg-black/5 dark:bg-white/5 px-3 py-2 hover:bg-black/10">
-      <span className="text-2xl">📄</span>
+      <FileText size={26} className="text-neutral-500" aria-hidden />
       <span className="min-w-0">
         <span className="block text-sm truncate">{state.name ?? message.mediaName ?? "קובץ"}</span>
         <span className="block text-[11px] text-neutral-500">{sizeLabel(state.size ?? message.mediaSize)} · הורדה</span>
@@ -150,12 +151,12 @@ export function MessageBubble({ message, showSender }: { message: Message; showS
   return (
     <div className={`flex ${outbound ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[85%] md:max-w-[70%] rounded-lg px-2.5 py-1.5 text-sm break-words shadow-sm ${
-          outbound ? "bg-emerald-100 dark:bg-emerald-900/50" : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
+        className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-3 py-1.5 text-sm break-words shadow-sm ${
+          outbound ? "bg-[#d9f7e0] dark:bg-[#1f5a35] text-neutral-900 dark:text-neutral-50" : "bg-white dark:bg-neutral-800 border border-black/[.06] dark:border-white/10"
         } ${message.status === "failed" ? "border border-red-300 dark:border-red-800" : ""}`}
       >
         {showSender && !outbound && message.senderName && (
-          <p className="text-xs font-semibold mb-0.5" style={{ color: senderColor(message.senderName) }}>
+          <p className="on-tint-text text-xs font-semibold mb-0.5" style={{ "--c": senderColor(message.senderName) } as React.CSSProperties}>
             {message.senderName}
           </p>
         )}
@@ -166,7 +167,7 @@ export function MessageBubble({ message, showSender }: { message: Message; showS
           </div>
         )}
         {deleted ? (
-          <p className="italic text-neutral-400">🚫 ההודעה נמחקה</p>
+          <p className="italic text-neutral-400 inline-flex items-center gap-1.5"><Ban size={14} aria-hidden />ההודעה נמחקה</p>
         ) : isMedia ? (
           <>
             <MediaView message={message} />

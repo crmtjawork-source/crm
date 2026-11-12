@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { PLACEHOLDERS, QUICK_ACTIONS } from "@/lib/templates";
@@ -15,7 +16,7 @@ function kindOf(file: File): TemplateAttachment["type"] {
   return "document";
 }
 
-const field = "w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const field = "w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 export function MessageTemplatesSettings({ isAdmin }: { isAdmin: boolean }) {
   const { messageTemplates, addMessageTemplate, meetingReminders, setMeetingReminders } = useStore();
@@ -65,11 +66,11 @@ export function MessageTemplatesSettings({ isAdmin }: { isAdmin: boolean }) {
         ))}
       </ul>
       {isAdmin ? (
-        <button onClick={() => addMessageTemplate({ name: "הודעה חדשה", body: "" })} className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+        <button onClick={() => addMessageTemplate({ name: "הודעה חדשה", body: "" })} className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
           + הודעה חדשה
         </button>
       ) : (
-        <p className="text-xs text-amber-600">רק מנהלים יכולים לערוך הודעות מוכנות.</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400">רק מנהלים יכולים לערוך הודעות מוכנות.</p>
       )}
     </section>
   );
@@ -109,7 +110,7 @@ function TemplateRow({ template, isAdmin, taken }: { template: MessageTemplate; 
   }
 
   return (
-    <li className="border border-neutral-200 dark:border-neutral-800 rounded-lg">
+    <li className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm">
       <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-start">
         <span className="truncate">{template.name}</span>
         <span className="text-xs text-neutral-400 shrink-0">{QUICK_ACTIONS.find((q) => q.id === template.quickAction)?.label ?? ""}</span>
@@ -135,7 +136,7 @@ function TemplateRow({ template, isAdmin, taken }: { template: MessageTemplate; 
               <span className="text-neutral-400">אין</span>
             )}
             {isAdmin && (
-              <label className="px-2 py-0.5 rounded-md border border-neutral-200 dark:border-neutral-800 cursor-pointer">
+              <label className="px-2 py-0.5 rounded-lg border border-neutral-200 dark:border-neutral-800 cursor-pointer">
                 {uploading ? "מעלה…" : template.attachment ? "החלפה" : "צירוף תמונה / סרטון / PDF / הקלטה"}
                 <input
                   type="file"
@@ -167,7 +168,7 @@ function TemplateRow({ template, isAdmin, taken }: { template: MessageTemplate; 
           )}
           <label className="text-xs flex items-center gap-2">
             <span className="text-neutral-500">כפתור בכרטיס הליד</span>
-            <select value={action} onChange={(e) => setAction(e.target.value)} disabled={!isAdmin} className="px-2 py-1 text-xs rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent">
+            <select value={action} onChange={(e) => setAction(e.target.value)} disabled={!isAdmin} className="px-2 py-1 text-xs rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent">
               <option value="">ללא (בחירה ידנית בלבד)</option>
               {QUICK_ACTIONS.map((q) => (
                 <option key={q.id} value={q.id} disabled={taken.includes(q.id)}>
@@ -178,12 +179,12 @@ function TemplateRow({ template, isAdmin, taken }: { template: MessageTemplate; 
           </label>
           {isAdmin && (
             <div className="flex items-center gap-3">
-              <button onClick={save} disabled={!dirty} className="px-3 py-1 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-40">
+              <button onClick={save} disabled={!dirty} className="px-3 py-1 text-sm rounded-md bg-tint text-white disabled:opacity-40">
                 שמירה
               </button>
-              {saved && <span className="text-xs text-emerald-600">נשמר ✓</span>}
+              {saved && <span className="text-xs text-emerald-600 dark:text-emerald-400">נשמר ✓</span>}
               <button
-                onClick={() => confirm(`למחוק את "${template.name}"?`) && deleteMessageTemplate(template.id)}
+                onClick={async () => (await confirmAction(`למחוק את "${template.name}"?`)) && deleteMessageTemplate(template.id)}
                 className="text-xs text-neutral-400 hover:text-red-500 ms-auto"
               >
                 מחיקה

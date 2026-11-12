@@ -138,7 +138,7 @@ export default function BookingPage() {
                   }}
                   className={`shrink-0 px-3 py-2 rounded-lg text-sm border ${
                     i === dayIndex
-                      ? "bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-900 dark:border-white"
+                      ? "bg-tint text-white border-tint"
                       : "border-neutral-200 dark:border-neutral-700"
                   }`}
                 >

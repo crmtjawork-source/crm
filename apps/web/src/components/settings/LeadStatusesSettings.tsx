@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { colorAt } from "@/components/ui/ColorChip";
@@ -44,8 +45,8 @@ export function LeadStatusesSettings({ isAdmin }: { isAdmin: boolean }) {
       </ul>
       {isAdmin && (
         <form onSubmit={add} className="flex gap-2">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="סטטוס חדש" className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
-          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="סטטוס חדש" className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+          <button type="submit" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             הוספה
           </button>
         </form>
@@ -95,7 +96,7 @@ function StatusRow(props: {
             ▼
           </button>
           <button
-            onClick={() => confirm(`למחוק את "${props.name}"? לידים בסטטוס הזה יישארו איתו עד שישנו אותו.`) && props.onDelete()}
+            onClick={async () => (await confirmAction(`למחוק את "${props.name}"? לידים בסטטוס הזה יישארו איתו עד שישנו אותו.`)) && props.onDelete()}
             className="text-xs text-neutral-300 hover:text-red-500"
           >
             ×

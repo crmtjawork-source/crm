@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Switch } from "@/components/ui/Switch";
 import { useStore } from "@/lib/store";
 import type { Automation, AutomationStep, AutomationStepType, AutomationTriggerType, Channel, MessageTemplate, ObjectType } from "@/lib/types";
 
@@ -44,7 +45,7 @@ const STEP_ICONS: Record<AutomationStepType, string> = {
 };
 
 
-const inputClass = "px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const inputClass = "px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 export default function AutomationsPage() {
   const { automations, pipelines, leadStatuses, objectTypes, addAutomation, updateAutomation, deleteAutomation } = useStore();
@@ -100,7 +101,7 @@ export default function AutomationsPage() {
         <h1 className="text-xl font-bold">אוטומציות</h1>
         <button
           onClick={() => setCreating((v) => !v)}
-          className="text-sm px-3 py-1.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+          className="text-sm px-3 py-1.5 rounded-md bg-tint text-white"
         >
           + אוטומציה חדשה
         </button>
@@ -117,7 +118,7 @@ export default function AutomationsPage() {
       </div>
 
       {creating && (
-        <form onSubmit={handleCreate} className="mb-6 space-y-3 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+        <form onSubmit={handleCreate} className="mb-6 space-y-3 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-4">
           <label className="block text-sm">
             <span className="block text-xs text-neutral-500 mb-1">שם האוטומציה</span>
             <input
@@ -125,7 +126,7 @@ export default function AutomationsPage() {
               onChange={(e) => setName(e.target.value)}
               required
               autoFocus
-              className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             />
           </label>
           <label className="block text-sm">
@@ -133,7 +134,7 @@ export default function AutomationsPage() {
             <select
               value={triggerType}
               onChange={(e) => setTriggerType(e.target.value as AutomationTriggerType)}
-              className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             >
               {Object.entries(TRIGGER_LABELS)
                 .filter(([v]) => objectTypes.length > 0 || !RECORD_TRIGGERS.includes(v as AutomationTriggerType))
@@ -155,7 +156,7 @@ export default function AutomationsPage() {
                     setRecordField("");
                     setRecordValue("");
                   }}
-                  className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                  className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
                 >
                   {objectTypes.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -168,7 +169,7 @@ export default function AutomationsPage() {
                 (stageFieldDef ? (
                   <label className="block text-sm">
                     <span className="block text-xs text-neutral-500 mb-1">לשלב</span>
-                    <select value={recordValue} onChange={(e) => setRecordValue(e.target.value)} className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent">
+                    <select value={recordValue} onChange={(e) => setRecordValue(e.target.value)} className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent">
                       <option value="">כל מעבר שלב</option>
                       {stageFieldDef.options.map((o) => (
                         <option key={o.value} value={o.value}>
@@ -178,7 +179,7 @@ export default function AutomationsPage() {
                     </select>
                   </label>
                 ) : (
-                  <p className="text-xs text-amber-600">לטבלה הזו לא הוגדר שדה שלבים (הגדרות ← אובייקטים ושדות).</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">לטבלה הזו לא הוגדר שדה שלבים (הגדרות ← אובייקטים ושדות).</p>
                 ))}
               {triggerType === "record_field_changed" && objectType && (
                 <div className="flex gap-2">
@@ -191,7 +192,7 @@ export default function AutomationsPage() {
                         setRecordValue("");
                       }}
                       required
-                      className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                      className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
                     >
                       <option value="">בחירה…</option>
                       {objectType.fields.map((f) => (
@@ -204,7 +205,7 @@ export default function AutomationsPage() {
                   <label className="text-sm flex-1">
                     <span className="block text-xs text-neutral-500 mb-1">כשהערך הופך ל־ (ריק = כל שינוי)</span>
                     {watchedField?.type === "select" ? (
-                      <select value={recordValue} onChange={(e) => setRecordValue(e.target.value)} className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent">
+                      <select value={recordValue} onChange={(e) => setRecordValue(e.target.value)} className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent">
                         <option value="">כל שינוי</option>
                         {watchedField.options.map((o) => (
                           <option key={o.value} value={o.value}>
@@ -213,7 +214,7 @@ export default function AutomationsPage() {
                         ))}
                       </select>
                     ) : (
-                      <input value={recordValue} onChange={(e) => setRecordValue(e.target.value)} className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+                      <input value={recordValue} onChange={(e) => setRecordValue(e.target.value)} className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
                     )}
                   </label>
                 </div>
@@ -230,7 +231,7 @@ export default function AutomationsPage() {
                     setPipelineId(e.target.value);
                     setStageId("");
                   }}
-                  className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                  className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
                 >
                   {pipelines.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -244,7 +245,7 @@ export default function AutomationsPage() {
                 <select
                   value={stageId}
                   onChange={(e) => setStageId(e.target.value)}
-                  className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                  className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
                 >
                   <option value="">כל שלב</option>
                   {selectedPipeline?.stages.map((st) => (
@@ -258,14 +259,14 @@ export default function AutomationsPage() {
           )}
           {triggerType === "new_contact" && (
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={onlyMetaLeads} onChange={(e) => setOnlyMetaLeads(e.target.checked)} />
+              <Switch checked={onlyMetaLeads} onChange={(v) => setOnlyMetaLeads(v)} />
               רק לידים מטפסי פייסבוק / אינסטגרם (לא לידים שנוספו ידנית או מיובאים)
             </label>
           )}
           {triggerType === "status_changed" && (
             <label className="block text-sm">
               <span className="block text-xs text-neutral-500 mb-1">כשהסטטוס משתנה ל־</span>
-              <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent">
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent">
                 <option value="">כל שינוי סטטוס</option>
                 {leadStatuses.map((st) => (
                   <option key={st.id} value={st.name}>
@@ -281,12 +282,12 @@ export default function AutomationsPage() {
               <input
                 value={tag}
                 onChange={(e) => setTag(e.target.value)}
-                className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
               />
             </label>
           )}
           <div className="flex gap-2">
-            <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+            <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-tint text-white">
               יצירה
             </button>
             <button type="button" onClick={() => setCreating(false)} className="px-3 py-1.5 text-sm text-neutral-400">
@@ -474,11 +475,11 @@ function AutomationRow({
         </button>
         <div className="flex items-center gap-3 text-xs shrink-0">
           <label className="flex items-center gap-1" title="ליד שעונה בוואטסאפ יוצא מהרצף ולא יקבל את ההודעות הבאות">
-            <input type="checkbox" checked={automation.stopOnReply} onChange={onToggleStopOnReply} />
+            <Switch checked={automation.stopOnReply} onChange={() => onToggleStopOnReply()} />
             עצירה כשהליד עונה
           </label>
           <label className="flex items-center gap-1">
-            <input type="checkbox" checked={automation.active} onChange={onToggleActive} />
+            <Switch checked={automation.active} onChange={() => onToggleActive()} />
             פעיל
           </label>
           <button onClick={onDelete} className="text-neutral-400 hover:text-red-500">
@@ -508,7 +509,7 @@ function AutomationRow({
                 </button>
               </li>
             ))}
-            {automation.steps.length === 0 && <p className="text-sm text-amber-600">עוד אין פעולות — בחרו למטה מה האוטומציה תעשה.</p>}
+            {automation.steps.length === 0 && <p className="text-sm text-amber-600 dark:text-amber-400">עוד אין פעולות — בחרו למטה מה האוטומציה תעשה.</p>}
           </ol>
 
           <form onSubmit={handleAddStep} className="space-y-2">
@@ -696,7 +697,7 @@ function AutomationRow({
               />
             )}
 
-            <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+            <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-tint text-white">
               + הוספת הפעולה
             </button>
           </form>

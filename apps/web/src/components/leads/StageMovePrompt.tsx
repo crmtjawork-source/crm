@@ -71,7 +71,7 @@ function StageMovePrompt({ contact, kind, onClose }: { contact: Contact; kind: K
       {notice && (
         <div className="fixed bottom-20 md:bottom-6 inset-x-0 z-50 flex justify-center px-4 pointer-events-none">
           <div className="pointer-events-auto flex items-center gap-3 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-lg px-4 py-2.5 text-sm">
-            <span className={notice.ok ? "text-emerald-600" : "text-amber-600"}>{notice.text}</span>
+            <span className={notice.ok ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>{notice.text}</span>
             <button onClick={onClose} aria-label="סגירה" className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-lg leading-none">
               ×
             </button>
@@ -115,7 +115,7 @@ function LostReasonSheet({ contact, opp, prevStageId, onClose }: { contact: Cont
           </label>
         ))}
         <div className="flex items-center gap-3 pt-2">
-          <button onClick={save} disabled={!reason || busy} className="flex-1 py-2.5 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium disabled:opacity-40">
+          <button onClick={save} disabled={!reason || busy} className="flex-1 py-2.5 rounded-lg bg-tint text-white text-sm font-medium disabled:opacity-40">
             {busy ? "שומר…" : "אישור"}
           </button>
           <button onClick={cancel} disabled={busy} className="text-xs text-neutral-500 hover:underline">

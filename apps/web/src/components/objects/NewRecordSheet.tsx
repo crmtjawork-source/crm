@@ -59,7 +59,7 @@ export function NewRecordSheet({
           </label>
         ))}
         {error && <p className="text-xs text-red-500">{error}</p>}
-        <button type="submit" disabled={busy} className="w-full py-2.5 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium disabled:opacity-50">
+        <button type="submit" disabled={busy} className="w-full py-2.5 rounded-lg bg-tint text-white text-sm font-medium disabled:opacity-50">
           {busy ? "שומר…" : "יצירה"}
         </button>
       </form>

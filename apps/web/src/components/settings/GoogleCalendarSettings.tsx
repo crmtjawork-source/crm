@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -71,13 +72,13 @@ export function GoogleCalendarSettings({ isAdmin = false }: { isAdmin?: boolean 
   }
 
   async function disconnectCompany() {
-    if (!confirm("לנתק את יומן החברה? פגישות חדשות לא יתווספו אליו (מה שכבר נכנס נשאר ביומן).")) return;
+    if (!(await confirmAction("לנתק את יומן החברה? פגישות חדשות לא יתווספו אליו (מה שכבר נכנס נשאר ביומן)."))) return;
     await apiPost("/api/integrations/google", { action: "disconnect_company" });
     setCompany(null);
   }
 
   async function disconnect() {
-    if (!confirm("לנתק את יומן הגוגל? פגישות חדשות לא יתווספו אליו.")) return;
+    if (!(await confirmAction("לנתק את יומן הגוגל? פגישות חדשות לא יתווספו אליו."))) return;
     await apiPost("/api/integrations/google", { action: "disconnect" });
     setConn(null);
   }
@@ -89,12 +90,12 @@ export function GoogleCalendarSettings({ isAdmin = false }: { isAdmin?: boolean 
         פגישות שלך מה-CRM נכנסות אוטומטית ליומן הגוגל שלך — כולל שינוי שעה וביטול — עם שם הליד, הטלפון וקישור לכרטיס. כל אחד מחבר את
         היומן שלו.
       </p>
-      {result && <p className={`text-sm mb-3 ${result.ok ? "text-emerald-600" : "text-amber-600"}`}>{result.text}</p>}
+      {result && <p className={`text-sm mb-3 ${result.ok ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>{result.text}</p>}
       {conn === undefined ? (
         <p className="text-sm text-neutral-400">בודק…</p>
       ) : conn ? (
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-emerald-600">מחובר ✓</span>
+          <span className="text-emerald-600 dark:text-emerald-400">מחובר ✓</span>
           {conn.account_email && (
             <span className="text-neutral-500" dir="ltr">
               {conn.account_email}
@@ -108,7 +109,7 @@ export function GoogleCalendarSettings({ isAdmin = false }: { isAdmin?: boolean 
         <button
           onClick={connect}
           disabled={busy}
-          className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-50"
+          className="px-3 py-1.5 text-sm rounded-md bg-tint text-white disabled:opacity-50"
         >
           {busy ? "מעביר לגוגל…" : "חיבור יומן גוגל"}
         </button>
@@ -125,7 +126,7 @@ export function GoogleCalendarSettings({ isAdmin = false }: { isAdmin?: boolean 
           <p className="text-sm text-neutral-400">בודק…</p>
         ) : company ? (
           <div className="flex items-center gap-3 text-sm">
-            <span className="text-emerald-600">מחובר ✓</span>
+            <span className="text-emerald-600 dark:text-emerald-400">מחובר ✓</span>
             {company.account_email && (
               <span className="text-neutral-500" dir="ltr">
                 {company.account_email}
@@ -138,11 +139,11 @@ export function GoogleCalendarSettings({ isAdmin = false }: { isAdmin?: boolean 
             )}
           </div>
         ) : isAdmin ? (
-          <button onClick={connectCompany} disabled={busy} className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 disabled:opacity-50">
+          <button onClick={connectCompany} disabled={busy} className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 disabled:opacity-50">
             {busy ? "מעביר לגוגל…" : "חיבור יומן החברה"}
           </button>
         ) : (
-          <p className="text-xs text-amber-600">רק מנהלים יכולים לחבר את יומן החברה.</p>
+          <p className="text-xs text-amber-600 dark:text-amber-400">רק מנהלים יכולים לחבר את יומן החברה.</p>
         )}
         {company?.last_error && <p className="text-xs text-red-500 mt-2">{company.last_error}</p>}
       </div>

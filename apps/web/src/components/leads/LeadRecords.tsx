@@ -45,7 +45,7 @@ export function LeadRecords({ contact }: { contact: Contact }) {
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <h2 className="text-sm font-semibold text-neutral-500 me-auto">רשומות מקושרות</h2>
         {objectTypes.map((t) => (
-          <button key={t.id} onClick={() => setCreating(t)} className="text-xs px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800">
+          <button key={t.id} onClick={() => setCreating(t)} className="text-xs px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800">
             + {t.icon} {t.singular} מהליד
           </button>
         ))}
@@ -60,7 +60,7 @@ export function LeadRecords({ contact }: { contact: Contact }) {
             const v = stage ? r.data[stage.key] : null;
             return (
               <li key={r.id}>
-                <Link href={`/o/${r.objectTypeId}/${r.id}`} className="flex items-center gap-2 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-sm">
+                <Link href={`/o/${r.objectTypeId}/${r.id}`} className="flex items-center gap-2 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm px-3 py-2 text-sm">
                   <span>{type?.icon}</span>
                   <span className="text-neutral-500">{type?.singular}:</span>
                   <span className="font-medium truncate">{r.title}</span>

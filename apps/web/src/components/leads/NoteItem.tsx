@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import type { Activity } from "@/lib/types";
@@ -18,7 +19,7 @@ function NoteImage({ path }: { path: string }) {
   return (
     <a href={url} target="_blank" rel="noopener noreferrer">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={url} alt="תמונה בהערה" className="max-h-48 max-w-full rounded-md border border-neutral-200 dark:border-neutral-800 object-cover" />
+      <img src={url} alt="תמונה בהערה" className="max-h-48 max-w-full rounded-lg border border-neutral-200 dark:border-neutral-800 object-cover" />
     </a>
   );
 }
@@ -48,7 +49,7 @@ export function NoteItem({ activity, className = "" }: { activity: Activity; cla
   }
 
   async function remove() {
-    if (!window.confirm("למחוק את ההערה?")) return;
+    if (!(await confirmAction("למחוק את ההערה?"))) return;
     try {
       await deleteNote(activity.id);
       void removeNoteImages(paths);
@@ -60,10 +61,10 @@ export function NoteItem({ activity, className = "" }: { activity: Activity; cla
   if (editing)
     return (
       <li className={`text-sm rounded-lg px-3 py-2 border border-neutral-300 dark:border-neutral-700 ${className}`}>
-        <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} rows={4} dir="auto" className="w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent resize-y" />
+        <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} rows={4} dir="auto" className="w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent resize-y" />
         {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
         <div className="flex items-center gap-3 mt-2 text-xs">
-          <button onClick={save} disabled={(!text.trim() && paths.length === 0) || busy} className="px-3 py-1 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-40">
+          <button onClick={save} disabled={(!text.trim() && paths.length === 0) || busy} className="px-3 py-1 rounded-md bg-tint text-white disabled:opacity-40">
             {busy ? "שומר…" : "שמירה"}
           </button>
           <button

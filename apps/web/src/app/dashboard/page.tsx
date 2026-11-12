@@ -24,7 +24,7 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-xl font-bold mb-6">לוח בקרה</h1>
+      <h1 className="text-2xl font-bold tracking-tight mb-6">לוח בקרה</h1>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         <Stat label="לידים" value={contacts.length} />
@@ -34,7 +34,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        <section>
+        <section className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-5">
           <h2 className="text-sm font-semibold text-neutral-500 mb-3">הזדמנויות פתוחות לפי שלב</h2>
           <div className="space-y-2">
             {byStage.map(({ key, label, count }) => (
@@ -42,7 +42,7 @@ export default function DashboardPage() {
                 <span className="w-32 truncate">{label}</span>
                 <div className="flex-1 h-2 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
                   <div
-                    className="h-full bg-neutral-900 dark:bg-white"
+                    className="h-full rounded-full bg-tint"
                     style={{ width: `${openOpportunities.length ? (count / openOpportunities.length) * 100 : 0}%` }}
                   />
                 </div>
@@ -52,7 +52,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section>
+        <section className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-5">
           <h2 className="text-sm font-semibold text-neutral-500 mb-3">משימות</h2>
           <div className="space-y-1 text-sm">
             <p>{openTasks.length} משימות פתוחות</p>
@@ -66,7 +66,7 @@ export default function DashboardPage() {
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+    <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-4">
       <div className="text-2xl font-bold">{value}</div>
       <div className="text-xs text-neutral-500 mt-1">{label}</div>
     </div>

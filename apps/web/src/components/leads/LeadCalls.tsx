@@ -34,7 +34,7 @@ export function LeadCalls({ contactId, recordId }: { contactId?: string; recordI
           const expanded = open === c.id;
           const detail = c.summary || c.transcript?.length;
           return (
-            <li key={c.id} className="border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm">
+            <li key={c.id} className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm text-sm">
               <button onClick={() => detail && setOpen(expanded ? null : c.id)} className="w-full flex flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2 text-start">
                 <span>{c.direction === "inbound" ? "📥" : "📤"}</span>
                 <span className={c.status === "answered" ? "" : "text-neutral-400"}>
@@ -49,7 +49,7 @@ export function LeadCalls({ contactId, recordId }: { contactId?: string; recordI
                 <div className="px-3 pb-3 space-y-2 text-xs">
                   {c.summary && <p className="leading-relaxed bg-neutral-50 dark:bg-neutral-900 rounded p-2">🧠 {c.summary}</p>}
                   {c.recording_url && (
-                    <a href={c.recording_url} target="_blank" rel="noreferrer" className="text-sky-600 hover:underline">
+                    <a href={c.recording_url} target="_blank" rel="noreferrer" className="text-sky-600 dark:text-sky-400 hover:underline">
                       🎧 הקלטה (נפתחת במערכת המרכזייה)
                     </a>
                   )}

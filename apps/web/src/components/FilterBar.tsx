@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { LeadFilterPanel } from "@/components/leads/LeadFilterPanel";
@@ -81,7 +82,7 @@ export function useRecordFilter<T>(scope: string, fields: FilterField<T>[], titl
             const v = views.find((x) => x.name === e.target.value);
             setFilter(v?.filter ?? EMPTY_FILTER, v?.name ?? "");
           }}
-          className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent max-w-48"
+          className="px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent max-w-48"
         >
           <option value="">תצוגות שמורות</option>
           {views.map((v) => (
@@ -127,7 +128,7 @@ export function useRecordFilter<T>(scope: string, fields: FilterField<T>[], titl
         </button>
         {viewName && (
           <button
-            onClick={() => window.confirm(`למחוק את התצוגה "${viewName}"?`) && (setViews(views.filter((v) => v.name !== viewName)), setViewName(""))}
+            onClick={async () => (await confirmAction(`למחוק את התצוגה "${viewName}"?`)) && (setViews(views.filter((v) => v.name !== viewName)), setViewName(""))}
             className="text-neutral-400 hover:text-red-500 hover:underline"
           >
             מחיקת התצוגה

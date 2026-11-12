@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { Switch } from "@/components/ui/Switch";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { apiPost, ApiError } from "@/lib/api";
@@ -12,7 +13,7 @@ function historySyncOpen(channel: Channel): boolean {
   return Date.now() - new Date(channel.onboardedAt).getTime() < 24 * 60 * 60 * 1000;
 }
 
-const inputClass = "w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const inputClass = "w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 function Section({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
@@ -140,7 +141,7 @@ function ChannelRow({ channel, canManage }: { channel: Channel; canManage: boole
           className="flex gap-2 mt-2"
         >
           <input value={token} onChange={(e) => setToken(e.target.value)} type="password" placeholder="טוקן חדש" dir="ltr" className={inputClass} />
-          <button disabled={busy} className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 shrink-0">
+          <button disabled={busy} className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 shrink-0">
             שמירה
           </button>
         </form>
@@ -210,10 +211,10 @@ function AddChannelForm() {
         className={inputClass}
       />
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
+        <Switch checked={isDefault} onChange={(v) => setIsDefault(v)} />
         מספר ברירת מחדל (ממנו יוצאות הודעות כשלא נבחר מספר אחר)
       </label>
-      <button disabled={busy} className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-50">
+      <button disabled={busy} className="px-3 py-1.5 text-sm rounded-md bg-tint text-white disabled:opacity-50">
         {busy ? "בודק מול מטא…" : "חיבור"}
       </button>
       {message && <p className="text-xs text-neutral-500">{message}</p>}
@@ -258,7 +259,7 @@ function ConnectPageForm() {
         dir="ltr"
         className={inputClass}
       />
-      <button disabled={busy} className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-50">
+      <button disabled={busy} className="px-3 py-1.5 text-sm rounded-md bg-tint text-white disabled:opacity-50">
         {busy ? "בודק מול מטא…" : "חיבור"}
       </button>
       {message && <p className="text-xs text-neutral-500">{message}</p>}

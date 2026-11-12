@@ -3,24 +3,128 @@
 /* Dark mode follows the `dark` class on <html> (set by the theme choice), not just the device setting. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Design tokens. One brand colour (--tint) drives buttons, selection and focus,
+ * so a different company only has to change this value.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f5f7;
+  --foreground: #1d1d1f;
+  --tint: #0a84ff;
+  --whatsapp: #34c759;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-heebo);
+  --color-tint: var(--tint);
+  --color-whatsapp: var(--whatsapp);
+  --font-sans: var(--font-inter), var(--font-heebo), system-ui, sans-serif;
+}
+
+/* A softer, cooler neutral scale: hairline separators, quieter greys, readable secondary text. */
+@theme {
+  --color-neutral-50: #f9f9fb;
+  --color-neutral-100: #f2f2f7;
+  --color-neutral-200: #e5e5ea;
+  --color-neutral-300: #c7c7cc;
+  --color-neutral-400: #8e8e93;
+  --color-neutral-500: #6e6e73;
+  --color-neutral-600: #55555a;
+  --color-neutral-700: #3a3a3c;
+  --color-neutral-800: #2c2c2e;
+  --color-neutral-900: #1c1c1e;
+  --color-neutral-950: #121214;
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #0b0b0d;
+  --foreground: #f5f5f7;
+  --tint: #0a84ff;
   color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  font-feature-settings: "cv11", "ss03";
+  text-rendering: optimizeLegibility;
 }
+
+/* Large headings sit a little tighter, as on Apple platforms. */
+h1,
+h2 {
+  letter-spacing: -0.015em;
+}
+
+/* Numbers line up in tables and counters. */
+table,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Native controls take the brand colour. */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] {
+  accent-color: var(--tint);
+}
+
+/* Keyboard focus is always visible. */
+:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
+/* Pressable controls give feedback on press (not for people who prefer less motion). */
+@media (prefers-reduced-motion: no-preference) {
+  button:not(:disabled),
+  [role="button"] {
+    transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1), background-color 160ms ease, color 160ms ease, opacity 160ms ease;
+  }
+  button:not(:disabled):active,
+  [role="button"]:active {
+    transform: scale(0.97);
+  }
+}
+
+/* Text on a tinted chip: darkened in light mode, lightened in dark mode so it always keeps contrast. */
+.on-tint-text {
+  color: color-mix(in srgb, var(--c) 80%, #000);
+}
+.dark .on-tint-text {
+  color: color-mix(in srgb, var(--c) 48%, #fff);
+}
+
+/* ---------- Motion ---------- */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Dialogs and bottom sheets: the backdrop fades, the panel rises (phone) or grows from slightly smaller (desktop). */
+@keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes sheet-out { from { transform: translateY(0); } to { transform: translateY(100%); } }
+@keyframes dialog-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes dialog-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.97); } }
+
+.overlay-backdrop { animation: backdrop-in 200ms ease-out both; }
+.overlay-backdrop[data-closing="true"] { animation: backdrop-out 160ms ease-out both; }
+.overlay-panel { animation: sheet-in 340ms var(--ease-sheet) both; }
+.overlay-panel[data-closing="true"] { animation: sheet-out 200ms var(--ease-out) both; }
+@media (min-width: 768px) {
+  .overlay-panel { animation: dialog-in 200ms var(--ease-out) both; }
+  .overlay-panel[data-closing="true"] { animation: dialog-out 140ms var(--ease-out) both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .overlay-panel,
+  .overlay-panel[data-closing="true"] { animation: backdrop-in 120ms ease-out both; }
+  .overlay-panel[data-closing="true"] { animation: backdrop-out 100ms ease-out both; }
+  .skeleton { animation: none !important; }
+}
+
+/* Loading placeholders. */
+@keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.skeleton { background: color-mix(in srgb, currentColor 10%, transparent); border-radius: 8px; animation: skeleton-pulse 1.4s ease-in-out infinite; }

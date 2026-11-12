@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useState } from "react";
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
 import Link from "next/link";
@@ -45,7 +46,7 @@ function CloseForm({ opp, onDone }: { opp: Opportunity; onDone: () => void }) {
             <option key={r} value={r} />
           ))}
         </datalist>
-        <button onClick={() => close("lost")} className="text-xs px-2 py-1 rounded border border-red-300 text-red-600 dark:border-red-800">
+        <button onClick={() => close("lost")} className="text-xs px-2 py-1 rounded border border-red-300 text-red-600 dark:text-red-400 dark:border-red-800">
           ✗ לא נסגר
         </button>
       </div>
@@ -68,9 +69,9 @@ function OpportunityCard({ opp, contactName, color, onOpen }: { opp: Opportunity
 
   const [editing, setEditing] = useState(false);
 
-  function handleDelete(e: React.MouseEvent) {
+  async function handleDelete(e: React.MouseEvent) {
     e.stopPropagation();
-    if (confirm("למחוק את ההזדמנות הזו?")) deleteOpportunity(opp.id);
+    if ((await confirmAction("למחוק את ההזדמנות הזו?"))) deleteOpportunity(opp.id);
   }
 
   return (
@@ -80,8 +81,8 @@ function OpportunityCard({ opp, contactName, color, onOpen }: { opp: Opportunity
       style={{ ...style, ...(color ? { borderInlineStartColor: color, borderInlineStartWidth: 3 } : {}) }}
       {...listeners}
       {...attributes}
-      className={`group rounded-md border bg-white dark:bg-neutral-950 p-3 text-sm cursor-grab active:cursor-grabbing ${
-        contact && needsAssignment(contact) ? "border-amber-400 bg-amber-50/60 dark:bg-amber-950/20" : "border-neutral-200 dark:border-neutral-800"
+      className={`group rounded-xl border bg-white dark:bg-neutral-800 p-3 text-sm cursor-grab active:cursor-grabbing shadow-sm ${
+        contact && needsAssignment(contact) ? "border-amber-400 bg-amber-50/60 dark:bg-amber-950/20" : "border-black/[.06] dark:border-white/10"
       } ${isDragging ? "opacity-50" : ""}`}
     >
       <div className="flex items-start justify-between gap-1">
@@ -164,11 +165,11 @@ function StageColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`w-64 shrink-0 rounded-lg border ${
-        isOver ? "border-neutral-400 dark:border-neutral-500" : "border-neutral-200 dark:border-neutral-800"
-      } bg-neutral-50 dark:bg-neutral-900 flex flex-col`}
+      className={`w-64 shrink-0 rounded-2xl border ${
+        isOver ? "border-tint bg-tint/5" : "border-transparent bg-black/[.04] dark:bg-white/[.05]"
+      } flex flex-col transition-colors duration-150`}
     >
-      <div className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 rounded-t-lg" style={{ borderTop: `3px solid ${color}`, backgroundColor: `${color}12` }}>
+      <div className="px-3 pt-3 pb-1">
         <div className="flex items-center justify-between gap-2">
           {canManage ? (
             <input type="color" value={color} onChange={(e) => setStageColor(pipelineId, stageId, e.target.value)} className="h-4 w-4 shrink-0 cursor-pointer rounded-full" title="צבע השלב" />
@@ -185,7 +186,7 @@ function StageColumn({
               className="font-medium text-sm bg-transparent border-b border-neutral-400 outline-none flex-1 min-w-0"
             />
           ) : (
-            <button onClick={() => setEditing(true)} className="font-medium text-sm text-start truncate hover:underline flex-1" style={{ color }}>
+            <button onClick={() => setEditing(true)} className="on-tint-text font-semibold text-sm text-start truncate hover:underline flex-1" style={{ "--c": color } as React.CSSProperties}>
               {name}
             </button>
           )}
@@ -245,15 +246,15 @@ function AddStageColumn({ pipelineId }: { pipelineId: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="w-48 shrink-0 h-fit rounded-lg border border-neutral-200 dark:border-neutral-800 p-2 flex gap-1">
+    <form onSubmit={handleSubmit} className="w-48 shrink-0 h-fit rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-2 flex gap-1">
       <input
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="שם השלב"
-        className="flex-1 min-w-0 px-2 py-1 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+        className="flex-1 min-w-0 px-2 py-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
       />
-      <button type="submit" className="px-2 py-1 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 shrink-0">
+      <button type="submit" className="px-2 py-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 shrink-0">
         הוספה
       </button>
       <button

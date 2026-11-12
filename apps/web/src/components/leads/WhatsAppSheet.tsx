@@ -88,7 +88,7 @@ export function WhatsAppSheet({
         <p className="text-sm text-red-500">לליד אין מספר טלפון.</p>
       ) : (
         <div className="space-y-3">
-          <select value={selected} onChange={(e) => choose(e.target.value)} className="w-full px-2 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent">
+          <select value={selected} onChange={(e) => choose(e.target.value)} className="w-full px-2 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent">
             <option value="">הודעה חופשית</option>
             {sorted.map((t) => (
               <option key={t.id} value={t.id}>
@@ -102,9 +102,9 @@ export function WhatsAppSheet({
             rows={10}
             dir="auto"
             placeholder="כתיבת הודעה…"
-            className="w-full px-3 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent leading-relaxed"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent leading-relaxed"
           />
-          {/\{\{[^}]+\}\}/.test(text) && <p className="text-xs text-amber-600">יש בהודעה שדות שלא התמלאו — כדאי לבדוק לפני השליחה.</p>}
+          {/\{\{[^}]+\}\}/.test(text) && <p className="text-xs text-amber-600 dark:text-amber-400">יש בהודעה שדות שלא התמלאו — כדאי לבדוק לפני השליחה.</p>}
           {template?.attachment && (
             <p className="text-xs text-neutral-500">
               📎 מצורף/ת {{ image: "תמונה", video: "סרטון", gif: "גיף", document: "קובץ", voice: "הקלטה" }[template.attachment.type]}
@@ -132,7 +132,7 @@ export function WhatsAppSheet({
           ) : canSendDirect ? (
             <>
               {senders.length > 1 && (
-                <div className="flex rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden text-sm">
+                <div className="flex rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm overflow-hidden text-sm">
                   {senders.map((c) => (
                     <button
                       key={c.id}

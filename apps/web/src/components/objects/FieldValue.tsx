@@ -7,7 +7,7 @@ import type { Member, ObjectField } from "@/lib/types";
 export function OptionChip({ field, value }: { field: ObjectField; value: Value }) {
   const color = optionColor(field, value);
   return (
-    <span className="inline-block text-xs px-2 py-0.5 rounded-full whitespace-nowrap" style={{ backgroundColor: `${color}22`, color }}>
+    <span className="on-tint-text inline-block text-xs px-2 py-0.5 rounded-full whitespace-nowrap" style={{ backgroundColor: `${color}22`, "--c": color } as React.CSSProperties}>
       {optionLabel(field, value)}
     </span>
   );
@@ -55,13 +55,13 @@ export function FieldValue({
       );
     case "url":
       return (
-        <a href={String(value)} target="_blank" rel="noreferrer" className="text-sky-600 hover:underline break-all" dir="ltr" onClick={(e) => e.stopPropagation()}>
+        <a href={String(value)} target="_blank" rel="noreferrer" className="text-sky-600 dark:text-sky-400 hover:underline break-all" dir="ltr" onClick={(e) => e.stopPropagation()}>
           {String(value).replace(/^https?:\/\//, "")}
         </a>
       );
     case "relation":
       return relationTypeId ? (
-        <Link href={`/o/${relationTypeId}/${value}`} className="text-sky-600 hover:underline" onClick={(e) => e.stopPropagation()}>
+        <Link href={`/o/${relationTypeId}/${value}`} className="text-sky-600 dark:text-sky-400 hover:underline" onClick={(e) => e.stopPropagation()}>
           {recordTitles?.[String(value)] ?? "…"}
         </Link>
       ) : (
@@ -69,7 +69,7 @@ export function FieldValue({
       );
     case "contact":
       return (
-        <Link href={`/contacts/${value}`} className="text-sky-600 hover:underline" onClick={(e) => e.stopPropagation()}>
+        <Link href={`/contacts/${value}`} className="text-sky-600 dark:text-sky-400 hover:underline" onClick={(e) => e.stopPropagation()}>
           {contactNames?.[String(value)] ?? "ליד"}
         </Link>
       );

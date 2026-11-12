@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useStore } from "@/lib/store";
@@ -56,7 +57,7 @@ export function FilesSection({ contactId, recordId }: { contactId?: string; reco
   }
 
   async function remove(f: Row) {
-    if (!confirm(`למחוק את "${f.name}"?`)) return;
+    if (!(await confirmAction(`למחוק את "${f.name}"?`))) return;
     await supabase.storage.from("files").remove([f.path]);
     await supabase.from("files").delete().eq("id", f.id);
     setFiles((xs) => xs.filter((x) => x.id !== f.id));
@@ -66,7 +67,7 @@ export function FilesSection({ contactId, recordId }: { contactId?: string; reco
     <section className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-sm font-semibold text-neutral-500">קבצים {files.length > 0 && <span className="font-normal text-neutral-400">({files.length})</span>}</h2>
-        <label className="text-xs px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 cursor-pointer">
+        <label className="text-xs px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800 cursor-pointer">
           {busy ? "מעלה…" : "+ העלאת קבצים"}
           <input type="file" multiple className="hidden" disabled={busy} onChange={(e) => (upload(e.target.files), (e.target.value = ""))} />
         </label>
@@ -75,7 +76,7 @@ export function FilesSection({ contactId, recordId }: { contactId?: string; reco
       {files.length === 0 ? (
         <p className="text-xs text-neutral-400">אין קבצים.</p>
       ) : (
-        <ul className="border border-neutral-200 dark:border-neutral-800 rounded-lg divide-y divide-neutral-100 dark:divide-neutral-900">
+        <ul className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm divide-y divide-neutral-100 dark:divide-neutral-900">
           {files.map((f) => (
             <li key={f.id} className="flex items-center gap-2 px-3 py-2 text-sm">
               <span>{icon(f.mime, f.name)}</span>

@@ -3,7 +3,7 @@
 import { newSectionId } from "@/lib/documents";
 import type { DocSection } from "@/lib/types";
 
-const field = "w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const field = "w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 const small = "text-xs px-1.5 py-0.5 rounded border border-neutral-200 dark:border-neutral-800 disabled:opacity-30";
 
 // Edits a document's sections: title, subtitle and body (light markup).
@@ -23,7 +23,7 @@ export function SectionsEditor({ sections, onChange, disabled }: { sections: Doc
         חדשה. שדות כמו <code dir="ltr">{"{{name}}"}</code> מתמלאים לבד.
       </p>
       {sections.map((s, i) => (
-        <details key={s.id} className="border border-neutral-200 dark:border-neutral-800 rounded-lg" open={!s.title}>
+        <details key={s.id} className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm" open={!s.title}>
           <summary className="cursor-pointer px-3 py-2 text-sm flex items-center gap-2">
             <span className="text-neutral-400 text-xs w-5">{i + 1}</span>
             <span className="truncate flex-1">{s.title || "פרק חדש"}</span>
@@ -49,7 +49,7 @@ export function SectionsEditor({ sections, onChange, disabled }: { sections: Doc
         </details>
       ))}
       {!disabled && (
-        <button type="button" onClick={() => onChange([...sections, { id: newSectionId(), title: "", body: "" }])} className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+        <button type="button" onClick={() => onChange([...sections, { id: newSectionId(), title: "", body: "" }])} className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
           + פרק
         </button>
       )}

@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 import type { FieldValue } from "@/lib/objects";
 import type { ObjectField } from "@/lib/types";
 
-const input = "w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const input = "w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 // Picks a record of another object type by typing part of its name.
 function RecordPicker({ typeId, value, onChange }: { typeId?: string; value: FieldValue; onChange: (v: FieldValue) => void }) {
@@ -30,7 +30,7 @@ function RecordPicker({ typeId, value, onChange }: { typeId?: string; value: Fie
     return () => clearTimeout(t);
   }, [q, typeId]);
 
-  if (!typeId) return <p className="text-xs text-amber-600">לא נבחר לאיזה אובייקט השדה מקשר</p>;
+  if (!typeId) return <p className="text-xs text-amber-600 dark:text-amber-400">לא נבחר לאיזה אובייקט השדה מקשר</p>;
   return (
     <div className="space-y-1">
       {value ? (

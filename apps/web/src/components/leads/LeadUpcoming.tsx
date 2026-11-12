@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import type { Contact } from "@/lib/types";
@@ -17,7 +18,7 @@ function AddTaskSheet({ contact, onClose }: { contact: Contact; onClose: () => v
   const [dueTime, setDueTime] = useState("");
   const [assignee, setAssignee] = useState(me?.name ?? "");
   const [busy, setBusy] = useState(false);
-  const field = "w-full px-2 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+  const field = "w-full px-2 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -61,7 +62,7 @@ function AddTaskSheet({ contact, onClose }: { contact: Contact; onClose: () => v
             </select>
           </label>
         </div>
-        <button type="submit" disabled={!title.trim() || busy} className="w-full py-2.5 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium disabled:opacity-40">
+        <button type="submit" disabled={!title.trim() || busy} className="w-full py-2.5 rounded-lg bg-tint text-white text-sm font-medium disabled:opacity-40">
           {busy ? "שומר…" : "הוספת משימה"}
         </button>
       </form>
@@ -130,7 +131,7 @@ export function LeadUpcoming({ contact }: { contact: Contact }) {
                     📅 {a.title} · {when(a.startAt)}
                   </span>
                   <button
-                    onClick={() => window.confirm(`לבטל את הפגישה "${a.title}"? ההודעות המתוזמנות והמשימות של הפגישה יבוטלו, והיא תוסר מהיומן.`) && void deleteAppointment(a.id)}
+                    onClick={async () => (await confirmAction(`לבטל את הפגישה "${a.title}"? ההודעות המתוזמנות והמשימות של הפגישה יבוטלו, והיא תוסר מהיומן.`)) && void deleteAppointment(a.id)}
                     className="text-xs text-red-500 hover:underline shrink-0"
                   >
                     ביטול פגישה

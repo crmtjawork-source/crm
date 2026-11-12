@@ -31,7 +31,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                   key={s.slug}
                   href={`/settings/${s.slug}`}
                   className={`shrink-0 text-sm px-3 py-1.5 rounded-full border ${
-                    active ? "bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-900 dark:border-white" : "border-neutral-200 dark:border-neutral-800"
+                    active ? "bg-tint text-white border-tint" : "border-neutral-200 dark:border-neutral-800"
                   }`}
                 >
                   {s.label}
@@ -42,7 +42,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           <div className="hidden md:block space-y-5">
             {groups.map((g) => (
               <div key={g}>
-                <p className="text-xs font-medium text-neutral-400 px-3 mb-1">{g}</p>
+                <p className="text-[11px] font-semibold text-neutral-400 px-3 mb-1">{g}</p>
                 <div className="flex flex-col gap-0.5">
                   {sections
                     .filter((s) => s.group === g)
@@ -52,10 +52,11 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                         <Link
                           key={s.slug}
                           href={`/settings/${s.slug}`}
-                          className={`rounded-md px-3 py-1.5 text-sm ${
+                          aria-current={active ? "page" : undefined}
+                          className={`rounded-lg px-3 py-1.5 text-sm transition-colors duration-150 ${
                             active
-                              ? "bg-neutral-100 dark:bg-neutral-900 font-medium"
-                              : "text-neutral-600 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-900"
+                              ? "bg-black/[.07] dark:bg-white/10 font-semibold"
+                              : "text-neutral-600 hover:bg-black/[.04] dark:text-neutral-400 dark:hover:bg-white/[.06]"
                           }`}
                         >
                           {s.label}

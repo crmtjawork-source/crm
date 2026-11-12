@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
@@ -72,10 +73,10 @@ export function DocumentInsights({ doc, onClose, onSend }: { doc: CrmDocument; o
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button onClick={copy} className="px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800">
+          <button onClick={copy} className="px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800">
             {copied ? "הועתק ✓" : "העתקת קישור"}
           </button>
-          <a href={url} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800">
+          <a href={url} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800">
             פתיחה
           </a>
           {onSend && editable && (
@@ -84,13 +85,13 @@ export function DocumentInsights({ doc, onClose, onSend }: { doc: CrmDocument; o
             </button>
           )}
           {editable && (
-            <button onClick={() => setEditing(doc.sections)} className="px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800">
+            <button onClick={() => setEditing(doc.sections)} className="px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800">
               עריכת התוכן
             </button>
           )}
           {doc.status !== "signed" && doc.status !== "void" && (
             <button
-              onClick={() => confirm("לבטל את המסמך? הקישור יפסיק לעבוד.") && updateDocument(doc.id, { status: "void" })}
+              onClick={async () => (await confirmAction("לבטל את המסמך? הקישור יפסיק לעבוד.")) && updateDocument(doc.id, { status: "void" })}
               className="px-3 py-1.5 text-neutral-400 hover:text-red-500 ms-auto"
             >
               ביטול המסמך
@@ -99,8 +100,8 @@ export function DocumentInsights({ doc, onClose, onSend }: { doc: CrmDocument; o
         </div>
 
         {editing && (
-          <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 space-y-3">
-            <p className="text-xs text-amber-600">השינויים יופיעו מיד למי שפותח את הקישור.</p>
+          <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3 space-y-3">
+            <p className="text-xs text-amber-600 dark:text-amber-400">השינויים יופיעו מיד למי שפותח את הקישור.</p>
             <SectionsEditor sections={editing} onChange={setEditing} />
             <div className="flex gap-2">
               <button
@@ -108,7 +109,7 @@ export function DocumentInsights({ doc, onClose, onSend }: { doc: CrmDocument; o
                   await updateDocument(doc.id, { sections: editing });
                   setEditing(null);
                 }}
-                className="px-4 py-1.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+                className="px-4 py-1.5 rounded-md bg-tint text-white"
               >
                 שמירה
               </button>
@@ -137,7 +138,7 @@ export function DocumentInsights({ doc, onClose, onSend }: { doc: CrmDocument; o
           </div>
         )}
         {doc.status === "declined" && (
-          <p className="text-red-600">
+          <p className="text-red-600 dark:text-red-400">
             ✖️ נדחה {when(doc.declinedAt)}
             {doc.declineReason && ` — "${doc.declineReason}"`}
           </p>
@@ -188,7 +189,7 @@ export function DocumentInsights({ doc, onClose, onSend }: { doc: CrmDocument; o
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-2">
+    <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm px-3 py-2">
       <p className="text-[11px] text-neutral-500">{label}</p>
       <p className="font-medium text-sm">{value}</p>
     </div>

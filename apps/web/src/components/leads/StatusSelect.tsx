@@ -17,7 +17,7 @@ function StatusSender({ contact, status }: { contact: Contact; status: string })
   });
   return (
     <>
-      {notice && <span className={`ms-2 text-xs ${notice.ok ? "text-emerald-600" : "text-amber-600"}`}>{notice.text}</span>}
+      {notice && <span className={`ms-2 text-xs ${notice.ok ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>{notice.text}</span>}
       {overlays}
     </>
   );
@@ -48,8 +48,8 @@ export function StatusSelect({ contact, large }: { contact: Contact; large?: boo
     <span
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
-      className={`relative inline-flex items-center gap-1 rounded-full ps-2 pe-1 py-0.5 whitespace-nowrap font-medium ${large ? "text-sm" : "text-xs"}`}
-      style={{ backgroundColor: `${color}1f`, color }}
+      className={`on-tint-text relative inline-flex items-center gap-1 rounded-full ps-2 pe-1 py-0.5 whitespace-nowrap font-medium ${large ? "text-sm" : "text-xs"}`}
+      style={{ backgroundColor: `${color}1f`, "--c": color } as React.CSSProperties}
     >
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
       <select
@@ -57,7 +57,6 @@ export function StatusSelect({ contact, large }: { contact: Contact; large?: boo
         aria-label="סטטוס ליד"
         onChange={(e) => change(e.target.value)}
         className={`appearance-none bg-transparent outline-none cursor-pointer pe-1 py-0.5 font-medium ${large ? "text-sm" : "text-xs"}`}
-        style={{ color }}
       >
         <option value="">ללא סטטוס</option>
         {leadStatuses.map((st) => (

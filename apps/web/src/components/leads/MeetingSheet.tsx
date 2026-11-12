@@ -7,7 +7,7 @@ import { isOnlineMeeting } from "@/lib/templates";
 import type { Appointment, Contact } from "@/lib/types";
 import { Sheet } from "@/components/ui/Sheet";
 
-const input = "w-full px-2 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const input = "w-full px-2 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -121,7 +121,7 @@ export function MeetingSheet({
               : "הפגישה תיכנס ליומן והליד יעבור לשלב \"נקבעה פגישה\". הוואטסאפ האישי שלך לא מחובר, ולכן תזכורות הפגישה (3 ימים לפני, יום לפני ובבוקר הפגישה) לא יישלחו — כדאי לחבר אותו."}
           </p>
           {error && <p className="text-xs text-red-500">{error}</p>}
-          <button type="submit" disabled={busy} className="w-full py-2.5 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium disabled:opacity-50">
+          <button type="submit" disabled={busy} className="w-full py-2.5 rounded-lg bg-tint text-white text-sm font-medium disabled:opacity-50">
             {busy ? "שומר…" : "קביעת הפגישה"}
           </button>
         </form>

@@ -1,11 +1,12 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useState, useSyncExternalStore } from "react";
 import { useStore } from "@/lib/store";
 import { PLATFORMS } from "@/lib/attribution";
 import type { LeadSource } from "@/lib/types";
 
-const input = "px-2 py-1 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const input = "px-2 py-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 const subscribe = () => () => {};
 function useOrigin() {
@@ -38,7 +39,7 @@ export function SourcesTab({ isAdmin }: { isAdmin: boolean }) {
       </p>
 
       {isAdmin ? (
-        <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2 mb-6 border border-neutral-200 dark:border-neutral-800 rounded-lg p-3">
+        <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2 mb-6 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3">
           <label className="text-xs">
             <span className="block text-neutral-500 mb-1">שם (למשל: סוכנות AIR, דף נחיתה)</span>
             <input value={name} onChange={(e) => setName(e.target.value)} required className={input} />
@@ -71,12 +72,12 @@ export function SourcesTab({ isAdmin }: { isAdmin: boolean }) {
                 ))}
             </select>
           </label>
-          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <button type="submit" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             + כתובת חדשה
           </button>
         </form>
       ) : (
-        <p className="text-xs text-amber-600 mb-3">רק מנהלים יכולים ליצור כתובות קליטה.</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400 mb-3">רק מנהלים יכולים ליצור כתובות קליטה.</p>
       )}
 
       {leadSources.length === 0 ? (
@@ -107,7 +108,7 @@ function SourceRow({ source, isAdmin }: { source: LeadSource; isAdmin: boolean }
   }
 
   return (
-    <li className={`border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 ${source.active ? "" : "opacity-60"}`}>
+    <li className={`rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3 ${source.active ? "" : "opacity-60"}`}>
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <span className="font-medium text-sm">{source.name}</span>
         {!source.active && <span className="text-xs px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800">מושבת</span>}
@@ -120,7 +121,7 @@ function SourceRow({ source, isAdmin }: { source: LeadSource; isAdmin: boolean }
         <code className="flex-1 text-xs bg-neutral-50 dark:bg-neutral-900 rounded px-2 py-1.5 truncate" dir="ltr">
           {url}
         </code>
-        <button onClick={copy} className="text-xs px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 shrink-0">
+        <button onClick={copy} className="text-xs px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800 shrink-0">
           {copied ? "הועתק ✓" : "העתקה"}
         </button>
       </div>
@@ -142,7 +143,7 @@ function SourceRow({ source, isAdmin }: { source: LeadSource; isAdmin: boolean }
             {source.active ? "השבתה" : "הפעלה"}
           </button>
           <button
-            onClick={() => confirm(`למחוק את "${source.name}"? מערכות ששולחות לכתובת הזו יפסיקו להכניס לידים.`) && deleteLeadSource(source.id)}
+            onClick={async () => (await confirmAction(`למחוק את "${source.name}"? מערכות ששולחות לכתובת הזו יפסיקו להכניס לידים.`)) && deleteLeadSource(source.id)}
             className="hover:underline hover:text-red-500"
           >
             מחיקה
@@ -177,7 +178,7 @@ const EXAMPLE = `{
 
 function Instructions() {
   return (
-    <details className="mt-6 border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 text-sm">
+    <details className="mt-6 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3 text-sm">
       <summary className="font-medium cursor-pointer">איך מחברים?</summary>
       <div className="mt-3 space-y-4 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
         <div>

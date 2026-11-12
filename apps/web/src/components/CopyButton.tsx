@@ -33,7 +33,7 @@ export function CopyButton({ text, label = "העתקה", className = "" }: { tex
         setDone(true);
         setTimeout(() => setDone(false), 1500);
       }}
-      className={`inline-flex items-center justify-center shrink-0 rounded px-1 text-xs leading-none text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-100 ${done ? "text-emerald-600" : ""} ${className}`}
+      className={`inline-flex items-center justify-center shrink-0 rounded px-1 text-xs leading-none text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-100 ${done ? "text-emerald-600 dark:text-emerald-400" : ""} ${className}`}
     >
       {done ? "✓" : "⧉"}
     </button>

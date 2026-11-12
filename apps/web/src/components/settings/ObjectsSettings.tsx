@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
+import { Switch } from "@/components/ui/Switch";
 import { useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
@@ -7,8 +9,8 @@ import { FIELD_TYPES, newKey, OBJECT_PRESETS, OPTION_COLORS } from "@/lib/object
 import type { FieldOption, ObjectCategory, ObjectField, ObjectType } from "@/lib/types";
 import { Sheet } from "@/components/ui/Sheet";
 
-const input = "w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
-const btn = "px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800";
+const input = "w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const btn = "px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800";
 
 // Lets a business define its own record types (clients, properties,
 // projects…) with fields, option lists and stages — no code.
@@ -50,7 +52,7 @@ export function ObjectsSettings({ isAdmin }: { isAdmin: boolean }) {
           </button>
         </div>
       ) : (
-        <p className="text-xs text-amber-600">רק מנהלים יכולים להגדיר אובייקטים.</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400">רק מנהלים יכולים להגדיר אובייקטים.</p>
       )}
       {creating && <CreateObject onClose={() => setCreating(false)} onCreated={(t) => (setCreating(false), setEditingId(t.id))} />}
       {editing && <ObjectEditor type={editing} onClose={() => setEditingId(null)} />}
@@ -65,7 +67,7 @@ function TableList({ tables, isAdmin, onEdit, title }: { tables: ObjectType[]; i
       {title && <h3 className="text-xs font-medium text-neutral-500 mb-1">{title}</h3>}
       <ul className="space-y-2">
         {tables.map((t) => (
-          <li key={t.id} className="flex items-center gap-2 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-sm">
+          <li key={t.id} className="flex items-center gap-2 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm px-3 py-2 text-sm">
             <span>{t.icon}</span>
             <Link href={`/o/${t.id}`} className="font-medium hover:underline">
               {t.name}
@@ -105,7 +107,7 @@ function CategoryGroup({ category, tables, isAdmin, onEdit }: { category: Object
               שינוי שם
             </button>
             <button
-              onClick={() => window.confirm(`למחוק את הקטגוריה "${category.name}"? הטבלאות שבה לא יימחקו — הן יעברו ל"ללא קטגוריה".`) && void deleteObjectCategory(category.id)}
+              onClick={async () => (await confirmAction(`למחוק את הקטגוריה "${category.name}"? הטבלאות שבה לא יימחקו — הן יעברו ל"ללא קטגוריה".`)) && void deleteObjectCategory(category.id)}
               className="hover:text-red-500 hover:underline"
             >
               מחיקה
@@ -153,7 +155,7 @@ function CreateObject({ onClose, onCreated }: { onClose: () => void; onCreated: 
       <form onSubmit={create} className="space-y-3">
         <div className="flex flex-wrap gap-2">
           {OBJECT_PRESETS.map((p) => (
-            <button key={p.id} type="button" onClick={() => pick(p.id)} className={`${btn} ${preset.id === p.id ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : ""}`}>
+            <button key={p.id} type="button" onClick={() => pick(p.id)} className={`${btn} ${preset.id === p.id ? "bg-tint text-white" : ""}`}>
               {p.icon} {p.name || "ריק"}
             </button>
           ))}
@@ -174,7 +176,7 @@ function CreateObject({ onClose, onCreated }: { onClose: () => void; onCreated: 
           </label>
         </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
-        <button type="submit" disabled={busy} className="w-full py-2.5 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm disabled:opacity-50">
+        <button type="submit" disabled={busy} className="w-full py-2.5 rounded-lg bg-tint text-white text-sm disabled:opacity-50">
           {busy ? "יוצר…" : "יצירה"}
         </button>
       </form>
@@ -250,7 +252,7 @@ function ObjectEditor({ type, onClose }: { type: ObjectType; onClose: () => void
               + שדה
             </button>
           </div>
-          <ul className="border border-neutral-200 dark:border-neutral-800 rounded-lg divide-y divide-neutral-100 dark:divide-neutral-900">
+          <ul className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm divide-y divide-neutral-100 dark:divide-neutral-900">
             {type.fields.map((f, i) => (
               <li key={f.id} className="flex items-center gap-2 px-3 py-2">
                 <div className="flex flex-col text-[10px] text-neutral-400">
@@ -279,7 +281,7 @@ function ObjectEditor({ type, onClose }: { type: ObjectType; onClose: () => void
 
         <button
           onClick={async () => {
-            if (!confirm(`למחוק את "${type.name}" וכל הרשומות שבו? אי אפשר לשחזר.`)) return;
+            if (!(await confirmAction(`למחוק את "${type.name}" וכל הרשומות שבו? אי אפשר לשחזר.`))) return;
             await deleteObjectType(type.id);
             onClose();
           }}
@@ -412,20 +414,20 @@ export function FieldEditor({
         </label>
         <div className="flex gap-4 text-xs">
           <label className="flex items-center gap-1">
-            <input type="checkbox" checked={f.required} onChange={(e) => set({ required: e.target.checked })} /> חובה
+            <Switch checked={f.required} onChange={(v) => set({ required: v })} /> חובה
           </label>
           <label className="flex items-center gap-1">
-            <input type="checkbox" checked={f.showInList} onChange={(e) => set({ showInList: e.target.checked })} /> עמודה בטבלה
+            <Switch checked={f.showInList} onChange={(v) => set({ showInList: v })} /> עמודה בטבלה
           </label>
         </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex items-center gap-3">
-          <button onClick={save} className="px-4 py-1.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+          <button onClick={save} className="px-4 py-1.5 rounded-md bg-tint text-white">
             שמירה
           </button>
           {field && field.key !== type.titleField && (
             <button
-              onClick={() => confirm(`למחוק את השדה "${field.label}"? הערכים שלו יישארו שמורים ברשומות אבל לא יוצגו.`) && onDelete(field)}
+              onClick={async () => (await confirmAction(`למחוק את השדה "${field.label}"? הערכים שלו יישארו שמורים ברשומות אבל לא יוצגו.`)) && onDelete(field)}
               className="text-xs text-neutral-400 hover:text-red-500 ms-auto"
             >
               מחיקת השדה

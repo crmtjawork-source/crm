@@ -64,13 +64,13 @@ export function LeadFieldsCard({ contact }: { contact: Contact }) {
         {!editing ? (
           <div className="flex items-center gap-2">
             <CopyButton text={allText} label="העתקת כל פרטי הליד" className="!text-neutral-500 border border-neutral-200 dark:border-neutral-800 py-1 px-2 rounded-md" />
-            <button onClick={() => setEditing({ ...contact.fields })} className="text-xs px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800">
+            <button onClick={() => setEditing({ ...contact.fields })} className="text-xs px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800">
               עריכה
             </button>
           </div>
         ) : (
           <div className="flex gap-2">
-            <button onClick={save} className="text-xs px-2 py-1 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+            <button onClick={save} className="text-xs px-2 py-1 rounded-md bg-tint text-white">
               שמירה
             </button>
             <button onClick={() => setEditing(null)} className="text-xs text-neutral-500">
@@ -114,7 +114,7 @@ export function LeadFieldsCard({ contact }: { contact: Contact }) {
                 <dt className="text-xs text-neutral-500">{k}</dt>
                 <dd className="text-sm">
                   {editing ? (
-                    <input value={editing[k] ?? ""} onChange={(e) => setEditing((x) => ({ ...x!, [k]: e.target.value }))} className="w-full px-2 py-1 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+                    <input value={editing[k] ?? ""} onChange={(e) => setEditing((x) => ({ ...x!, [k]: e.target.value }))} className="w-full px-2 py-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
                   ) : (
                     <span className="inline-flex items-start gap-1.5">
                       <span className="whitespace-pre-wrap">{v}</span>
@@ -139,9 +139,9 @@ export function LeadFieldsCard({ contact }: { contact: Contact }) {
           }}
           className="flex gap-2 mt-3"
         >
-          <input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="שדה חדש (שם)" className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
-          <input value={newValue} onChange={(e) => setNewValue(e.target.value)} placeholder="ערך" className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
-          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="שדה חדש (שם)" className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+          <input value={newValue} onChange={(e) => setNewValue(e.target.value)} placeholder="ערך" className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+          <button type="submit" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             הוספה
           </button>
         </form>

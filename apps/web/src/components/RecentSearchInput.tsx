@@ -86,10 +86,10 @@ export function RecentSearchInput({
           } else if (e.key === "Escape") setOpen(false);
         }}
         placeholder={placeholder}
-        className="w-full px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+        className="w-full px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
       />
       {open && shown.length > 0 && (
-        <div className="absolute z-30 inset-x-0 top-full mt-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-lg py-1">
+        <div className="absolute z-30 inset-x-0 top-full mt-1 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-lg py-1">
           <div className="flex items-center justify-between px-3 py-1 text-xs text-neutral-400">
             <span>חיפושים אחרונים</span>
             <button

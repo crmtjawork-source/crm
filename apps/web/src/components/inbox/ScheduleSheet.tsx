@@ -51,17 +51,17 @@ export function ScheduleSheet({ contact, channelId, initialText, onClose }: { co
     <Sheet title={`הודעה מתוזמנת ל${contact.name}`} onClose={onClose}>
       {done ? (
         <div className="space-y-3">
-          <p className="text-sm text-emerald-600">✓ ההודעה תישלח ב-{new Date(when).toLocaleString("he-IL", { weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}. אפשר לראות ולבטל אותה בכרטיס הליד.</p>
-          <button onClick={onClose} className="px-4 py-2 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+          <p className="text-sm text-emerald-600 dark:text-emerald-400">✓ ההודעה תישלח ב-{new Date(when).toLocaleString("he-IL", { weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}. אפשר לראות ולבטל אותה בכרטיס הליד.</p>
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-md bg-tint text-white">
             סגירה
           </button>
         </div>
       ) : (
         <div className="space-y-3">
-          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} dir="auto" autoFocus placeholder="ההודעה שתישלח…" className="w-full px-3 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} dir="auto" autoFocus placeholder="ההודעה שתישלח…" className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
           <label className="block text-sm">
             <span className="block text-xs text-neutral-500 mb-1">מתי לשלוח</span>
-            <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+            <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
           </label>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button onClick={save} disabled={!text.trim() || busy} className="w-full py-2.5 text-sm rounded-md bg-emerald-600 text-white disabled:opacity-50">

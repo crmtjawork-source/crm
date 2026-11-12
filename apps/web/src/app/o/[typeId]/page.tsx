@@ -12,7 +12,7 @@ import type { CrmRecord } from "@/lib/types";
 import { buildRecordFilterFields } from "@/lib/leadFilters";
 import { useRecordFilter } from "@/components/FilterBar";
 
-const field = "px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const field = "px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 export default function ObjectListPage() {
   const { typeId } = useParams<{ typeId: string }>();
@@ -64,15 +64,15 @@ export default function ObjectListPage() {
           <span className="text-sm font-normal text-neutral-400 ms-2">{records ? filtered.length : ""}</span>
         </h1>
         {stage && (
-          <div className="flex rounded-md border border-neutral-200 dark:border-neutral-800 overflow-hidden text-sm">
+          <div className="flex rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden text-sm">
             {(["list", "board"] as const).map((v) => (
-              <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 ${view === v ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : ""}`}>
+              <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 ${view === v ? "bg-tint text-white" : ""}`}>
                 {v === "list" ? "רשימה" : "לוח"}
               </button>
             ))}
           </div>
         )}
-        <button onClick={() => setCreating(true)} className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+        <button onClick={() => setCreating(true)} className="px-3 py-1.5 text-sm rounded-md bg-tint text-white">
           + {type.singular} חדש
         </button>
       </div>
@@ -156,7 +156,7 @@ export default function ObjectListPage() {
       ) : filtered.length === 0 ? (
         <p className="text-sm text-neutral-400">{records.length ? "אין תוצאות." : `עוד אין ${type.name}. לחצו על "${type.singular} חדש".`}</p>
       ) : (
-        <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-x-auto">
+        <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-xs text-neutral-500 bg-neutral-50 dark:bg-neutral-900">
               <tr>

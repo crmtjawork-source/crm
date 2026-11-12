@@ -7,7 +7,7 @@ export function ColorChip({ label, color, className = "" }: { label: string; col
   if (!label) return <span className="text-neutral-300 dark:text-neutral-700">—</span>;
   const c = color || "#64748b";
   return (
-    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${className}`} style={{ backgroundColor: `${c}1f`, color: c }}>
+    <span className={`on-tint-text inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${className}`} style={{ backgroundColor: `${c}1f`, "--c": c } as React.CSSProperties}>
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: c }} />
       {label}
     </span>

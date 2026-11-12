@@ -22,7 +22,7 @@ export default function FormsPage() {
         <h1 className="text-xl font-bold">טפסי לידים</h1>
         <button
           onClick={() => setCreating((v) => !v)}
-          className="text-sm px-3 py-1.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+          className="text-sm px-3 py-1.5 rounded-md bg-tint text-white"
         >
           + טופס חדש
         </button>
@@ -35,7 +35,7 @@ export default function FormsPage() {
 
       <ul className="space-y-2">
         {forms.map((f) => (
-          <li key={f.id} className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+          <li key={f.id} className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-4">
             <div className="flex items-center justify-between mb-2">
               <div>
                 <p className="font-medium">{f.name}</p>
@@ -91,7 +91,7 @@ function NewFormForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mb-6 space-y-3 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+    <form onSubmit={handleSubmit} className="mb-6 space-y-3 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-4">
       <label className="block text-sm">
         <span className="block text-xs text-neutral-500 mb-1">שם הטופס</span>
         <input
@@ -100,7 +100,7 @@ function NewFormForm({ onDone }: { onDone: () => void }) {
           required
           autoFocus
           placeholder="לדוגמה: טופס יצירת קשר — קמפיין פייסבוק"
-          className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+          className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
         />
       </label>
 
@@ -123,12 +123,12 @@ function NewFormForm({ onDone }: { onDone: () => void }) {
             value={fieldLabel}
             onChange={(e) => setFieldLabel(e.target.value)}
             placeholder="שם שדה חדש"
-            className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+            className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
           />
           <select
             value={fieldType}
             onChange={(e) => setFieldType(e.target.value as FormField["type"])}
-            className="px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+            className="px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
           >
             {FIELD_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
@@ -136,14 +136,14 @@ function NewFormForm({ onDone }: { onDone: () => void }) {
               </option>
             ))}
           </select>
-          <button type="button" onClick={addField} className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <button type="button" onClick={addField} className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             הוספת שדה
           </button>
         </div>
       </div>
 
       <div className="flex gap-2">
-        <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+        <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-tint text-white">
           יצירת טופס
         </button>
         <button type="button" onClick={onDone} className="px-3 py-1.5 text-sm text-neutral-400">
@@ -193,7 +193,7 @@ function FormPreview({ formId }: { formId: string }) {
                 value={values[f.key] ?? ""}
                 onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
                 required={f.required}
-                className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
               />
             ) : (
               <input
@@ -201,12 +201,12 @@ function FormPreview({ formId }: { formId: string }) {
                 onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
                 required={f.required}
                 dir={f.type === "phone" || f.type === "email" ? "ltr" : undefined}
-                className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
               />
             )}
           </label>
         ))}
-        <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+        <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-tint text-white">
           שליחה
         </button>
       </form>

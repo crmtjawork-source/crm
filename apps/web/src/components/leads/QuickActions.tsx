@@ -35,7 +35,7 @@ export function QuickActions({ contact }: { contact: Contact }) {
           אחרי פגישה
         </button>
       </div>
-      {notice && <p className={`-mt-3 mb-4 text-xs ${notice.ok ? "text-emerald-600" : "text-amber-600"}`}>{notice.text}</p>}
+      {notice && <p className={`-mt-3 mb-4 text-xs ${notice.ok ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>{notice.text}</p>}
 
       {overlays}
     </>

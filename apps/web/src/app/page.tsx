@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { canAssignLeads, canSeeHref, effectiveRole } from "@/lib/permissions";
@@ -22,5 +23,5 @@ export default function Home() {
     router.replace(first ?? "/settings");
   }, [loading, contacts, members, currentMemberId, roles, router]);
 
-  return <div className="p-6 text-sm text-neutral-400">טוען…</div>;
+  return <PageSkeleton />;
 }

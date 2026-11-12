@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { SIGNER_FIELDS } from "@/lib/documents";
@@ -10,7 +11,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { apiUpload } from "@/lib/api";
 import type { DocSection, DocumentTemplate } from "@/lib/types";
 
-const field = "w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const field = "w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 type Draft = Omit<DocumentTemplate, "id" | "position">;
 
@@ -49,7 +50,7 @@ export function DocumentTemplatesSettings({ isAdmin }: { isAdmin: boolean }) {
       <ul className="space-y-2 mb-3">
         {documentTemplates.map((t) => (
           <li key={t.id}>
-            <button onClick={() => setEditing(t)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-start border border-neutral-200 dark:border-neutral-800 rounded-lg">
+            <button onClick={() => setEditing(t)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-start rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm">
               <span className="truncate">{t.name}</span>
               <span className="text-xs text-neutral-400 shrink-0">{t.sections.length} פרקים</span>
             </button>
@@ -60,11 +61,11 @@ export function DocumentTemplatesSettings({ isAdmin }: { isAdmin: boolean }) {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={async () => setEditing(await addDocumentTemplate(EMPTY))}
-            className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800"
+            className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800"
           >
             + תבנית חדשה
           </button>
-          <label className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 cursor-pointer">
+          <label className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 cursor-pointer">
             {importing ? "קורא את הקובץ…" : "⬆ העלאת חוזה קיים (PDF)"}
             <input
               type="file"
@@ -84,7 +85,7 @@ export function DocumentTemplatesSettings({ isAdmin }: { isAdmin: boolean }) {
           </p>
         </div>
       ) : (
-        <p className="text-xs text-amber-600">רק מנהלים יכולים לערוך תבניות.</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400">רק מנהלים יכולים לערוך תבניות.</p>
       )}
       {editing && <TemplateEditor key={editing.id} template={editing} isAdmin={isAdmin} onClose={() => setEditing(null)} />}
     </section>
@@ -139,7 +140,7 @@ function TemplateEditor({ template, isAdmin, onClose }: { template: DocumentTemp
             {(["logoUrl", "coverImageUrl"] as const).map((key) => (
               <label key={key} className="cursor-pointer">
                 <span className="block text-neutral-500 mb-1">{key === "logoUrl" ? "לוגו" : "תמונת רקע לשער"}</span>
-                <span className="inline-block px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800">{d[key] ? "החלפה" : "העלאה"}</span>
+                <span className="inline-block px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800">{d[key] ? "החלפה" : "העלאה"}</span>
                 {d[key] && (
                   <button type="button" onClick={() => set({ [key]: undefined })} className="ms-1 text-neutral-400 hover:text-red-500">
                     ×
@@ -181,18 +182,18 @@ function TemplateEditor({ template, isAdmin, onClose }: { template: DocumentTemp
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex items-center gap-3 sticky bottom-0 bg-white dark:bg-neutral-950 py-2">
           {isAdmin && (
-            <button onClick={save} className="px-4 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+            <button onClick={save} className="px-4 py-1.5 text-sm rounded-md bg-tint text-white">
               שמירה
             </button>
           )}
-          <button onClick={() => setPreview(true)} className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <button onClick={() => setPreview(true)} className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             תצוגה מקדימה
           </button>
-          {saved && <span className="text-xs text-emerald-600">נשמר ✓</span>}
+          {saved && <span className="text-xs text-emerald-600 dark:text-emerald-400">נשמר ✓</span>}
           {isAdmin && (
             <button
               onClick={async () => {
-                if (!confirm(`למחוק את התבנית "${template.name}"? מסמכים שכבר נשלחו לא יושפעו.`)) return;
+                if (!(await confirmAction(`למחוק את התבנית "${template.name}"? מסמכים שכבר נשלחו לא יושפעו.`))) return;
                 await deleteDocumentTemplate(template.id);
                 onClose();
               }}
@@ -263,7 +264,7 @@ function CompanySignatureEditor({
   }
 
   return (
-    <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 mb-4">
+    <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3 mb-4">
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold">חתימת החברה</h3>
@@ -274,7 +275,7 @@ function CompanySignatureEditor({
           <img src={current.image} alt="חתימת החברה" className="h-12 max-w-32 object-contain bg-white rounded border border-neutral-200" />
         )}
         {isAdmin && !editing && (
-          <button onClick={() => setEditing(true)} className="text-xs px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 shrink-0">
+          <button onClick={() => setEditing(true)} className="text-xs px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 shrink-0">
             {current ? "עריכה" : "הגדרת חתימה"}
           </button>
         )}
@@ -298,7 +299,7 @@ function CompanySignatureEditor({
           </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-2">
-            <button onClick={save} disabled={busy} className="px-4 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-50">
+            <button onClick={save} disabled={busy} className="px-4 py-1.5 text-sm rounded-md bg-tint text-white disabled:opacity-50">
               {busy ? "שומר…" : "שמירה"}
             </button>
             <button onClick={() => (setEditing(false), setImage(null))} className="px-3 py-1.5 text-sm text-neutral-400">
@@ -307,7 +308,7 @@ function CompanySignatureEditor({
             {current && (
               <button
                 onClick={async () => {
-                  if (window.confirm("להסיר את חתימת החברה מהמסמכים?")) {
+                  if ((await confirmAction("להסיר את חתימת החברה מהמסמכים?"))) {
                     await onSave(null);
                     setEditing(false);
                   }

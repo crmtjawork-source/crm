@@ -43,14 +43,13 @@ export function StageSelect({ contact, deal, afterMove, large }: { contact: Cont
 
   const valueOf = (pipelineId: string, stageId: string) => `${pipelineId}|${stageId}`;
   return (
-    <span className={`relative inline-flex items-center gap-1 rounded-full ps-2 pe-1 py-0.5 whitespace-nowrap font-medium ${large ? "text-sm" : "text-xs"}`} style={{ backgroundColor: `${color}1f`, color }}>
+    <span className={`on-tint-text relative inline-flex items-center gap-1 rounded-full ps-2 pe-1 py-0.5 whitespace-nowrap font-medium ${large ? "text-sm" : "text-xs"}`} style={{ backgroundColor: `${color}1f`, "--c": color } as React.CSSProperties}>
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
       <select
         value={current}
         aria-label="שלב"
         onChange={(e) => choose(e.target.value)}
         className={`appearance-none bg-transparent outline-none cursor-pointer pe-1 py-0.5 font-medium ${large ? "text-sm" : "text-xs"}`}
-        style={{ color }}
       >
         {deal && !open && <option value={current}>{OUTCOME[deal.status].label}</option>}
         {choices.map((p) => (

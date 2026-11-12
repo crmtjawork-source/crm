@@ -17,7 +17,7 @@ const PERIODS = [
   { id: "all", label: "הכל" },
 ];
 
-const field = "px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const field = "px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 const ago = (iso?: string) => {
   if (!iso) return "—";
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -67,19 +67,19 @@ export default function DocumentsPage() {
     <div className="max-w-6xl">
       <div className="flex flex-wrap items-center gap-2 mb-1">
         <h1 className="text-2xl font-bold me-auto">הצעות והסכמים</h1>
-        <Link href="/settings/documents" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+        <Link href="/settings/documents" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
           ניהול תבניות
         </Link>
-        <button onClick={() => setPicking(true)} className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+        <button onClick={() => setPicking(true)} className="px-3 py-1.5 text-sm rounded-md bg-tint text-white">
           + הצעה / הסכם חדש
         </button>
       </div>
       <p className="text-sm text-neutral-500 mb-5">כל מסמך שנשלח לחתימה: מתי נפתח, כמה זמן נקרא, ומי חתם.</p>
 
       <div className="flex flex-wrap gap-2 mb-4">
-        <div className="flex rounded-md border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+        <div className="flex rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
           {PERIODS.map((p) => (
-            <button key={p.id} onClick={() => setPeriod(p.id)} className={`px-3 py-1.5 text-sm ${period === p.id ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : ""}`}>
+            <button key={p.id} onClick={() => setPeriod(p.id)} className={`px-3 py-1.5 text-sm ${period === p.id ? "bg-tint text-white" : ""}`}>
               {p.label}
             </button>
           ))}
@@ -120,7 +120,7 @@ export default function DocumentsPage() {
       {filtered.length === 0 ? (
         <p className="text-sm text-neutral-400">אין מסמכים בתקופה הזו.</p>
       ) : (
-        <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-x-auto mb-8">
+        <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm overflow-x-auto mb-8">
           <table className="w-full text-sm">
             <thead className="text-xs text-neutral-500 bg-neutral-50 dark:bg-neutral-900">
               <tr className="text-start">
@@ -157,7 +157,7 @@ export default function DocumentsPage() {
       {byAgent.length > 1 && (
         <>
           <h2 className="text-sm font-semibold text-neutral-500 mb-2">לפי נציג</h2>
-          <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-x-auto max-w-xl">
+          <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm overflow-x-auto max-w-xl">
             <table className="w-full text-sm">
               <thead className="text-xs text-neutral-500 bg-neutral-50 dark:bg-neutral-900">
                 <tr>

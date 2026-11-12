@@ -1,0 +1,55 @@
+<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet"><script src="icons.js"></script>
+<style>
+:root{--bg:#F3F1EC;--card:#fff;--line:#E6E3DB;--ink:#1A1A17;--mut:#7C7A72;--g:#128C5A;--gsoft:#E3F4EB;--bub:#DCF3E4}
+*{box-sizing:border-box;margin:0}body{width:1440px;height:900px;font-family:Heebo,sans-serif;background:var(--bg);color:var(--ink);display:flex;overflow:hidden;font-size:14px}
+.rail{width:64px;background:#1A1A17;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0}.rail .l{width:36px;height:36px;border-radius:10px;background:#3DDC97;color:#04170E;display:grid;place-items:center;font-weight:800;margin-bottom:12px}
+.rail .i{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;color:#9a988f;position:relative}.rail .i.on{background:#2c2c27;color:#fff}.rail .i b{position:absolute;top:4px;inset-inline-end:3px;background:#FF5C5C;color:#fff;font-size:10px;border-radius:10px;padding:0 5px}
+.list{width:330px;background:#fff;border-inline-end:1px solid var(--line);display:flex;flex-direction:column}
+.lh{padding:18px 18px 12px}.lh h2{font-size:18px;font-weight:700;margin-bottom:12px}.s{display:flex;gap:8px;align-items:center;background:#F3F1EC;border-radius:10px;padding:9px 12px;color:var(--mut)}
+.f{display:flex;gap:6px;padding:0 18px 12px}.f span{font-size:12.5px;padding:5px 11px;border-radius:20px;background:#F3F1EC;color:#555;font-weight:500}.f .on{background:var(--ink);color:#fff}
+.it{display:flex;gap:11px;padding:12px 18px;border-top:1px solid #F1EFE9}.it.on{background:var(--gsoft)}.av{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:600;flex:none}
+.it .b{flex:1;min-width:0}.it .t{display:flex;justify-content:space-between}.it b{font-weight:600}.it small{color:var(--mut);font-size:11.5px}.it p{color:var(--mut);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}.un{background:var(--g);color:#fff;border-radius:20px;font-size:11px;padding:0 7px;align-self:flex-start;margin-top:4px}
+.tag{font-size:10.5px;background:#EDEAE2;border-radius:5px;padding:1px 6px;color:#666;margin-inline-end:5px}
+.chat{flex:1;display:flex;flex-direction:column;min-width:0;background:#EFEBE2;background-image:radial-gradient(#e4dfd2 1px,transparent 1px);background-size:18px 18px}
+.ch{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 20px}.ch b{font-size:15.5px;display:block}.ch small{color:var(--g);font-size:12px}
+.ab{display:flex;gap:8px;margin-inline-start:auto}.ab span{display:flex;gap:6px;align-items:center;padding:8px 13px;border-radius:9px;border:1px solid var(--line);font-weight:600;font-size:13px;background:#fff}
+.msgs{flex:1;padding:22px 40px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.day{align-self:center;background:#fff;border-radius:8px;padding:3px 12px;font-size:12px;color:var(--mut)}
+.m{max-width:58%;padding:9px 13px;border-radius:14px;line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.06)}.m small{display:block;text-align:end;font-size:10.5px;color:var(--mut);margin-top:2px}
+.in{background:#fff;align-self:flex-start;border-end-start-radius:4px}.out{background:var(--bub);align-self:flex-end;border-end-end-radius:4px}
+.sys{align-self:center;background:#FFF4D6;border:1px solid #F1DFA3;color:#7A5B00;border-radius:10px;padding:6px 12px;font-size:12.5px;display:flex;gap:7px;align-items:center}
+.sug{display:flex;gap:8px;padding:0 40px 10px}.sug span{background:#fff;border:1px solid var(--line);border-radius:20px;padding:6px 13px;font-size:12.5px;color:#444;display:flex;gap:6px;align-items:center}.sug .p{border-color:var(--g);color:var(--g);font-weight:600}
+.comp{background:#fff;border-top:1px solid var(--line);padding:12px 20px;display:flex;gap:12px;align-items:center}.comp .in2{flex:1;background:#F3F1EC;border-radius:22px;padding:11px 16px;color:var(--mut)}.snd{width:42px;height:42px;border-radius:50%;background:var(--g);color:#fff;display:grid;place-items:center}
+.side{width:360px;background:#fff;border-inline-start:1px solid var(--line);padding:20px;display:flex;flex-direction:column;gap:16px;overflow:hidden}
+.nx{background:linear-gradient(135deg,#E3F4EB,#F4FBF7);border:1px solid #BFE5D0;border-radius:14px;padding:14px}.nx small{color:var(--g);font-weight:700;font-size:11.5px;display:flex;gap:6px;align-items:center}.nx b{display:block;font-size:15.5px;margin:6px 0 10px;line-height:1.4}.nx .bt{display:flex;gap:8px}.nx .bt span{padding:8px 13px;border-radius:9px;font-weight:600;font-size:13px}.nx .p{background:var(--g);color:#fff}.nx .q{background:#fff;border:1px solid #BFE5D0;color:var(--g)}
+.st{display:flex;align-items:center;gap:0}.st div{flex:1;text-align:center;font-size:11px;color:var(--mut);position:relative;padding-top:16px}.st div::before{content:"";position:absolute;top:0;inset-inline:0;height:6px;background:#E6E3DB}.st div:first-child::before{border-radius:0 6px 6px 0}.st div:last-child::before{border-radius:6px 0 0 6px}.st .d::before{background:var(--g)}.st .c{color:var(--ink);font-weight:700}.st .c::before{background:var(--g)}
+.k{display:grid;grid-template-columns:1fr 1fr;gap:12px 10px}.k small{color:var(--mut);font-size:11.5px;display:block}.k b{font-weight:600}
+.h{font-size:12px;font-weight:700;color:var(--mut);letter-spacing:.3px;margin-bottom:8px}
+.nt{background:#FFFBEA;border:1px solid #F3E8B5;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5}.nt small{color:#9a8a40;display:block;margin-top:4px;font-size:11px}
+.tl{display:flex;flex-direction:column;gap:10px;font-size:13px}.tl div{display:flex;gap:10px;align-items:flex-start}.tl i{width:8px;height:8px;border-radius:50%;background:#C8C5BB;margin-top:6px;flex:none}.tl small{color:var(--mut);margin-inline-start:auto;white-space:nowrap}
+</style></head><body>
+<div class="rail"><div class="l">I</div><div class="i"><i data-i="home" data-s="20"></i></div><div class="i"><i data-i="users" data-s="20"></i></div><div class="i"><i data-i="board" data-s="20"></i></div><div class="i on"><i data-i="msg" data-s="20"></i><b>7</b></div><div class="i"><i data-i="check" data-s="20"></i></div><div class="i"><i data-i="cal" data-s="20"></i></div><div class="i" style="margin-top:auto"><i data-i="set" data-s="20"></i></div></div>
+<div class="list"><div class="lh"><h2>תיבת הודעות</h2><div class="s"><i data-i="search" data-s="16"></i>חיפוש שיחה…</div></div>
+ <div class="f"><span class="on">הכל</span><span>שלי</span><span>לא נקראו 7</span><span>מחכה לי</span></div>
+ <div class="it on"><div class="av" style="background:#E8590C">דכ</div><div class="b"><div class="t"><b>דניאל כהן</b><small>10:42</small></div><p><span class="tag">פגישה</span>אשמח לשמוע על הפרויקט בהרצליה</p></div><span class="un">2</span></div>
+ <div class="it"><div class="av" style="background:#2563EB">אר</div><div class="b"><div class="t"><b>אורי רוזנברג</b><small>10:15</small></div><p><span class="tag">הצעה</span>ראיתי את ההצעה, יש לי שאלה על התשואה</p></div><span class="un">1</span></div>
+ <div class="it"><div class="av" style="background:#DB2777">שמ</div><div class="b"><div class="t"><b>שירן מזרחי</b><small>10:02</small></div><p><span class="tag">חדש</span>היי, השארתי פרטים באינסטגרם</p></div><span class="un">1</span></div>
+ <div class="it"><div class="av" style="background:#65A30D">נג</div><div class="b"><div class="t"><b>נועה גולן</b><small>אתמול</small></div><p>את: מעולה, מחכה לך ביום ג׳ ב-19:00</p></div></div>
+ <div class="it"><div class="av" style="background:#9333EA">רח</div><div class="b"><div class="t"><b>רון חדד</b><small>אתמול</small></div><p><span class="tag">חתימה</span>שלחתי את המסמך החתום ✔</p></div></div>
+ <div class="it"><div class="av" style="background:#0891B2">עב</div><div class="b"><div class="t"><b>עידן ברק</b><small>יום א׳</small></div><p>את: היי עידן, ניסיתי להשיג אותך…</p></div></div>
+ <div class="it"><div class="av" style="background:#CA8A04">הס</div><div class="b"><div class="t"><b>הילה סבן</b><small>יום א׳</small></div><p>תודה, אחזור אליך בערב</p></div></div></div>
+<div class="chat"><div class="ch"><div class="av" style="background:#E8590C;width:40px;height:40px">דכ</div><div><b>דניאל כהן</b><small>● מקליד…</small></div><div class="ab"><span><i data-i="phone" data-s="15"></i>התקשר</span><span><i data-i="cal" data-s="15"></i>קבע פגישה</span><span><i data-i="file" data-s="15"></i>שלח הצעה</span></div></div>
+ <div class="msgs"><div class="day">היום</div>
+  <div class="m in">היי, ראיתי את המודעה על הפרויקט בהרצליה. אפשר פרטים?<small>09:58</small></div>
+  <div class="m out">היי דניאל! כאן מיכל מ-Invested. נשמח לספר, יש לך 10 דקות לשיחה היום?<small>10:03 ✓✓</small></div>
+  <div class="sys"><i data-i="phone" data-s="14"></i>שיחה יוצאת · 6:42 דק׳ · סטטוס עודכן ל״ללמ קבענו״</div>
+  <div class="m in">תודה על השיחה, מאוד מעניין. אשמח לשמוע על הפרויקט בהרצליה ולהיפגש<small>10:41</small></div>
+  <div class="m in">יש לכם זמן מחר אחה״צ?<small>10:42</small></div></div>
+ <div class="sug"><span class="p"><i data-i="cal" data-s="14"></i>הצע מחר 17:30</span><span>שלח מצגת פרויקט</span><span>שלח מיקום המשרד</span></div>
+ <div class="comp"><i data-i="clip" data-s="20"></i><div class="in2">כתוב הודעה…</div><div class="snd"><i data-i="send" data-s="18"></i></div></div></div>
+<div class="side"><div class="nx"><small><i data-i="zap" data-s="13"></i>הצעד הבא</small><b>דניאל ביקש פגישה — לקבוע מחר 17:30 ולשלוח הזמנה</b><div class="bt"><span class="p">קבע ושלח</span><span class="q">דחה</span></div></div>
+ <div class="st"><div class="d">חדש</div><div class="d">שיחה</div><div class="c">פגישה</div><div>הצעה</div><div>חתימה</div></div>
+ <div class="k"><div><small>טלפון</small><b dir="ltr">052-441-9087</b></div><div><small>בעלים</small><b>מיכל לוי</b></div><div><small>מקור</small><b>פייסבוק · הרצליה</b></div><div><small>תקציב</small><b>₪600–650K</b></div></div>
+ <div><div class="h">הערות</div><div class="nt">מחפש השקעה ראשונה, יש הון עצמי של 300K. רוצה דירת 3 חדרים עד 2M.<small>מיכל · לפני 3 שעות</small></div></div>
+ <div><div class="h">ציר זמן</div><div class="tl"><div><i style="background:#128C5A"></i>שיחה יוצאת 6:42 דק׳<small>10:15</small></div><div><i></i>הודעה נכנסת בוואטסאפ<small>09:58</small></div><div><i></i>ליד נכנס מקמפיין “הרצליה — יולי”<small>09:41</small></div></div></div></div>
+</body></html>

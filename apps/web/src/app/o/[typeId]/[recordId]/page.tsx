@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -17,7 +18,7 @@ import type { CrmRecord, ObjectField, ObjectType } from "@/lib/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
-const input = "w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const input = "w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 export default function RecordPage() {
   const { typeId, recordId } = useParams<{ typeId: string; recordId: string }>();
@@ -99,17 +100,17 @@ export default function RecordPage() {
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <h1 className="text-2xl font-bold me-auto">{r.title || "ללא שם"}</h1>
         {r.contactId && (
-          <Link href={`/contacts/${r.contactId}`} className="text-sm text-sky-600 hover:underline">
+          <Link href={`/contacts/${r.contactId}`} className="text-sm text-sky-600 dark:text-sky-400 hover:underline">
             הליד: {contactNames[r.contactId] ?? "פתיחה"}
           </Link>
         )}
         {!editing ? (
-          <button onClick={() => setEditing({ ...r.data })} className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <button onClick={() => setEditing({ ...r.data })} className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             עריכה
           </button>
         ) : (
           <>
-            <button onClick={save} className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+            <button onClick={save} className="px-3 py-1.5 text-sm rounded-md bg-tint text-white">
               שמירה
             </button>
             <button onClick={() => (setEditing(null), setError(""))} className="px-3 py-1.5 text-sm text-neutral-500">
@@ -120,7 +121,7 @@ export default function RecordPage() {
       </div>
 
       {stage && stage.options.length > 0 && (
-        <div className="flex overflow-x-auto mb-6 rounded-lg border border-neutral-200 dark:border-neutral-800">
+        <div className="flex overflow-x-auto mb-6 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm">
           {stage.options.map((o, i) => {
             const currentIdx = stage.options.findIndex((x) => x.value === r.data[stage.key]);
             const active = i === currentIdx;
@@ -146,7 +147,7 @@ export default function RecordPage() {
           {sections.map((s) => (
             <section key={s.name || "main"}>
               {s.name && <h2 className="text-sm font-semibold text-neutral-500 mb-2">{s.name}</h2>}
-              <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+              <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-4">
                 {s.fields.map((f) => (
                   <div key={f.id} className={f.type === "long_text" ? "sm:col-span-2" : ""}>
                     <dt className="text-xs text-neutral-500 mb-0.5">
@@ -171,7 +172,7 @@ export default function RecordPage() {
           {isAdmin && (
             <button
               onClick={async () => {
-                if (!confirm(`למחוק את "${r.title}"? אי אפשר לשחזר.`)) return;
+                if (!(await confirmAction(`למחוק את "${r.title}"? אי אפשר לשחזר.`))) return;
                 await deleteRecord(r.id);
                 router.push(`/o/${type.id}`);
               }}
@@ -213,14 +214,14 @@ function RelatedRecords({ type, record }: { type: ObjectType; record: CrmRecord 
             <h2 className="text-sm font-semibold text-neutral-500">
               {t.icon} {t.name} {f.label !== type.singular && <span className="font-normal">({f.label})</span>}
             </h2>
-            <button onClick={() => setAdding({ t, f })} className="text-xs px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800">
+            <button onClick={() => setAdding({ t, f })} className="text-xs px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800">
               + {t.singular}
             </button>
           </div>
           {(rows[f.id] ?? []).length === 0 ? (
             <p className="text-xs text-neutral-400">אין.</p>
           ) : (
-            <ul className="border border-neutral-200 dark:border-neutral-800 rounded-lg divide-y divide-neutral-100 dark:divide-neutral-900">
+            <ul className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm divide-y divide-neutral-100 dark:divide-neutral-900">
               {rows[f.id].map((x) => (
                 <li key={x.id}>
                   <Link href={`/o/${t.id}/${x.id}`} className="block px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-900">
@@ -286,7 +287,7 @@ function RecordTimeline({ record }: { record: CrmRecord }) {
       <h2 className="text-sm font-semibold text-neutral-500 mb-2">הערות והיסטוריה</h2>
       <form onSubmit={add} className="mb-3">
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="הערה חדשה…" className={input} dir="auto" />
-        <button type="submit" disabled={!text.trim()} className="mt-1 px-3 py-1 text-xs rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-40">
+        <button type="submit" disabled={!text.trim()} className="mt-1 px-3 py-1 text-xs rounded-md bg-tint text-white disabled:opacity-40">
           הוספה
         </button>
       </form>
@@ -328,8 +329,8 @@ function RecordTasks({ record }: { record: CrmRecord }) {
       <h2 className="text-sm font-semibold text-neutral-500 mb-2">משימות</h2>
       <form onSubmit={add} className="flex gap-1 mb-2">
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="משימה חדשה…" className={input} />
-        <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="px-1 text-xs rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
-        <button type="submit" className="px-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+        <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="px-1 text-xs rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+        <button type="submit" className="px-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
           +
         </button>
       </form>

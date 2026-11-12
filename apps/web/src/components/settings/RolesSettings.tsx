@@ -1,12 +1,14 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
+import { Switch } from "@/components/ui/Switch";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { FEATURES, LEAD_SCOPES, OBJECT_ACCESS } from "@/lib/permissions";
 import type { Role } from "@/lib/types";
 import { Sheet } from "@/components/ui/Sheet";
 
-const input = "w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const input = "w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 // Roles: what each kind of team member sees. Owners and managers always see
 // everything; assigning a role to a member is done on the team screen.
@@ -24,7 +26,7 @@ export function RolesSettings({ isAdmin }: { isAdmin: boolean }) {
       <ul className="space-y-2 mb-3">
         {roles.map((r) => (
           <li key={r.id}>
-            <button onClick={() => isAdmin && setOpen(r)} className="w-full flex items-center gap-2 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-sm text-start">
+            <button onClick={() => isAdmin && setOpen(r)} className="w-full flex items-center gap-2 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm px-3 py-2 text-sm text-start">
               <span className="font-medium">{r.name}</span>
               <span className="text-xs text-neutral-400">{LEAD_SCOPES.find((s) => s.id === r.leadsScope)?.label}</span>
               <span className="text-xs text-neutral-400 ms-auto">{members.filter((m) => m.roleId === r.id).length} אנשים</span>
@@ -33,7 +35,7 @@ export function RolesSettings({ isAdmin }: { isAdmin: boolean }) {
         ))}
       </ul>
       {isAdmin && (
-        <button onClick={() => setOpen("new")} className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+        <button onClick={() => setOpen("new")} className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
           + תפקיד
         </button>
       )}
@@ -90,15 +92,15 @@ function RoleEditor({ role, onClose }: { role: Role | null; onClose: () => void 
         <div className="text-xs space-y-1">
           <span className="block text-neutral-500">פעולות על לידים</span>
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={r.canAssignLeads} onChange={(e) => setR({ ...r, canAssignLeads: e.target.checked })} />
+            <Switch checked={r.canAssignLeads} onChange={(v) => setR({ ...r, canAssignLeads: v })} />
             לשייך ליד לנציג (לשנות בעלים)
           </label>
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={r.canDeleteLeads} onChange={(e) => setR({ ...r, canDeleteLeads: e.target.checked })} />
+            <Switch checked={r.canDeleteLeads} onChange={(v) => setR({ ...r, canDeleteLeads: v })} />
             למחוק לידים
           </label>
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={r.canEditCampaign} onChange={(e) => setR({ ...r, canEditCampaign: e.target.checked })} />
+            <Switch checked={r.canEditCampaign} onChange={(v) => setR({ ...r, canEditCampaign: v })} />
             לשנות את הקמפיין של ליד
           </label>
         </div>
@@ -113,7 +115,7 @@ function RoleEditor({ role, onClose }: { role: Role | null; onClose: () => void 
                 <select
                   value={r.objectAccess[t.id] ?? "all"}
                   onChange={(e) => setR({ ...r, objectAccess: { ...r.objectAccess, [t.id]: e.target.value as "all" | "own" | "none" } })}
-                  className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                  className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
                 >
                   {OBJECT_ACCESS.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -142,13 +144,13 @@ function RoleEditor({ role, onClose }: { role: Role | null; onClose: () => void 
         </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex items-center gap-3">
-          <button onClick={save} className="px-4 py-1.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+          <button onClick={save} className="px-4 py-1.5 rounded-md bg-tint text-white">
             שמירה
           </button>
           {role && (
             <button
               onClick={async () => {
-                if (!confirm(`למחוק את התפקיד "${role.name}"? מי שמשויך אליו יחזור לגישה מלאה.`)) return;
+                if (!(await confirmAction(`למחוק את התפקיד "${role.name}"? מי שמשויך אליו יחזור לגישה מלאה.`))) return;
                 await deleteRole(role.id);
                 onClose();
               }}

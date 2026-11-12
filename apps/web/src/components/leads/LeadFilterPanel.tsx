@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Sheet } from "@/components/ui/Sheet";
 import { OPS, condComplete, type AnyFilterField as FilterField, type FilterCond, type FilterOp, type LeadFilter } from "@/lib/leadFilters";
 
-const input = "px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const input = "px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 const NO_VALUE: FilterOp[] = ["empty", "not_empty", "is_true", "is_false", "today", "yesterday", "last_7", "last_30", "this_month", "last_month"];
 
 const newId = () => Math.random().toString(36).slice(2, 10);
@@ -44,7 +44,7 @@ export function LeadFilterPanel({
         {draft.conds.map((cond, i) => {
           const field = byKey.get(cond.field);
           return (
-            <div key={cond.id} className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 space-y-2">
+            <div key={cond.id} className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 {i > 0 && <span className="text-xs text-neutral-400 w-full">{draft.match === "all" ? "וגם" : "או"}</span>}
                 <select
@@ -78,7 +78,7 @@ export function LeadFilterPanel({
                 </button>
               </div>
               {field && !NO_VALUE.includes(cond.op) && <ValueInput field={field} cond={cond} onChange={(values) => update(cond.id, { values })} />}
-              {field && !condComplete(field, cond) && <p className="text-xs text-amber-600">יש לבחור ערך — תנאי ריק לא משפיע על הרשימה.</p>}
+              {field && !condComplete(field, cond) && <p className="text-xs text-amber-600 dark:text-amber-400">יש לבחור ערך — תנאי ריק לא משפיע על הרשימה.</p>}
             </div>
           );
         })}
@@ -93,11 +93,11 @@ export function LeadFilterPanel({
         <div className="flex gap-2 pt-1">
           <button
             onClick={() => onApply(draft)}
-            className="flex-1 py-2 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium"
+            className="flex-1 py-2 rounded-lg bg-tint text-white text-sm font-medium"
           >
             הצגת תוצאות
           </button>
-          <button onClick={() => onApply({ match: "all", conds: [] })} className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 text-sm">
+          <button onClick={() => onApply({ match: "all", conds: [] })} className="px-4 py-2 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm text-sm">
             ניקוי הכל
           </button>
         </div>

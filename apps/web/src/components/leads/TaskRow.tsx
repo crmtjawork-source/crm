@@ -30,7 +30,7 @@ export function TaskRow({ task, showContact = true }: { task: Task; showContact?
   }
 
   if (draft) {
-    const field = "w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+    const field = "w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
     return (
       <li className="py-2 space-y-2 text-sm">
         <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} autoFocus className={field} placeholder="משימה" />
@@ -69,7 +69,7 @@ export function TaskRow({ task, showContact = true }: { task: Task; showContact?
           </label>
         </div>
         <div className="flex gap-2">
-          <button onClick={save} className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+          <button onClick={save} className="px-3 py-1.5 text-sm rounded-md bg-tint text-white">
             שמירה
           </button>
           <button onClick={() => setDraft(null)} className="px-3 py-1.5 text-sm text-neutral-500">

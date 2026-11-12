@@ -39,7 +39,7 @@ export function TemplateForm({
           onChange={(e) => setName(e.target.value)}
           placeholder="שם התבנית (למשל welcome_message)"
           dir="ltr"
-          className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+          className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
         />
         <input
           value={language}
@@ -47,7 +47,7 @@ export function TemplateForm({
           placeholder="he"
           dir="ltr"
           title="קוד שפה של התבנית"
-          className="w-16 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+          className="w-16 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
         />
       </div>
       {params.map((p, i) => (
@@ -56,7 +56,7 @@ export function TemplateForm({
           <input
             value={p}
             onChange={(e) => setParams((list) => list.map((x, j) => (j === i ? e.target.value : x)))}
-            className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+            className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
           />
           <button
             type="button"
@@ -72,13 +72,13 @@ export function TemplateForm({
         onChange={(e) => setButtonParam(e.target.value)}
         placeholder="סיומת לכפתור קישור דינמי (אם יש בתבנית)"
         dir="ltr"
-        className="w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+        className="w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
       />
       <div className="flex items-center gap-3">
         <button
           type="submit"
           disabled={busy || !name.trim()}
-          className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-50"
+          className="px-3 py-1.5 text-sm rounded-md bg-tint text-white disabled:opacity-50"
         >
           {busy ? "שולח…" : submitLabel}
         </button>

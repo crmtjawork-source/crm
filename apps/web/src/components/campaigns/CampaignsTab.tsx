@@ -1,11 +1,13 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
+import { Switch } from "@/components/ui/Switch";
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { PLATFORMS, platformLabel } from "@/lib/attribution";
 import type { Campaign } from "@/lib/types";
 
-const input = "px-2 py-1 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const input = "px-2 py-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 export function CampaignsTab({ isAdmin }: { isAdmin: boolean }) {
   const { campaigns, contacts, addCampaign } = useStore();
@@ -42,7 +44,7 @@ export function CampaignsTab({ isAdmin }: { isAdmin: boolean }) {
         כל קמפיין, ואיחוד כפילויות. אפשר גם להוסיף ידנית ערוצים כמו שלט, רדיו או כנס.
       </p>
 
-      <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2 mb-6 border border-neutral-200 dark:border-neutral-800 rounded-lg p-3">
+      <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2 mb-6 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3">
         <label className="text-xs">
           <span className="block text-neutral-500 mb-1">שם הקמפיין</span>
           <input value={name} onChange={(e) => setName(e.target.value)} required className={input} />
@@ -61,7 +63,7 @@ export function CampaignsTab({ isAdmin }: { isAdmin: boolean }) {
           <span className="block text-neutral-500 mb-1">סוכנות (לא חובה)</span>
           <input value={agency} onChange={(e) => setAgency(e.target.value)} list="agencies" className={input} />
         </label>
-        <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+        <button type="submit" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
           + הוספה
         </button>
       </form>
@@ -81,7 +83,7 @@ export function CampaignsTab({ isAdmin }: { isAdmin: boolean }) {
           ))}
         </select>
         <label className="flex items-center gap-1">
-          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+          <Switch checked={showArchived} onChange={(v) => setShowArchived(v)} />
           הצגת קמפיינים בארכיון
         </label>
         <span className="text-neutral-400 ms-auto">{list.length} קמפיינים</span>
@@ -110,17 +112,17 @@ function CampaignRow({ campaign, leads, others, isAdmin }: { campaign: Campaign;
   async function handleMerge() {
     const into = others.find((o) => o.id === target);
     if (!into) return;
-    if (!confirm(`לאחד את "${campaign.name}" לתוך "${into.name}"? ${leads} לידים וההוצאות יעברו אליו.`)) return;
+    if (!(await confirmAction(`לאחד את "${campaign.name}" לתוך "${into.name}"? ${leads} לידים וההוצאות יעברו אליו.`))) return;
     await mergeCampaigns(campaign.id, into.id);
   }
 
   async function handleDelete() {
-    if (!confirm(`למחוק את "${campaign.name}"? ${leads} לידים יישארו בלי קמפיין, וההוצאות שלו יימחקו.`)) return;
+    if (!(await confirmAction(`למחוק את "${campaign.name}"? ${leads} לידים יישארו בלי קמפיין, וההוצאות שלו יימחקו.`))) return;
     await deleteCampaign(campaign.id);
   }
 
   return (
-    <li className={`border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 ${campaign.archived ? "opacity-60" : ""}`}>
+    <li className={`rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3 ${campaign.archived ? "opacity-60" : ""}`}>
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={name}
@@ -173,7 +175,7 @@ function CampaignRow({ campaign, leads, others, isAdmin }: { campaign: Campaign;
                   </option>
                 ))}
             </select>
-            <button onClick={handleMerge} disabled={!target} className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 disabled:opacity-40">
+            <button onClick={handleMerge} disabled={!target} className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800 disabled:opacity-40">
               איחוד
             </button>
           </span>

@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 import { PLATFORMS, platformLabel } from "@/lib/attribution";
 import { money } from "./ReportTab";
 
-const input = "px-2 py-1 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const input = "px-2 py-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 function thisMonth() {
   const d = new Date();
@@ -39,7 +39,7 @@ export function SpendTab({ isAdmin }: { isAdmin: boolean }) {
         כמה הוצאתם על כל קמפיין. אפשר להזין סכום חודשי ידנית (גם על הוצאה לסוכנות), או לייבא קובץ דוח מ-Meta, Google, TikTok או
         מהסוכנות. מהנתונים האלה מחושבות העלות לליד, לפגישה ולעסקה.
       </p>
-      {!isAdmin && <p className="text-xs text-amber-600 mb-3">רק מנהלים יכולים לעדכן הוצאות.</p>}
+      {!isAdmin && <p className="text-xs text-amber-600 dark:text-amber-400 mb-3">רק מנהלים יכולים לעדכן הוצאות.</p>}
 
       {isAdmin && <SpendImport />}
 
@@ -54,7 +54,7 @@ export function SpendTab({ isAdmin }: { isAdmin: boolean }) {
       {active.length === 0 ? (
         <p className="text-sm text-neutral-400">אין קמפיינים עדיין.</p>
       ) : (
-        <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg divide-y divide-neutral-100 dark:divide-neutral-800">
+        <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm divide-y divide-neutral-100 dark:divide-neutral-800">
           {active.map((c) => (
             <div key={c.id} className="flex items-center gap-3 px-3 py-2 text-sm">
               <div className="flex-1 min-w-0">
@@ -105,7 +105,7 @@ function SpendInput({ initial, disabled, onSave }: { initial?: number; disabled:
         placeholder="0"
         className={`${input} w-28 text-end`}
       />
-      <span className={`text-xs text-emerald-600 w-3 ${saved ? "" : "invisible"}`}>✓</span>
+      <span className={`text-xs text-emerald-600 dark:text-emerald-400 w-3 ${saved ? "" : "invisible"}`}>✓</span>
     </span>
   );
 }
@@ -214,7 +214,7 @@ function SpendImport() {
   const total = rows?.reduce((a, r) => a + r.amount, 0) ?? 0;
 
   return (
-    <details className="mb-6 border border-neutral-200 dark:border-neutral-800 rounded-lg p-3">
+    <details className="mb-6 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3">
       <summary className="text-sm font-medium cursor-pointer">ייבוא הוצאות מקובץ (CSV)</summary>
       <div className="mt-3 space-y-3 text-sm">
         <p className="text-xs text-neutral-500 leading-relaxed">
@@ -235,7 +235,7 @@ function SpendImport() {
           </label>
         </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
-        {result && <p className="text-xs text-emerald-600">{result}</p>}
+        {result && <p className="text-xs text-emerald-600 dark:text-emerald-400">{result}</p>}
         {rows && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs">
@@ -247,7 +247,7 @@ function SpendImport() {
                 <input type="month" value={fallbackMonth} onChange={(e) => e.target.value && setFallbackMonth(e.target.value)} className={input} />
               </label>
             )}
-            <button onClick={handleImport} disabled={busy || !rows.length} className="px-3 py-1 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-40">
+            <button onClick={handleImport} disabled={busy || !rows.length} className="px-3 py-1 text-sm rounded-md bg-tint text-white disabled:opacity-40">
               {busy ? "מייבא…" : "ייבוא"}
             </button>
           </div>

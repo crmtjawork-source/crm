@@ -102,7 +102,7 @@ export default function ImportContactsPage() {
       </p>
 
       {importedCount !== null && (
-        <div className="mb-4 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 p-3">
+        <div className="mb-4 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
           יובאו {importedCount} לידים בהצלחה. <Link href="/contacts" className="underline">לצפייה ברשימה</Link>.
         </div>
       )}
@@ -131,7 +131,7 @@ export default function ImportContactsPage() {
             </ul>
           </div>
 
-          <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-x-auto mb-4">
+          <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm overflow-x-auto mb-4">
             <table className="w-full text-xs">
               <thead className="bg-neutral-50 dark:bg-neutral-900 text-neutral-500">
                 <tr>
@@ -161,7 +161,7 @@ export default function ImportContactsPage() {
 
           <button
             onClick={handleImport}
-            className="px-4 py-2 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium"
+            className="px-4 py-2 rounded-md bg-tint text-white text-sm font-medium"
           >
             ייבוא {rows.length} לידים
           </button>

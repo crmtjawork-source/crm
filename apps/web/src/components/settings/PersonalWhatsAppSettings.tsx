@@ -1,12 +1,13 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useCallback, useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { apiPost, ApiError } from "@/lib/api";
 import { useMyGateway } from "@/lib/useMyGateway";
 import type { Channel } from "@/lib/types";
 
-const field = "w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const field = "w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 const STATE_LABELS: Record<string, string> = {
   authorized: "מחובר ✓",
@@ -120,7 +121,7 @@ export function ConnectForm({ onDone, shared }: { onDone: () => Promise<void>; s
   if (evolution) {
     return (
       <div className="space-y-2">
-        <button onClick={connectEvolution} disabled={busy} className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-50">
+        <button onClick={connectEvolution} disabled={busy} className="px-3 py-1.5 text-sm rounded-md bg-tint text-white disabled:opacity-50">
           {busy ? "מכין…" : shared ? "חיבור מספר העסק" : "חיבור הוואטסאפ שלי"}
         </button>
         {error && <p className="text-xs text-red-500">{error}</p>}
@@ -143,7 +144,7 @@ export function ConnectForm({ onDone, shared }: { onDone: () => Promise<void>; s
   }
 
   return (
-    <form onSubmit={submit} className="space-y-2 border border-neutral-200 dark:border-neutral-800 rounded-lg p-3">
+    <form onSubmit={submit} className="space-y-2 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3">
       <p className="text-xs text-neutral-500 leading-relaxed">
         ב-<span dir="ltr">console.green-api.com</span> יוצרים Instance, ומעתיקים לכאן את שלושת הפרטים שמופיעים בו.
       </p>
@@ -160,7 +161,7 @@ export function ConnectForm({ onDone, shared }: { onDone: () => Promise<void>; s
         <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} dir="ltr" className={field} />
       </label>
       {error && <p className="text-xs text-red-500">{error}</p>}
-      <button type="submit" disabled={busy} className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-50">
+      <button type="submit" disabled={busy} className="px-3 py-1.5 text-sm rounded-md bg-tint text-white disabled:opacity-50">
         {busy ? "מתחבר…" : "המשך לסריקת קוד"}
       </button>
     </form>
@@ -207,7 +208,7 @@ export function Connected({ channel, onChange }: { channel: Channel; onChange: (
 
   // WhatsApp only sends history when a device is newly linked: log out and scan again.
   async function relinkForHistory() {
-    if (!confirm("לקבל את ההיסטוריה של 30 הימים האחרונים? הוואטסאפ ינותק ויופיע קוד חדש שצריך לסרוק מהטלפון. חשוב: אם וואטסאפ מגביל קישור מכשירים (\"כרגע אי אפשר לקשר מכשירים חדשים\") החיבור לא יחזור עד שההגבלה תסתיים, ולכן כדאי לעשות את זה רק פעם אחת ולא לנסות שוב ושוב.")) return;
+    if (!(await confirmAction("לקבל את ההיסטוריה של 30 הימים האחרונים? הוואטסאפ ינותק ויופיע קוד חדש שצריך לסרוק מהטלפון. חשוב: אם וואטסאפ מגביל קישור מכשירים (\"כרגע אי אפשר לקשר מכשירים חדשים\") החיבור לא יחזור עד שההגבלה תסתיים, ולכן כדאי לעשות את זה רק פעם אחת ולא לנסות שוב ושוב."))) return;
     try {
       await apiPost("/api/channels/gateway", { action: "connect_evolution", shared: !channel.ownerMembershipId, fresh: true });
       await onChange();
@@ -217,17 +218,17 @@ export function Connected({ channel, onChange }: { channel: Channel; onChange: (
   }
 
   async function disconnect() {
-    if (!confirm(channel.ownerMembershipId ? "לנתק את הוואטסאפ שלך מהמערכת? ההודעות האוטומטיות יפסיקו להישלח." : "לנתק את מספר העסק? הוולקאם, התזכורות וההודעות ממספר העסק יפסיקו להישלח.")) return;
+    if (!(await confirmAction(channel.ownerMembershipId ? "לנתק את הוואטסאפ שלך מהמערכת? ההודעות האוטומטיות יפסיקו להישלח." : "לנתק את מספר העסק? הוולקאם, התזכורות וההודעות ממספר העסק יפסיקו להישלח."))) return;
     await apiPost("/api/channels/gateway", { action: "disconnect", id: channel.id });
     await onChange();
   }
 
   return (
-    <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 space-y-3">
+    <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3 space-y-3">
       <div className="flex items-center justify-between text-sm">
         <span>
           {channel.displayPhone ? <span dir="ltr">+{channel.displayPhone}</span> : channel.ownerMembershipId ? "הוואטסאפ שלי" : "מספר העסק"} ·{" "}
-          <span className={state === "authorized" ? "text-emerald-600" : "text-amber-600"}>{STATE_LABELS[state] ?? state ?? "—"}</span>
+          <span className={state === "authorized" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>{STATE_LABELS[state] ?? state ?? "—"}</span>
         </span>
         <span className="flex gap-3">
           {channel.provider === "evolution" && channel.ownerMembershipId && (
@@ -261,7 +262,7 @@ export function LinkControls({ channel, onChange }: { channel: Channel; onChange
   const [error, setError] = useState("");
 
   async function relink() {
-    if (!confirm("לחבר מחדש? הוואטסאפ ינותק ויופיע קוד חדש לסריקה מהטלפון — כך מתקבלת גם ההיסטוריה של 30 הימים האחרונים. אם וואטסאפ מגביל קישור מכשירים בזמן הזה, החיבור לא יחזור עד שההגבלה תסתיים — לכן עושים את זה פעם אחת ולא מנסים שוב ושוב.")) return;
+    if (!(await confirmAction("לחבר מחדש? הוואטסאפ ינותק ויופיע קוד חדש לסריקה מהטלפון — כך מתקבלת גם ההיסטוריה של 30 הימים האחרונים. אם וואטסאפ מגביל קישור מכשירים בזמן הזה, החיבור לא יחזור עד שההגבלה תסתיים — לכן עושים את זה פעם אחת ולא מנסים שוב ושוב."))) return;
     setBusy(true);
     setError("");
     try {
@@ -286,7 +287,7 @@ export function LinkControls({ channel, onChange }: { channel: Channel; onChange
   }
 
   async function disconnect() {
-    if (!confirm("להתנתק מהוואטסאפ? ההודעות יפסיקו להיכנס עד שתחבר שוב.")) return;
+    if (!(await confirmAction("להתנתק מהוואטסאפ? ההודעות יפסיקו להיכנס עד שתחבר שוב."))) return;
     setBusy(true);
     await apiPost("/api/channels/gateway", { action: "disconnect", id: channel.id }).catch(() => undefined);
     await onChange();
@@ -295,7 +296,7 @@ export function LinkControls({ channel, onChange }: { channel: Channel; onChange
 
   return (
     <div className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 text-xs flex items-center gap-3 flex-wrap">
-      <span className={channel.status === "authorized" ? "text-emerald-600" : "text-amber-600"}>{channel.status === "authorized" ? "מחובר ✓" : "לא מחובר"}</span>
+      <span className={channel.status === "authorized" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>{channel.status === "authorized" ? "מחובר ✓" : "לא מחובר"}</span>
       {channel.displayPhone && (
         <span className="text-neutral-500" dir="ltr">
           +{channel.displayPhone}
@@ -312,7 +313,7 @@ export function LinkControls({ channel, onChange }: { channel: Channel; onChange
           התנתקות
         </button>
       </span>
-      {error && <span className={`w-full ${error.startsWith("נטענו") ? "text-emerald-600" : "text-red-500"}`}>{error}</span>}
+      {error && <span className={`w-full ${error.startsWith("נטענו") ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>{error}</span>}
     </div>
   );
 }

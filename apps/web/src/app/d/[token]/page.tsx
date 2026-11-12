@@ -273,7 +273,7 @@ function SignSheet({ doc, accent, api, onClose, onSigned, onDecline }: { doc: Do
           <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1" required />
           <span>קראתי את המסמך במלואו ואני מאשר/ת את תנאיו. החתימה האלקטרונית שלי מחייבת כמו חתימה בכתב יד.</span>
         </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         <button type="submit" disabled={busy} className="w-full py-3 rounded-lg text-white font-medium disabled:opacity-50" style={{ backgroundColor: accent }}>
           {busy ? "חותם…" : "אישור וחתימה"}
         </button>

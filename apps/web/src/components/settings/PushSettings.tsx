@@ -86,7 +86,7 @@ export function PushSettings() {
     setMessage("נשלחה התראת בדיקה.");
   }
 
-  const btn = "px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 disabled:opacity-50";
+  const btn = "px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 disabled:opacity-50";
 
   return (
     <section className="mb-10">
@@ -102,15 +102,15 @@ export function PushSettings() {
           ה-CRM מהאייקון החדש, ונכנסים שוב לכאן.
         </p>
       )}
-      {state === "denied" && <p className="text-sm text-amber-600">ההתראות חסומות בדפדפן. צריך לאפשר אותן בהגדרות האתר בדפדפן, ואז לרענן.</p>}
+      {state === "denied" && <p className="text-sm text-amber-600 dark:text-amber-400">ההתראות חסומות בדפדפן. צריך לאפשר אותן בהגדרות האתר בדפדפן, ואז לרענן.</p>}
       {state === "off" && (
-        <button onClick={enable} disabled={busy || !VAPID} className={`${btn} bg-neutral-900 text-white dark:bg-white dark:text-neutral-900`}>
+        <button onClick={enable} disabled={busy || !VAPID} className={`${btn} bg-tint text-white`}>
           {busy ? "מפעיל…" : "הפעלת התראות במכשיר הזה"}
         </button>
       )}
       {state === "on" && (
         <div className="flex items-center gap-3">
-          <span className="text-sm text-emerald-600">ההתראות פעילות במכשיר הזה ✓</span>
+          <span className="text-sm text-emerald-600 dark:text-emerald-400">ההתראות פעילות במכשיר הזה ✓</span>
           <button onClick={test} className={btn}>
             שליחת בדיקה
           </button>

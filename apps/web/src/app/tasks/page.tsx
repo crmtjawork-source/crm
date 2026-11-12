@@ -66,13 +66,13 @@ export default function TasksPage() {
     setContactId("");
   }
 
-  const field = "w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+  const field = "w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
   return (
     <div className="p-4 md:p-6 max-w-2xl">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">משימות</h1>
-        <div className="flex text-xs rounded-md border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+        <div className="flex text-xs rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
           {[
             [true, "שלי"],
             [false, "של כולם"],
@@ -80,7 +80,7 @@ export default function TasksPage() {
             <button
               key={String(value)}
               onClick={() => setMine(value as boolean)}
-              className={`px-3 py-1.5 ${mine === value ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : ""}`}
+              className={`px-3 py-1.5 ${mine === value ? "bg-tint text-white" : ""}`}
             >
               {label as string}
             </button>
@@ -88,7 +88,7 @@ export default function TasksPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="mb-6 grid grid-cols-2 md:flex md:flex-wrap items-end gap-2 border border-neutral-200 dark:border-neutral-800 rounded-lg p-3">
+      <form onSubmit={handleSubmit} className="mb-6 grid grid-cols-2 md:flex md:flex-wrap items-end gap-2 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3">
         <label className="text-sm col-span-2 md:flex-1 md:min-w-40">
           <span className="block text-xs text-neutral-500 mb-1">משימה</span>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} />
@@ -112,7 +112,7 @@ export default function TasksPage() {
             ))}
           </select>
         </label>
-        <button type="submit" className="col-span-2 md:col-span-1 px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+        <button type="submit" className="col-span-2 md:col-span-1 px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
           הוספה
         </button>
       </form>
@@ -129,7 +129,7 @@ export default function TasksPage() {
               onClick={() => setView(v.id)}
               className={`shrink-0 px-3 py-1.5 text-sm rounded-full border ${
                 view === v.id
-                  ? "bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-900 dark:border-white"
+                  ? "bg-tint text-white border-tint"
                   : `border-neutral-200 dark:border-neutral-800 ${v.id === "overdue" && n ? "text-red-500" : ""}`
               }`}
             >
@@ -147,7 +147,7 @@ export default function TasksPage() {
               {label} ({list.length})
             </h2>
           )}
-          <ul className="divide-y divide-neutral-100 dark:divide-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3">
+          <ul className="divide-y divide-neutral-100 dark:divide-neutral-800 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm px-3">
             {list.map((t) => (
               <TaskRow key={t.id} task={t} />
             ))}
@@ -161,7 +161,7 @@ export default function TasksPage() {
             הושלמו ({done.length}) {showDone ? "▴" : "▾"}
           </button>
           {showDone && (
-            <ul className="divide-y divide-neutral-100 dark:divide-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3">
+            <ul className="divide-y divide-neutral-100 dark:divide-neutral-800 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm px-3">
               {done.slice(0, 200).map((t) => (
                 <TaskRow key={t.id} task={t} />
               ))}

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
@@ -87,7 +88,7 @@ function ResultSection({ title, count, children }: { title: string; count: numbe
       {count === 0 ? (
         <p className="text-sm text-neutral-400 px-3">אין תוצאות.</p>
       ) : (
-        <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg divide-y divide-neutral-100 dark:divide-neutral-900">
+        <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm divide-y divide-neutral-100 dark:divide-neutral-900">
           {children}
         </div>
       )}
@@ -97,7 +98,7 @@ function ResultSection({ title, count, children }: { title: string; count: numbe
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-neutral-400">טוען…</div>}>
+    <Suspense fallback={<PageSkeleton rows={4} />}>
       <SearchResults />
     </Suspense>
   );

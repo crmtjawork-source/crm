@@ -15,7 +15,7 @@ export function LeadStepper({ contactId }: { contactId: string }) {
   const prev = ids[i - 1];
   const next = ids[i + 1];
   const go = (id: string | undefined) => id && router.replace(`/contacts/${id}`);
-  const btn = "inline-flex items-center gap-1 px-2.5 py-1 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent";
+  const btn = "inline-flex items-center gap-1 px-2.5 py-1 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent";
 
   return (
     <div className="flex items-center gap-2 mb-3 ms-auto">

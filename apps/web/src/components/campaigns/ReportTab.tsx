@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import { Segmented } from "@/components/ui/Segmented";
 import { useStore } from "@/lib/store";
 import { buildReport, presetRange, totals, type GroupBy, type Range, type ReportRow } from "@/lib/campaignReport";
 
@@ -86,42 +87,25 @@ export function ReportTab() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="flex flex-wrap gap-1">
-          {PRESETS.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setPreset(p.id)}
-              className={`text-xs px-2.5 py-1 rounded-full border ${
-                preset === p.id
-                  ? "bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-900"
-                  : "border-neutral-200 dark:border-neutral-800"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-          <button
-            onClick={() => {
-              setCustom(range);
-              setPreset("custom");
-            }}
-            className={`text-xs px-2.5 py-1 rounded-full border ${
-              preset === "custom" ? "bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-neutral-900" : "border-neutral-200 dark:border-neutral-800"
-            }`}
-          >
-            טווח אחר
-          </button>
-        </div>
+        <Segmented
+          size="sm"
+          value={preset}
+          onChange={(id) => {
+            if (id === "custom") setCustom(range);
+            setPreset(id);
+          }}
+          options={[...PRESETS.map((p) => ({ id: p.id, label: p.label })), { id: "custom" as typeof preset, label: "טווח אחר" }]}
+        />
         {preset === "custom" && (
           <div className="flex items-center gap-1 text-xs">
-            <input type="date" value={custom.from ?? ""} onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value || null }))} className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+            <input type="date" value={custom.from ?? ""} onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value || null }))} className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
             <span>עד</span>
-            <input type="date" value={custom.to ?? ""} onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value || null }))} className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+            <input type="date" value={custom.to ?? ""} onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value || null }))} className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
           </div>
         )}
         <label className="text-xs flex items-center gap-1 ms-auto">
           <span className="text-neutral-500">קיבוץ לפי</span>
-          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)} className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent">
+          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)} className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent">
             {GROUPS.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.label}
@@ -143,7 +127,7 @@ export function ReportTab() {
       {visible.length === 0 ? (
         <p className="text-sm text-neutral-400">אין לידים או הוצאות בתקופה הזו.</p>
       ) : (
-        <div className="overflow-x-auto border border-neutral-200 dark:border-neutral-800 rounded-lg">
+        <div className="overflow-x-auto rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm">
           <table className="w-full text-sm">
             <thead className="text-xs text-neutral-500 text-start bg-neutral-50 dark:bg-neutral-900">
               <tr className="text-start">
@@ -224,7 +208,7 @@ export function ReportTab() {
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-3">
+    <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3">
       <div className="text-xl font-bold">{value}</div>
       <div className="text-xs text-neutral-500 mt-1">
         {label}

@@ -1,11 +1,13 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
+import { Switch } from "@/components/ui/Switch";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { colorAt } from "@/components/ui/ColorChip";
 import type { Pipeline, Stage } from "@/lib/types";
 
-const input = "px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const input = "px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 const small = "text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 disabled:opacity-25 px-1.5 py-0.5";
 
 // Everything about the sales pipelines from inside the app: add / rename /
@@ -36,7 +38,7 @@ export function PipelineStagesSettings({ isAdmin }: { isAdmin: boolean }) {
       {isAdmin && (
         <form onSubmit={create} className="flex gap-2 mt-2">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="פייפליין חדש (למשל: השכרות)" className={`${input} flex-1`} />
-          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <button type="submit" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             הוספה
           </button>
         </form>
@@ -60,7 +62,7 @@ function PipelineBlock({ pipeline, isAdmin }: { pipeline: Pipeline; isAdmin: boo
   }
 
   return (
-    <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 mb-4">
+    <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3 mb-4">
       <div className="flex items-center gap-2 mb-2">
         <h3 className="font-semibold text-sm">{pipeline.name}</h3>
         {isAdmin && (
@@ -76,7 +78,7 @@ function PipelineBlock({ pipeline, isAdmin }: { pipeline: Pipeline; isAdmin: boo
             </button>
             <button
               onClick={async () => {
-                if (!window.confirm(`למחוק את הפייפליין "${pipeline.name}" ואת השלבים שלו?`)) return;
+                if (!(await confirmAction(`למחוק את הפייפליין "${pipeline.name}" ואת השלבים שלו?`))) return;
                 const res = await deletePipeline(pipeline.id);
                 setError(res.ok ? "" : res.reason ?? "המחיקה נכשלה");
               }}
@@ -96,7 +98,7 @@ function PipelineBlock({ pipeline, isAdmin }: { pipeline: Pipeline; isAdmin: boo
       {isAdmin && (
         <form onSubmit={add} className="flex gap-2">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="שלב חדש" className={`${input} flex-1`} />
-          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <button type="submit" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             + שלב
           </button>
         </form>
@@ -147,7 +149,7 @@ function StageRow({ pipeline, stage, index, count, isAdmin }: { pipeline: Pipeli
               className={`${small} hover:!text-red-500`}
               aria-label="מחיקת שלב"
               onClick={async () => {
-                if (!window.confirm(`למחוק את השלב "${stage.name}"?`)) return;
+                if (!(await confirmAction(`למחוק את השלב "${stage.name}"?`))) return;
                 const res = await deleteStage(pipeline.id, stage.id);
                 setError(res.ok ? "" : res.reason ?? "המחיקה נכשלה");
               }}
@@ -160,7 +162,7 @@ function StageRow({ pipeline, stage, index, count, isAdmin }: { pipeline: Pipeli
       <div className="flex items-center gap-2 mt-1.5 text-xs text-neutral-500 flex-wrap">
         <span>{count} עסקאות פתוחות</span>
         <label className="flex items-center gap-1">
-          <input type="checkbox" checked={Boolean(stage.asksLostReason)} disabled={!isAdmin} onChange={(e) => updateStage(pipeline.id, stage.id, { asksLostReason: e.target.checked })} />
+          <Switch checked={Boolean(stage.asksLostReason)} disabled={!isAdmin} onChange={(v) => updateStage(pipeline.id, stage.id, { asksLostReason: v })} />
           לבקש סיבה כשהליד נכנס לשלב
         </label>
         {objectTypes.length > 0 && (
@@ -207,7 +209,7 @@ function LostReasonsEditor({ isAdmin }: { isAdmin: boolean }) {
   }
 
   return (
-    <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 mb-4">
+    <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3 mb-4">
       <h3 className="font-semibold text-sm mb-1">סיבות לאי-סגירת עסקה</h3>
       <p className="text-xs text-neutral-500 mb-2 leading-relaxed">הרשימה שנפתחת כשליד עובר לשלב שמסומן &quot;לבקש סיבה&quot; (למשל &quot;לא נסגרה עסקה&quot;). הסיבה נשמרת על העסקה ובציר הזמן של הליד.</p>
       <ul className="space-y-1 mb-2">
@@ -233,8 +235,8 @@ function LostReasonsEditor({ isAdmin }: { isAdmin: boolean }) {
       </ul>
       {isAdmin && (
         <form onSubmit={add} className="flex gap-2">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="סיבה חדשה (למשל: המחיר גבוה מדי)" className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
-          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="סיבה חדשה (למשל: המחיר גבוה מדי)" className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+          <button type="submit" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             הוספה
           </button>
         </form>

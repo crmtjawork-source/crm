@@ -1,0 +1,62 @@
+<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet"><script src="icons.js"></script>
+<style>
+:root{--bg:#F4F8F8;--card:#fff;--line:#DCE5E5;--ink:#0F2A2A;--mut:#55646A;--acc:#0F766E;--accsoft:#E2F3F1}
+*{box-sizing:border-box;margin:0}body{width:1440px;height:900px;font-family:Heebo,sans-serif;background:var(--bg);color:var(--ink);display:flex;overflow:hidden;font-size:14px}
+.rail{width:232px;background:#fff;border-inline-end:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;gap:2px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;padding:4px 8px 18px}.logo b{width:30px;height:30px;border-radius:9px;background:var(--acc);color:#fff;display:grid;place-items:center;font-size:15px}
+.nav{min-height:40px;display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;color:#4a4a52;font-weight:500}.nav.on{background:var(--accsoft);color:var(--acc);font-weight:600}.nav .n{margin-inline-start:auto;font-size:11.5px;background:#EDEDE8;border-radius:20px;padding:1px 8px;color:#555}.nav.on .n{background:var(--acc);color:#fff}
+.sec{font-size:11px;color:#55646A;font-weight:600;padding:16px 10px 6px;letter-spacing:.3px}
+.me{margin-top:auto;display:flex;gap:10px;align-items:center;padding:10px;border-radius:10px;background:#F6F6F3}
+.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:600;font-size:12px;flex:none}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{height:64px;border-bottom:1px solid var(--line);background:#fff;display:flex;align-items:center;gap:14px;padding:0 28px}
+.search{display:flex;align-items:center;gap:8px;background:#F3F3EF;border-radius:10px;padding:9px 14px;width:380px;color:var(--mut)}.search kbd{margin-inline-start:auto;font:inherit;font-size:11px;background:#fff;border:1px solid var(--line);border-radius:5px;padding:0 6px}
+.btn{min-height:40px;display:flex;align-items:center;gap:7px;padding:9px 15px;border-radius:10px;font-weight:600;border:1px solid var(--line);background:#fff}.btn.p{background:var(--acc);border-color:var(--acc);color:#fff}
+.content{padding:24px 28px;flex:1;overflow:hidden}
+h1{font-size:24px;font-weight:700}.sub{color:var(--mut);margin-top:3px}
+.tabs{display:flex;gap:6px;margin:20px 0 14px;align-items:center}.tab{padding:7px 14px;border-radius:20px;border:1px solid var(--line);background:#fff;font-weight:500;color:#555}.tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}.tab small{opacity:.6;margin-inline-start:5px}
+.tbl{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.row{display:grid;grid-template-columns:36px 2.2fr 1.3fr 1.5fr 1.2fr 1.2fr 1.3fr 36px;align-items:center;padding:0 16px;height:58px;border-bottom:1px solid #F0EFEA;gap:10px}
+.row.h{height:42px;background:#FAFAF8;color:var(--mut);font-size:12px;font-weight:600}.row:last-child{border:0}.row.sel{background:#F0F8F7}
+.cb{width:16px;height:16px;border:1.5px solid #C9C8C0;border-radius:5px}.cb.on{background:var(--acc);border-color:var(--acc)}
+.who{display:flex;gap:11px;align-items:center}.who b{font-weight:600;display:block}.who span{color:var(--mut);font-size:12.5px}
+.pill{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:20px;font-size:12.5px;font-weight:600}.pill i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.mut{color:var(--mut)}.tag{font-size:11.5px;background:#F1F0EB;border-radius:6px;padding:2px 8px;color:#555;margin-inline-end:4px}
+.bulk{position:absolute;bottom:28px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:14px;padding:11px 14px;display:flex;gap:14px;align-items:center;box-shadow:0 12px 40px rgba(0,0,0,.25)}.bulk span{display:flex;gap:6px;align-items:center;padding:5px 10px;border-radius:8px;background:#2a2a30}
+.hot{color:#B42318;font-weight:600}
+</style></head><body>
+<aside class="rail">
+ <div class="logo"><b>I</b>Invested</div>
+ <div class="nav"><i data-i="home"></i>לוח בקרה</div>
+ <div class="nav on"><i data-i="users"></i>לידים<span class="n">248</span></div>
+ <div class="nav"><i data-i="board"></i>פייפליין</div>
+ <div class="nav"><i data-i="msg"></i>וואטסאפ<span class="n" style="background:#E5484D;color:#fff">7</span></div>
+ <div class="nav"><i data-i="check"></i>משימות<span class="n">12</span></div>
+ <div class="nav"><i data-i="cal"></i>יומן</div>
+ <div class="sec">מכירות</div>
+ <div class="nav"><i data-i="file"></i>הצעות והסכמים</div>
+ <div class="nav"><i data-i="mega"></i>קמפיינים</div>
+ <div class="nav"><i data-i="zap"></i>אוטומציות</div>
+ <div class="nav"><i data-i="set"></i>הגדרות</div>
+ <div class="me"><div class="av" style="background:#0F766E">טש</div><div><b style="font-weight:600">טים שלפר</b><div class="mut" style="font-size:12px">בעלים</div></div></div>
+</aside>
+<main>
+ <div class="top"><div class="search"><i data-i="search" data-s="16"></i>חיפוש ליד, טלפון או הערה…<kbd dir="ltr">⌘K</kbd></div><div style="flex:1"></div><div class="btn"><i data-i="bell" data-s="16"></i></div><div class="btn p"><i data-i="plus" data-s="16"></i>ליד חדש</div></div>
+ <div class="content" style="position:relative">
+  <h1>לידים</h1><div class="sub">248 לידים · 14 חדשים היום · 6 ממתינים לחזרה מעל 48 שעות</div>
+  <div class="tabs"><span class="tab on">הכל<small>248</small></span><span class="tab">שלי<small>61</small></span><span class="tab">חדשים<small>14</small></span><span class="tab">ללא מענה<small>37</small></span><span class="tab">דחוף לחזור<small>6</small></span>
+   <div style="flex:1"></div><div class="btn"><i data-i="filter" data-s="15"></i>סינון</div><div class="btn">עמודות<i data-i="down" data-s="15"></i></div></div>
+  <div class="tbl">
+   <div class="row h"><span class="cb"></span><span>ליד</span><span>סטטוס</span><span>שלב בפייפליין</span><span>בעלים</span><span>מקור</span><span>פעילות אחרונה</span><span></span></div>
+   <div class="row sel"><span class="cb on"></span><div class="who"><div class="av" style="background:#E8590C">דכ</div><div><b>דניאל כהן</b><span dir="ltr">052-441-9087</span></div></div><span><span class="pill" style="background:#FFF1E6;color:#C2410C"><i></i>ללמ קבענו</span></span><span>פגישה ראשונה</span><div class="who"><div class="av" style="background:#0E9F6E;width:24px;height:24px;font-size:10px">מל</div>מיכל לוי</div><span class="mut">פייסבוק · פרויקט הרצליה</span><span class="hot">לפני 3 ימים</span><span class="mut"><i data-i="more"></i></span></div>
+   <div class="row"><span class="cb"></span><div class="who"><div class="av" style="background:#2563EB">אר</div><div><b>אורי רוזנברג</b><span dir="ltr">054-208-7731</span></div></div><span><span class="pill" style="background:#E8F7EE;color:#15803D"><i></i>בשיחה פעילה</span></span><span>הצעה נשלחה</span><div class="who"><div class="av" style="background:#7C3AED;width:24px;height:24px;font-size:10px">יא</div>יוסי אבני</div><span class="mut">גוגל · חיפוש</span><span class="mut">לפני שעתיים</span><span class="mut"><i data-i="more"></i></span></div>
+   <div class="row"><span class="cb"></span><div class="who"><div class="av" style="background:#DB2777">שמ</div><div><b>שירן מזרחי</b><span dir="ltr">050-912-3345</span></div></div><span><span class="pill" style="background:#E8F0FE;color:#1D4ED8"><i></i>חדש</span></span><span>ליד נכנס</span><div class="who"><span class="mut">— לא משויך</span></div><span class="mut">אינסטגרם · טופס</span><span class="mut">לפני 12 דק׳</span><span class="mut"><i data-i="more"></i></span></div>
+   <div class="row"><span class="cb"></span><div class="who"><div class="av" style="background:#0891B2">עב</div><div><b>עידן ברק</b><span dir="ltr">053-776-2210</span></div></div><span><span class="pill" style="background:#FEF3C7;color:#B45309"><i></i>3 ניסיונות ללא מענה</span></span><span>שיחה ראשונה</span><div class="who"><div class="av" style="background:#0E9F6E;width:24px;height:24px;font-size:10px">מל</div>מיכל לוי</div><span class="mut">פייסבוק · פרויקט נתניה</span><span class="hot">לפני 5 ימים</span><span class="mut"><i data-i="more"></i></span></div>
+   <div class="row"><span class="cb"></span><div class="who"><div class="av" style="background:#65A30D">נג</div><div><b>נועה גולן</b><span dir="ltr">058-330-1894</span></div></div><span><span class="pill" style="background:#E8F7EE;color:#15803D"><i></i>בשיחה פעילה</span></span><span>פגישה שנייה</span><div class="who"><div class="av" style="background:#7C3AED;width:24px;height:24px;font-size:10px">יא</div>יוסי אבני</div><span class="mut">הפניה</span><span class="mut">אתמול</span><span class="mut"><i data-i="more"></i></span></div>
+   <div class="row"><span class="cb"></span><div class="who"><div class="av" style="background:#9333EA">רח</div><div><b>רון חדד</b><span dir="ltr">052-118-6642</span></div></div><span><span class="pill" style="background:#F3E8FF;color:#7E22CE"><i></i>חתימה</span></span><span>סגירה</span><div class="who"><div class="av" style="background:#E8590C;width:24px;height:24px;font-size:10px">טש</div>טים שלפר</div><span class="mut">גוגל · חיפוש</span><span class="mut">לפני 4 שעות</span><span class="mut"><i data-i="more"></i></span></div>
+   <div class="row"><span class="cb"></span><div class="who"><div class="av" style="background:#CA8A04">הס</div><div><b>הילה סבן</b><span dir="ltr">054-665-0921</span></div></div><span><span class="pill" style="background:#E8F0FE;color:#1D4ED8"><i></i>חדש</span></span><span>ליד נכנס</span><div class="who"><span class="mut">— לא משויך</span></div><span class="mut">פייסבוק · פרויקט חיפה</span><span class="mut">לפני 41 דק׳</span><span class="mut"><i data-i="more"></i></span></div>
+   <div class="row"><span class="cb"></span><div class="who"><div class="av" style="background:#475569">יפ</div><div><b>יונתן פרידמן</b><span dir="ltr">052-870-4413</span></div></div><span><span class="pill" style="background:#FEF3C7;color:#B45309"><i></i>ניסיון ללא מענה</span></span><span>שיחה ראשונה</span><div class="who"><div class="av" style="background:#0E9F6E;width:24px;height:24px;font-size:10px">מל</div>מיכל לוי</div><span class="mut">אינסטגרם</span><span class="mut">אתמול</span><span class="mut"><i data-i="more"></i></span></div>
+  </div>
+  <div class="bulk"><b>1 נבחר</b><span><i data-i="users" data-s="15"></i>שיוך</span><span><i data-i="msg" data-s="15"></i>וואטסאפ</span><span><i data-i="check" data-s="15"></i>משימה</span><span><i data-i="board" data-s="15"></i>שנה שלב</span></div>
+ </div>
+</main></body></html>

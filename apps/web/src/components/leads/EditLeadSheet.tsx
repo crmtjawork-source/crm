@@ -7,7 +7,7 @@ import type { Contact, Opportunity } from "@/lib/types";
 import { Sheet } from "@/components/ui/Sheet";
 import { canAssignLeads, effectiveRole } from "@/lib/permissions";
 
-const input = "w-full px-2 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const input = "w-full px-2 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 // The pencil on a pipeline card / row: edit the lead's details and the deal's
 // value in one window, without leaving the pipeline.
@@ -93,7 +93,7 @@ export function EditLeadSheet({ contact, opp, onClose }: { contact: Contact; opp
           <input type="number" value={value} onChange={(e) => setValue(e.target.value)} className={input} />
         </label>
         <div className="flex items-center gap-3 pt-1">
-          <button type="submit" disabled={busy} className="flex-1 py-2.5 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium disabled:opacity-50">
+          <button type="submit" disabled={busy} className="flex-1 py-2.5 rounded-lg bg-tint text-white text-sm font-medium disabled:opacity-50">
             {busy ? "שומר…" : "שמירה"}
           </button>
           <Link href={`/contacts/${contact.id}`} className="text-xs text-neutral-500 hover:underline">

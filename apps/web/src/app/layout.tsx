@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
-import { Heebo } from "next/font/google";
+import { Heebo, Inter } from "next/font/google";
 import { AuthGate } from "@/components/AuthGate";
+import { ConfirmHost } from "@/lib/confirm";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
+
+// Inter is the closest free relative of Apple's system font for Latin text and digits; Hebrew falls through to Heebo.
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 const heebo = Heebo({
   variable: "--font-heebo",
@@ -18,12 +26,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="he" dir="rtl" className={`${heebo.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="he" dir="rtl" className={`${inter.variable} ${heebo.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="min-h-full font-sans">
         <AuthGate>{children}</AuthGate>
+        <ConfirmHost />
       </body>
     </html>
   );

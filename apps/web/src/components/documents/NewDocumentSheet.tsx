@@ -9,7 +9,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { SectionsEditor } from "./SectionsEditor";
 import { DocumentView } from "./DocumentView";
 
-const field = "w-full px-2 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const field = "w-full px-2 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 const subscribe = () => () => {};
 
 // Builds a personal document for a lead from a template: details filled in,
@@ -108,7 +108,7 @@ export function NewDocumentSheet({ contact, onClose, onCreated }: { contact: Con
           </div>
           {editing && <SectionsEditor sections={sections} onChange={setSections} />}
           {error && <p className="text-xs text-red-500">{error}</p>}
-          <button onClick={create} disabled={busy || !template} className="w-full py-2.5 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium disabled:opacity-50">
+          <button onClick={create} disabled={busy || !template} className="w-full py-2.5 rounded-lg bg-tint text-white text-sm font-medium disabled:opacity-50">
             {busy ? "יוצר…" : "יצירת קישור ושליחה"}
           </button>
           {origin && <p className="text-[11px] text-neutral-400 text-center">הקישור ייראה כך: {documentUrl(origin, "…")}</p>}

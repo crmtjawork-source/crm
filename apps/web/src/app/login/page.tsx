@@ -55,7 +55,7 @@ export default function LoginPage() {
               dir="ltr"
               required
               autoFocus
-              className="w-full px-3 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             />
           </label>
           <label className="block text-sm">
@@ -67,7 +67,7 @@ export default function LoginPage() {
               dir="ltr"
               required
               minLength={6}
-              className="w-full px-3 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             />
           </label>
 
@@ -77,7 +77,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-2 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium disabled:opacity-50"
+            className="w-full px-4 py-2 rounded-md bg-tint text-white text-sm font-medium disabled:opacity-50"
           >
             {loading ? "רגע…" : mode === "signin" ? "התחברות" : "הרשמה"}
           </button>

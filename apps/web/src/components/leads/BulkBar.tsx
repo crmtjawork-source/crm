@@ -29,7 +29,7 @@ async function pool<T>(items: T[], size: number, fn: (item: T) => Promise<void>,
   return failed;
 }
 
-const field = "w-full px-2 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent";
+const field = "w-full px-2 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 // The bar that appears when leads are ticked: change many leads at once
 // (owner, status, stage, campaign, a tag, any field) or delete them.
@@ -142,7 +142,7 @@ export function BulkBar({ contacts, onClear }: { contacts: Contact[]; onClear: (
             </button>
           )}
           {canDelete && (
-            <button onClick={() => setAction("delete")} className={`${btn} text-red-600 border-red-200 dark:border-red-900`}>
+            <button onClick={() => setAction("delete")} className={`${btn} text-red-600 dark:text-red-400 border-red-200 dark:border-red-900`}>
               מחיקה
             </button>
           )}
@@ -261,7 +261,7 @@ export function BulkBar({ contacts, onClear }: { contacts: Contact[]; onClear: (
             )}
             {action === "delete" && (
               <>
-                <p className="text-sm text-red-600 leading-relaxed">
+                <p className="text-sm text-red-600 dark:text-red-400 leading-relaxed">
                   {n} לידים יימחקו לצמיתות, יחד עם העסקאות, ההודעות וההיסטוריה שלהם. אי אפשר לשחזר. להקלדה: <strong>מחיקה</strong>
                 </p>
                 <input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="מחיקה" className={field} disabled={progress !== null} />
@@ -278,14 +278,14 @@ export function BulkBar({ contacts, onClear }: { contacts: Contact[]; onClear: (
                 </p>
               </div>
             )}
-            {result && <p className="text-sm text-emerald-600">{result}</p>}
+            {result && <p className="text-sm text-emerald-600 dark:text-emerald-400">{result}</p>}
 
             <div className="flex gap-2 pt-1">
               {!finished && (
                 <button
                   onClick={apply}
                   disabled={!ready || running}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 ${action === "delete" ? "bg-red-600 text-white" : "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"}`}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 ${action === "delete" ? "bg-red-600 text-white" : "bg-tint text-white"}`}
                 >
                   {running ? "מעדכן…" : action === "delete" ? `מחיקת ${n} לידים` : `החלה על ${n} לידים`}
                 </button>

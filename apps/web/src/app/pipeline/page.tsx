@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useStore } from "@/lib/store";
@@ -19,7 +20,7 @@ import { RecentSearchInput } from "@/components/RecentSearchInput";
 // at the root instead of chasing dnd-kit internals.
 const PipelineBoard = dynamic(() => import("@/components/PipelineBoard").then((m) => m.PipelineBoard), {
   ssr: false,
-  loading: () => <div className="text-sm text-neutral-400 p-6">טוען…</div>,
+  loading: () => <PageSkeleton />,
 });
 
 const remembered = (key: string): string | null => {
@@ -127,35 +128,35 @@ export default function PipelinePage() {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-md border border-neutral-200 dark:border-neutral-800 overflow-hidden text-sm">
+          <div className="flex rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden text-sm">
             <button
               onClick={() => setView("board")}
-              className={`px-3 py-1.5 ${view === "board" ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : ""}`}
+              className={`px-3 py-1.5 ${view === "board" ? "bg-tint text-white" : ""}`}
             >
               קנבן
             </button>
             <button
               onClick={() => setView("table")}
-              className={`px-3 py-1.5 ${view === "table" ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : ""}`}
+              className={`px-3 py-1.5 ${view === "table" ? "bg-tint text-white" : ""}`}
             >
               טבלה
             </button>
           </div>
-          <Link href="/contacts" className="text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800" title="כל הלידים, כולל אלה בלי עסקה פתוחה">
+          <Link href="/contacts" className="text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800" title="כל הלידים, כולל אלה בלי עסקה פתוחה">
             כל הלידים
           </Link>
-          <Link href="/contacts/new" className="text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800">
+          <Link href="/contacts/new" className="text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800">
             + ליד חדש
           </Link>
           <button
             onClick={handleExport}
-            className="text-sm px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800"
+            className="text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800"
           >
             ייצוא CSV
           </button>
           <button
             onClick={() => setShowForm((v) => !v)}
-            className="text-sm px-3 py-1.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+            className="text-sm px-3 py-1.5 rounded-md bg-tint text-white"
           >
             + הזדמנות חדשה
           </button>
@@ -163,7 +164,7 @@ export default function PipelinePage() {
       </div>
 
       {showNewPipeline && (
-        <form onSubmit={handleNewPipeline} className="mb-4 flex items-end gap-2 border border-neutral-200 dark:border-neutral-800 rounded-lg p-3">
+        <form onSubmit={handleNewPipeline} className="mb-4 flex items-end gap-2 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3">
           <label className="text-sm flex-1">
             <span className="block text-xs text-neutral-500 mb-1">שם הפייפליין החדש</span>
             <input
@@ -171,24 +172,24 @@ export default function PipelinePage() {
               value={newPipelineName}
               onChange={(e) => setNewPipelineName(e.target.value)}
               placeholder="לדוגמה: פייפליין השכרות"
-              className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             />
           </label>
-          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <button type="submit" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             יצירה
           </button>
         </form>
       )}
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="mb-6 flex flex-wrap items-end gap-2 border border-neutral-200 dark:border-neutral-800 rounded-lg p-3">
+        <form onSubmit={handleSubmit} className="mb-6 flex flex-wrap items-end gap-2 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3">
           <label className="text-sm">
             <span className="block text-xs text-neutral-500 mb-1">ליד</span>
             <select
               value={contactId}
               onChange={(e) => setContactId(e.target.value)}
               required
-              className="px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             >
               <option value="">בחירה…</option>
               {contacts.map((c) => (
@@ -203,7 +204,7 @@ export default function PipelinePage() {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             />
           </label>
           <label className="text-sm">
@@ -212,10 +213,10 @@ export default function PipelinePage() {
               value={value}
               onChange={(e) => setValue(e.target.value)}
               type="number"
-              className="w-28 px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="w-28 px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             />
           </label>
-          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <button type="submit" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             הוספה
           </button>
         </form>

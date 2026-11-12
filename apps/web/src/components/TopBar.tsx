@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Segmented } from "@/components/ui/Segmented";
+import { Switch } from "@/components/ui/Switch";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
@@ -109,30 +111,18 @@ function AgendaPanel({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <div className="flex border-b border-neutral-200 dark:border-neutral-800 px-2">
-        {TABS.map((t) => {
-          const n = agenda[t.id].tasks.length + agenda[t.id].meetings.length;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-3 py-2 text-sm border-b-2 -mb-px ${tab === t.id ? "border-neutral-900 dark:border-white font-medium" : "border-transparent text-neutral-500"}`}
-            >
-              {t.label}
-              {n > 0 && <span className={`ms-1 text-[11px] ${t.id === "overdue" ? "text-red-500" : "text-neutral-400"}`}>{n}</span>}
-            </button>
-          );
-        })}
+      <div className="px-3 pt-2 pb-1">
+        <Segmented size="sm" value={tab} onChange={setTab} options={TABS.map((t) => ({ id: t.id, label: t.label, badge: agenda[t.id].tasks.length + agenda[t.id].meetings.length, badgeTone: t.id === "overdue" ? "alert" : undefined }))} />
       </div>
       <label className="flex items-center gap-2 px-4 py-2 text-xs text-neutral-500">
-        <input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} />
+        <Switch checked={mineOnly} onChange={(v) => setMineOnly(v)} />
         רק שלי
       </label>
       {adding && (
         <form onSubmit={add} className="px-4 pb-3 flex gap-2">
-          <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="משימה חדשה…" className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
-          <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="px-1 text-xs rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent" />
-          <button type="submit" className="px-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="משימה חדשה…" className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+          <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="px-1 text-xs rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+          <button type="submit" className="px-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             הוספה
           </button>
         </form>
@@ -146,7 +136,7 @@ function AgendaPanel({ onClose }: { onClose: () => void }) {
         <ul className="divide-y divide-neutral-100 dark:divide-neutral-900">
           {meetings.map((a) => (
             <li key={a.id} className="px-4 py-2.5 flex gap-3 text-sm">
-              <span className="text-xs text-sky-600 font-medium w-12 shrink-0 pt-0.5">{timeOf(a.startAt)}</span>
+              <span className="text-xs text-sky-600 dark:text-sky-400 font-medium w-12 shrink-0 pt-0.5">{timeOf(a.startAt)}</span>
               <div className="min-w-0">
                 <p className="truncate">📅 {a.title}</p>
                 {a.contactId && (

@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useState } from "react";
 import Link from "next/link";
 import type { Opportunity, Pipeline } from "@/lib/types";
@@ -47,7 +48,7 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
           const i = pipeline.stages.findIndex((st) => st.id === o.stageId);
           const color = colorAt(pipeline.stages[i]?.color, i);
           return (
-            <span className="relative inline-flex items-center gap-1 rounded-full ps-2 pe-1 py-0.5 text-xs" style={{ backgroundColor: `${color}1f`, color }}>
+            <span className="on-tint-text relative inline-flex items-center gap-1 rounded-full ps-2 pe-1 py-0.5 text-xs" style={{ backgroundColor: `${color}1f`, "--c": color } as React.CSSProperties}>
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
               <select
                 value={o.stageId}
@@ -57,7 +58,6 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
                   moveOpportunity(o.id, e.target.value);
                 }}
                 className="appearance-none bg-transparent outline-none cursor-pointer pe-1 py-0.5 text-xs"
-                style={{ color }}
               >
                 {pipeline.stages.map((st) => (
                   <option key={st.id} value={st.id}>
@@ -79,8 +79,8 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
   const colSpan = colPrefs.columns.length + 3;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set()); // lead ids
-  function handleDelete(id: string) {
-    if (confirm("למחוק את ההזדמנות הזו?")) deleteOpportunity(id);
+  async function handleDelete(id: string) {
+    if ((await confirmAction("למחוק את ההזדמנות הזו?"))) deleteOpportunity(id);
   }
 
   return (
@@ -89,9 +89,9 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
         <span className="text-sm text-neutral-500">{rows.length} עסקאות פתוחות</span>
         <ColumnPicker catalog={catalog} ids={colPrefs.ids} onChange={colPrefs.setIds} onReset={colPrefs.reset} isDefault={colPrefs.isDefault} fixed="ליד" />
       </div>
-      <div className="border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden overflow-x-auto">
+      <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm overflow-hidden overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="bg-neutral-50 dark:bg-neutral-900 text-neutral-500">
+        <thead className="bg-neutral-50 dark:bg-white/5 text-neutral-500 text-xs">
           <tr>
             <th className="px-3 py-2 w-8">
               <input
@@ -101,13 +101,13 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
                 onChange={(e) => setSelected(e.target.checked ? new Set(rows.map((o) => o.contactId)) : new Set())}
               />
             </th>
-            <th className="text-start px-4 py-2 font-medium">ליד</th>
+            <th className="text-start px-4 py-2.5 font-semibold">ליד</th>
             {colPrefs.columns.map((col) => (
-              <th key={col.id} className={`text-start px-4 py-2 font-medium ${col.mobile ? "" : "hidden md:table-cell"}`}>
+              <th key={col.id} className={`text-start px-4 py-2.5 font-semibold ${col.mobile ? "" : "hidden md:table-cell"}`}>
                 {col.label}
               </th>
             ))}
-            <th className="text-start px-4 py-2 font-medium"></th>
+            <th className="text-start px-4 py-2.5 font-semibold"></th>
           </tr>
         </thead>
         <tbody>

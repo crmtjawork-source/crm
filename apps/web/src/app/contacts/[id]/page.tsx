@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmAction } from "@/lib/confirm";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -92,7 +93,7 @@ export default function ContactDetailPage() {
 
   async function handleDeleteContact() {
     if (!contact) return;
-    if (!confirm(`למחוק את ${contact.name}? הפעולה מוחקת גם את ההזדמנויות והפעילות שלו.`)) return;
+    if (!(await confirmAction(`למחוק את ${contact.name}? הפעולה מוחקת גם את ההזדמנויות והפעילות שלו.`))) return;
     await deleteContact(contact.id);
     router.push("/contacts");
   }
@@ -120,7 +121,7 @@ export default function ContactDetailPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent font-bold"
+              className="w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent font-bold"
               placeholder="שם"
             />
             <div className="flex gap-2">
@@ -129,18 +130,18 @@ export default function ContactDetailPage() {
                 onChange={(e) => setPhone(e.target.value)}
                 dir="ltr"
                 placeholder="טלפון"
-                className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
               />
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 dir="ltr"
                 placeholder="אימייל"
-                className="flex-1 px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
               />
             </div>
             <div className="flex gap-2">
-              <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+              <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-tint text-white">
                 שמירה
               </button>
               <button type="button" onClick={() => setEditingInfo(false)} className="px-3 py-1.5 text-sm text-neutral-400">
@@ -150,7 +151,7 @@ export default function ContactDetailPage() {
           </form>
         ) : (
           <div className="mb-4">
-            <h1 className="text-xl font-bold mb-1">{contact.name}</h1>
+            <h1 className="text-2xl font-bold tracking-tight mb-1">{contact.name}</h1>
             <p className="flex items-center gap-2 text-2xl font-bold tracking-wide text-neutral-900 dark:text-neutral-50 mb-0.5">
               {contact.phone ? (
                 <>
@@ -175,21 +176,21 @@ export default function ContactDetailPage() {
       </div>
 
       {!editingInfo && (
-        <div className="flex gap-3 mb-4 text-xs">
+        <div className="flex flex-wrap gap-2 mb-4 text-[13px] font-medium">
           {contact.phone && (
-            <Link href={chatHref} className="text-emerald-600 hover:underline">
+            <Link href={chatHref} className="rounded-lg bg-whatsapp text-white px-3 py-1.5 hover:brightness-95">
               שיחה בוואטסאפ
             </Link>
           )}
-          <button onClick={startEdit} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:underline">
+          <button onClick={startEdit} className="rounded-lg bg-black/[.06] dark:bg-white/10 text-neutral-700 dark:text-neutral-200 px-3 py-1.5 hover:bg-black/[.09]">
             עריכת פרטים
           </button>
           {canDelete ? (
-            <button onClick={handleDeleteContact} className="text-neutral-400 hover:text-red-500 hover:underline">
+            <button onClick={handleDeleteContact} className="rounded-lg bg-black/[.06] dark:bg-white/10 text-neutral-600 dark:text-neutral-300 px-3 py-1.5 hover:text-red-500">
               מחיקת ליד
             </button>
           ) : (
-            <span className="text-neutral-300 dark:text-neutral-700" title="רק מנהלים ובעלים יכולים למחוק לידים">
+            <span className="rounded-lg px-3 py-1.5 text-neutral-300 dark:text-neutral-700" title="רק מנהלים ובעלים יכולים למחוק לידים">
               מחיקת ליד
             </span>
           )}
@@ -200,6 +201,7 @@ export default function ContactDetailPage() {
 
       <LeadUpcoming contact={contact} />
 
+      <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm divide-y divide-black/[.06] dark:divide-white/10 mb-4 overflow-hidden">
       {(() => {
         // The lead's current deal: the open one if any, else the latest.
         const deals = opportunities.filter((o) => o.contactId === contact.id);
@@ -209,17 +211,17 @@ export default function ContactDetailPage() {
         const showReason = deal && (stage?.asksLostReason || deal.lostReason);
         return (
           <>
-            <div className="flex items-center gap-2 mb-2 text-sm">
-              <span className="text-neutral-500">שלב:</span>
+            <div className="flex items-center gap-2 px-4 py-2.5 text-sm">
+              <span className="text-neutral-500 min-w-20">שלב:</span>
               <StageSelect contact={contact} deal={deal} afterMove={stagePrompt.afterMove} large />
             </div>
             {showReason && deal && (
-              <label className="flex items-center gap-2 mb-2 text-sm">
-                <span className="text-neutral-500">סיבת אי-סגירה:</span>
+              <label className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                <span className="text-neutral-500 min-w-20">סיבת אי-סגירה:</span>
                 <select
                   value={deal.lostReason ?? ""}
                   onChange={(e) => updateOpportunity(deal.id, { lostReason: e.target.value || undefined })}
-                  className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent font-medium max-w-72"
+                  className="px-2.5 py-1 rounded-lg bg-black/[.05] dark:bg-white/10 border-0 font-medium max-w-72"
                 >
                   <option value="">לא נבחרה סיבה</option>
                   {lostReasons.map((r) => (
@@ -237,20 +239,20 @@ export default function ContactDetailPage() {
       {stagePrompt.element}
 
       {leadStatuses.length > 0 && (
-        <div className="flex items-center gap-2 mb-2 text-sm">
-          <span className="text-neutral-500">סטטוס ליד:</span>
+        <div className="flex items-center gap-2 px-4 py-2.5 text-sm">
+          <span className="text-neutral-500 min-w-20">סטטוס ליד:</span>
           <StatusSelect contact={contact} large />
         </div>
       )}
 
-      <label className="flex items-center gap-2 mb-4 text-sm">
-        <span className="text-neutral-500">בעלים:</span>
+      <label className="flex items-center gap-2 px-4 py-2.5 text-sm">
+        <span className="text-neutral-500 min-w-20">בעלים:</span>
         <select
           value={contact.ownerEmail?.toLowerCase() ?? ""}
           disabled={!canAssign}
           title={canAssign ? undefined : "אין לך הרשאה לשייך לידים"}
           onChange={(e) => updateContact(contact.id, { ownerEmail: e.target.value || undefined })}
-          className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+          className="px-2.5 py-1 rounded-lg bg-black/[.05] dark:bg-white/10 border-0 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <option value="">ללא בעלים</option>
           {members.map((m) => (
@@ -265,14 +267,14 @@ export default function ContactDetailPage() {
         </select>
       </label>
 
-      <label className="flex items-center gap-2 mb-2 text-sm">
-        <span className="text-neutral-500">קמפיין:</span>
+      <label className="flex items-center gap-2 px-4 py-2.5 text-sm">
+        <span className="text-neutral-500 min-w-20">קמפיין:</span>
         <select
           value={contact.campaignId ?? ""}
           disabled={!canCampaign}
           title={canCampaign ? undefined : "אין לך הרשאה לשנות קמפיין"}
           onChange={(e) => updateContact(contact.id, { campaignId: e.target.value || undefined })}
-          className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent max-w-80 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="px-2.5 py-1 rounded-lg bg-black/[.05] dark:bg-white/10 border-0 max-w-80 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <option value="">ללא קמפיין</option>
           {campaigns
@@ -285,6 +287,7 @@ export default function ContactDetailPage() {
             ))}
         </select>
       </label>
+      </div>
       {Object.keys(contact.attribution).length > 0 && (
         <details className="mb-4 text-xs text-neutral-500">
           <summary className="cursor-pointer">נתוני מעקב (UTM / מודעה)</summary>

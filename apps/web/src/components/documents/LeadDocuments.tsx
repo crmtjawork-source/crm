@@ -22,7 +22,7 @@ export function LeadDocuments({ contact }: { contact: Contact }) {
     <section className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-sm font-semibold text-neutral-500">הצעות והסכמים</h2>
-        <button onClick={() => setCreating(true)} className="text-xs px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-800">
+        <button onClick={() => setCreating(true)} className="text-xs px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800">
           + שליחת הצעה / הסכם
         </button>
       </div>
@@ -32,7 +32,7 @@ export function LeadDocuments({ contact }: { contact: Contact }) {
         <ul className="space-y-1.5">
           {mine.map((d: CrmDocument) => (
             <li key={d.id}>
-              <button onClick={() => setOpenId(d.id)} className="w-full flex items-center gap-2 text-sm text-start border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2">
+              <button onClick={() => setOpenId(d.id)} className="w-full flex items-center gap-2 text-sm text-start rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm px-3 py-2">
                 <span className="truncate flex-1">{d.title}</span>
                 <span className="text-xs text-neutral-400 shrink-0">
                   {d.viewCount ? `${d.viewCount} צפיות · ${formatDuration(d.viewSeconds)}` : "לא נפתח"}

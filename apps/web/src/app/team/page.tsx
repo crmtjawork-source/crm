@@ -33,7 +33,7 @@ export default function TeamPage() {
         <h1 className="text-xl font-bold">צוות והרשאות</h1>
         <button
           onClick={() => setShowInvite((v) => !v)}
-          className="text-sm px-3 py-1.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+          className="text-sm px-3 py-1.5 rounded-md bg-tint text-white"
         >
           + הזמנת חבר צוות
         </button>
@@ -44,7 +44,7 @@ export default function TeamPage() {
       </p>
 
       {showInvite && (
-        <form onSubmit={handleInvite} className="mb-6 flex flex-wrap items-end gap-2 border border-neutral-200 dark:border-neutral-800 rounded-lg p-3">
+        <form onSubmit={handleInvite} className="mb-6 flex flex-wrap items-end gap-2 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-3">
           <label className="text-sm">
             <span className="block text-xs text-neutral-500 mb-1">שם</span>
             <input
@@ -52,7 +52,7 @@ export default function TeamPage() {
               onChange={(e) => setName(e.target.value)}
               required
               autoFocus
-              className="px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             />
           </label>
           <label className="text-sm">
@@ -63,7 +63,7 @@ export default function TeamPage() {
               type="email"
               dir="ltr"
               required
-              className="px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             />
           </label>
           <label className="text-sm">
@@ -71,13 +71,13 @@ export default function TeamPage() {
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as MemberRole)}
-              className="px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+              className="px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
             >
               <option value="admin">מנהל</option>
               <option value="agent">נציג</option>
             </select>
           </label>
-          <button type="submit" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800">
+          <button type="submit" className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             שליחת הזמנה
           </button>
         </form>
@@ -87,7 +87,7 @@ export default function TeamPage() {
         {members.map((m) => (
           <li
             key={m.id}
-            className="flex items-center justify-between border border-neutral-200 dark:border-neutral-800 rounded-lg px-4 py-3"
+            className="flex items-center justify-between rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm px-4 py-3"
           >
             <div>
               <p className="font-medium text-sm">

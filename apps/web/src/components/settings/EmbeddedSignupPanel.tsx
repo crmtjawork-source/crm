@@ -118,7 +118,7 @@ export function EmbeddedSignupPanel() {
         <button
           onClick={() => start("new_number")}
           disabled={!!busy}
-          className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 disabled:opacity-50"
+          className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 disabled:opacity-50"
         >
           {busy === "new_number" ? "ממתין לחיבור…" : "חיבור מספר חדש (בלי אפליקציה)"}
         </button>

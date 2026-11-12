@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { TopBarButtons } from "./TopBar";
@@ -10,6 +11,33 @@ import { WhatsAppDownBanner } from "./WhatsAppDownBanner";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { canSeeHref, effectiveRole, screenOf } from "@/lib/permissions";
+import { CalendarDays, CheckSquare, ClipboardList, FileText, Home, Kanban, Megaphone, MessageCircle, SlidersHorizontal, Table2, Menu, Users, Zap, type LucideIcon } from "lucide-react";
+
+// Each section gets a rounded colour tile; the colours are the design's fixed palette.
+const NAV_ICONS: Record<string, { icon: LucideIcon; color: string }> = {
+  "/dashboard": { icon: Home, color: "#0a84ff" },
+  "/pipeline": { icon: Kanban, color: "#ff9f0a" },
+  "/documents": { icon: FileText, color: "#bf5af2" },
+  "/inbox": { icon: MessageCircle, color: "#30d158" },
+  "/my-whatsapp": { icon: MessageCircle, color: "#30d158" },
+  "/campaigns": { icon: Megaphone, color: "#ff375f" },
+  "/calendar": { icon: CalendarDays, color: "#ff3b30" },
+  "/automations": { icon: Zap, color: "#5e5ce6" },
+  "/forms": { icon: ClipboardList, color: "#64d2ff" },
+  "/tasks": { icon: CheckSquare, color: "#5e5ce6" },
+  "/team": { icon: Users, color: "#64d2ff" },
+  "/settings": { icon: SlidersHorizontal, color: "#8e8e93" },
+};
+
+function NavIcon({ href }: { href: string }) {
+  const meta = NAV_ICONS[href] ?? { icon: Table2, color: "#8e8e93" };
+  const Icon = meta.icon;
+  return (
+    <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md text-white" style={{ backgroundColor: meta.color }}>
+      <Icon size={14} strokeWidth={2.2} aria-hidden />
+    </span>
+  );
+}
 
 const ROLE_LABELS = { owner: "בעלים", admin: "מנהל", agent: "נציג" } as const;
 
@@ -29,10 +57,10 @@ const NAV = [
   { href: "/settings", label: "הגדרות" },
 ];
 
-const MOBILE_TABS = [
-  { href: "/tasks", label: "משימות", icon: "✓" },
-  { href: "/calendar", label: "יומן", icon: "📅" },
-  { href: "/pipeline", label: "פייפליין", icon: "▦" },
+const MOBILE_TABS: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/tasks", label: "משימות", icon: CheckSquare },
+  { href: "/calendar", label: "יומן", icon: CalendarDays },
+  { href: "/pipeline", label: "פייפליין", icon: Kanban },
 ];
 
 function SearchBox() {
@@ -113,13 +141,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Link
         key={item.href}
         href={item.href}
-        className={`rounded-md px-3 py-2 text-sm ${nested ? "py-1.5" : ""} ${
-          active
-            ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-            : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900"
+        aria-current={active ? "page" : undefined}
+        className={`flex items-center gap-2.5 rounded-lg px-2.5 min-h-9 text-sm font-medium transition-colors duration-150 ${nested ? "min-h-8" : ""} ${
+          active ? "bg-black/[.07] dark:bg-white/10" : "text-neutral-700 hover:bg-black/[.04] dark:text-neutral-300 dark:hover:bg-white/[.06]"
         }`}
       >
-        {item.label}
+        {!nested && <NavIcon href={item.href} />}
+        <span className="truncate">{item.label}</span>
       </Link>
     );
   };
@@ -173,18 +201,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="md:flex min-h-full">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-56 shrink-0 border-e border-neutral-200 dark:border-neutral-800 flex-col sticky top-0 h-dvh">
-        <div className="px-4 py-4 font-bold text-lg">CRM</div>
+      <aside className="hidden md:flex w-60 shrink-0 border-e border-black/[.08] dark:border-white/10 bg-neutral-100/70 dark:bg-neutral-900/60 backdrop-blur-xl flex-col sticky top-0 h-dvh">
+        <div className="px-4 pt-5 pb-3 flex items-center gap-2.5 font-semibold text-[15px]"><span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-b from-[#5db0ff] to-tint text-white text-sm font-bold">C</span>CRM</div>
         <SearchBox />
         {navLinks}
         {footer}
       </aside>
 
       {/* Phone: top bar + slide-in menu + bottom tabs */}
-      <header className="md:hidden sticky top-0 z-30 flex items-center gap-2 px-3 h-12 border-b border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-950/95 backdrop-blur">
-        <button onClick={() => setMenuOpen(true)} aria-label="תפריט" className="text-xl px-1">
-          ☰
-        </button>
+      <header className="md:hidden sticky top-0 z-30 flex items-center gap-2 px-3 h-12 border-b border-neutral-200 dark:border-neutral-800 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xl">
+        <button onClick={() => setMenuOpen(true)} aria-label="תפריט" className="px-1 min-h-11 min-w-9"><Menu size={22} aria-hidden /></button>
         <span className="font-bold">CRM</span>
         <div className="ms-auto">
           <TopBarButtons />
@@ -193,7 +219,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {menuOpen && (
         <div className="md:hidden fixed inset-0 z-40">
           <button aria-label="סגירת התפריט" onClick={() => setMenuOpen(false)} className="absolute inset-0 bg-black/40" />
-          <aside className="absolute inset-y-0 start-0 w-64 bg-white dark:bg-neutral-950 flex flex-col pt-3 shadow-xl">
+          <aside className="absolute inset-y-0 start-0 w-64 bg-neutral-100 dark:bg-neutral-900 flex flex-col pt-3 shadow-xl">
             <SearchBox />
             {navLinks}
             {footer}
@@ -203,11 +229,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex-1 min-w-0 pb-16 md:pb-0">
         {/* Desktop top bar: agenda + notifications */}
-        <div className="hidden md:flex sticky top-0 z-20 h-12 items-center justify-end px-4 border-b border-neutral-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-950/90 backdrop-blur">
+        <div className="hidden md:flex sticky top-0 z-20 h-12 items-center justify-end px-4 border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl">
           <TopBarButtons />
         </div>
         {loading ? (
-          <div className="p-6 text-sm text-neutral-400">טוען…</div>
+          <PageSkeleton />
         ) : !canSeeHref(role, screenOf(pathname)) ? (
           <div className="p-6 text-sm text-neutral-500">אין לך הרשאה למסך הזה. אפשר לפנות למנהל המערכת.</div>
         ) : (
@@ -219,12 +245,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </div>
 
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-3 border-t border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-950/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-3 border-t border-neutral-200 dark:border-neutral-800 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
         {(loading ? [] : MOBILE_TABS.filter((item) => canSeeHref(role, item.href))).map((item) => {
           const active = pathname.startsWith(item.href) || (item.href === "/pipeline" && pathname.startsWith("/contacts"));
           return (
-            <Link key={item.href} href={item.href} className={`flex flex-col items-center py-2 text-[11px] ${active ? "text-neutral-900 dark:text-white font-semibold" : "text-neutral-400"}`}>
-              <span className="text-lg leading-none mb-0.5">{item.icon}</span>
+            <Link key={item.href} href={item.href} className={`flex flex-col items-center py-2 text-[11px] ${active ? "text-tint font-semibold" : "text-neutral-400"}`}>
+              <item.icon size={22} strokeWidth={active ? 2.3 : 1.9} className="mb-0.5" aria-hidden />
               {item.label}
             </Link>
           );

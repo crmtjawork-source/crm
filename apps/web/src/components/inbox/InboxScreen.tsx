@@ -1,5 +1,8 @@
 "use client";
 
+import { Clock, Paperclip, Zap } from "lucide-react";
+import { Segmented } from "@/components/ui/Segmented";
+
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -125,11 +128,7 @@ function ConversationList({
     };
   }, [wanted]);
 
-  const tabBtn = (id: ListTab, label: string) => (
-    <button key={id} onClick={() => setTab(id)} className={`px-2.5 py-1 text-xs rounded-full whitespace-nowrap ${tab === id ? "bg-emerald-600 text-white" : "bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300"}`}>
-      {label}
-    </button>
-  );
+
 
   return (
     <div className="w-full md:w-80 2xl:w-96 shrink-0 border-e border-neutral-200 dark:border-neutral-800 flex flex-col min-h-0">
@@ -140,19 +139,24 @@ function ConversationList({
           placeholder="חיפוש שיחה, שם או מספר…"
           className="w-full px-3 py-1.5 text-sm rounded-full border border-neutral-200 dark:border-neutral-800 bg-transparent"
         />
-        <div className="flex gap-1.5 overflow-x-auto">
-          {tabBtn("all", "הכל")}
-          {tabBtn("unread", unreadTotal ? `לא נקראו (${unreadTotal})` : "לא נקראו")}
-          {tabBtn("waiting", "ממתינות למענה")}
-          {tabBtn("groups", "קבוצות")}
-          {tabBtn("leads", "לידים")}
-          {archivedCount > 0 && tabBtn("archived", `ארכיון (${archivedCount})`)}
-        </div>
+        <Segmented
+          size="sm"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { id: "all" as ListTab, label: "הכל" },
+            { id: "unread" as ListTab, label: unreadTotal ? `לא נקראו (${unreadTotal})` : "לא נקראו" },
+            { id: "waiting" as ListTab, label: "ממתינות למענה" },
+            { id: "groups" as ListTab, label: "קבוצות" },
+            { id: "leads" as ListTab, label: "לידים" },
+            ...(archivedCount > 0 ? [{ id: "archived" as ListTab, label: `ארכיון (${archivedCount})` }] : []),
+          ]}
+        />
         {channelsById.size > 1 && (
           <select
             value={channelFilter}
             onChange={(e) => setChannelFilter(e.target.value)}
-            className="w-full px-2 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+            className="w-full px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
           >
             <option value="">כל המספרים</option>
             {[...channelsById.values()].map((ch) => (
@@ -173,7 +177,7 @@ function ConversationList({
               <button
                 onClick={() => onSelect(c.id)}
                 className={`w-full text-start px-3 py-2.5 border-b border-neutral-100 dark:border-neutral-900 flex items-center gap-3 ${
-                  selectedId === c.id ? "bg-neutral-100 dark:bg-neutral-900" : "hover:bg-neutral-50 dark:hover:bg-neutral-950"
+                  selectedId === c.id ? "bg-black/[.06] dark:bg-white/10" : "hover:bg-neutral-50 dark:hover:bg-neutral-950"
                 }`}
               >
                 <Avatar title={title} group={c.isGroup} src={c.avatarUrl ?? avatars[c.id] ?? undefined} />
@@ -182,7 +186,7 @@ function ConversationList({
                     <span className={`text-sm truncate ${c.unreadCount ? "font-semibold" : "font-medium"}`}>
                       {title}
                     </span>
-                    <span className={`text-[11px] shrink-0 ${c.unreadCount && !muted ? "text-emerald-600 font-medium" : "text-neutral-400"}`}>{formatListTime(c.lastMessageAt)}</span>
+                    <span className={`text-[11px] shrink-0 ${c.unreadCount && !muted ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-neutral-400"}`}>{formatListTime(c.lastMessageAt)}</span>
                   </span>
                   <span className="flex items-center justify-between gap-2 mt-0.5">
                     <span className="text-xs text-neutral-500 truncate">
@@ -190,7 +194,7 @@ function ConversationList({
                     </span>
                     <span className="flex items-center gap-1 shrink-0">
                       {muted && <span className="text-[11px] text-neutral-400" title="מושתקת">🔕</span>}
-                      {c.unreadCount > 0 && <span className={`text-[11px] min-w-[1.25rem] text-center px-1 rounded-full text-white ${muted ? "bg-neutral-400" : "bg-emerald-500"}`}>{c.unreadCount}</span>}
+                      {c.unreadCount > 0 && <span className={`text-[11px] min-w-[1.25rem] text-center px-1 rounded-full text-white ${muted ? "bg-neutral-400" : "bg-whatsapp"}`}>{c.unreadCount}</span>}
                     </span>
                   </span>
                   {channelsById.size > 1 && channel && <span className="block text-[11px] text-neutral-400 mt-0.5">{channel.name}</span>}
@@ -401,7 +405,7 @@ function Thread({
         {error && <p className="text-xs text-red-500">{error}</p>}
         {file && (
           <div className="flex items-center gap-2 text-xs rounded-md bg-neutral-100 dark:bg-neutral-900 px-3 py-1.5">
-            <span>📎</span>
+            <Paperclip size={14} aria-hidden />
             <span className="flex-1 truncate">{file.name}</span>
             <button onClick={() => setFile(null)} className="text-neutral-400 hover:text-red-500" aria-label="הסרת הקובץ">
               ×
@@ -425,19 +429,19 @@ function Thread({
         )}
         {windowOpen ? (
           <form onSubmit={handleSend} className="flex gap-2 items-end">
-            <button type="button" onClick={() => setRepliesOpen((v) => !v)} className="w-9 h-9 shrink-0 rounded-full border border-neutral-200 dark:border-neutral-700 text-lg hover:bg-neutral-100 dark:hover:bg-neutral-900" aria-label="תגובות מוכנות" title="תגובות מוכנות (או הקלדת /)">
-              ⚡
+            <button type="button" onClick={() => setRepliesOpen((v) => !v)} className="w-9 h-9 shrink-0 rounded-full border border-neutral-200 dark:border-neutral-700 grid place-items-center hover:bg-neutral-100 dark:hover:bg-neutral-900" aria-label="תגובות מוכנות" title="תגובות מוכנות (או הקלדת /)">
+              <Zap size={18} aria-hidden />
             </button>
             {contact && canAttach && (
-              <button type="button" onClick={() => setScheduling(true)} className="w-9 h-9 shrink-0 rounded-full border border-neutral-200 dark:border-neutral-700 text-lg hover:bg-neutral-100 dark:hover:bg-neutral-900" aria-label="הודעה מתוזמנת" title="הודעה מתוזמנת">
-                ⏰
+              <button type="button" onClick={() => setScheduling(true)} className="w-9 h-9 shrink-0 rounded-full border border-neutral-200 dark:border-neutral-700 grid place-items-center hover:bg-neutral-100 dark:hover:bg-neutral-900" aria-label="הודעה מתוזמנת" title="הודעה מתוזמנת">
+                <Clock size={18} aria-hidden />
               </button>
             )}
             {canAttach && (
               <>
                 <input ref={fileRef} type="file" className="hidden" onChange={(e) => (setFile(e.target.files?.[0] ?? null), (e.target.value = ""))} />
-                <button type="button" onClick={() => fileRef.current?.click()} className="w-9 h-9 shrink-0 rounded-full border border-neutral-200 dark:border-neutral-700 text-lg hover:bg-neutral-100 dark:hover:bg-neutral-900" aria-label="צירוף קובץ או תמונה" title="צירוף קובץ או תמונה">
-                  📎
+                <button type="button" onClick={() => fileRef.current?.click()} className="w-9 h-9 shrink-0 rounded-full border border-neutral-200 dark:border-neutral-700 grid place-items-center hover:bg-neutral-100 dark:hover:bg-neutral-900" aria-label="צירוף קובץ או תמונה" title="צירוף קובץ או תמונה">
+                  <Paperclip size={18} aria-hidden />
                 </button>
               </>
             )}
@@ -455,7 +459,7 @@ function Thread({
               placeholder={file ? "כיתוב (לא חובה)…" : "כתיבת הודעה…"}
               className="flex-1 resize-none px-3 py-2 text-sm rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-transparent max-h-32"
             />
-            <button type="submit" disabled={busy || (!text.trim() && !file)} className="px-4 py-2 text-sm rounded-full bg-emerald-600 text-white disabled:opacity-50">
+            <button type="submit" disabled={busy || (!text.trim() && !file)} className="px-4 py-2 text-sm rounded-full bg-whatsapp text-white disabled:opacity-50">
               {busy ? "…" : "שליחה"}
             </button>
           </form>
@@ -533,7 +537,7 @@ function StartConversation({ contact, channels, basePath, onBack }: { contact: C
               <select
                 value={channelId}
                 onChange={(e) => setChannelId(e.target.value)}
-                className="w-full px-2 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
               >
                 {channels.map((ch) => (
                   <option key={ch.id} value={ch.id}>
@@ -558,9 +562,9 @@ function StartConversation({ contact, channels, basePath, onBack }: { contact: C
                 rows={4}
                 dir="auto"
                 placeholder="כתיבת הודעה…"
-                className="w-full px-3 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent"
               />
-              <button type="submit" disabled={busy || !text.trim()} className="px-4 py-2 text-sm rounded-md bg-emerald-600 text-white disabled:opacity-50">
+              <button type="submit" disabled={busy || !text.trim()} className="px-4 py-2 text-sm rounded-md bg-whatsapp text-white disabled:opacity-50">
                 {busy ? "שולח…" : "שליחה"}
               </button>
             </form>

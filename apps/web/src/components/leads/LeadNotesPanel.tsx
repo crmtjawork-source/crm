@@ -48,11 +48,11 @@ export function LeadNotesPanel({ contact }: { contact: Contact }) {
     <aside className="border border-neutral-200 dark:border-neutral-800 rounded-xl flex flex-col lg:sticky lg:top-16 lg:max-h-[calc(100dvh-5rem)]">
       <div className="px-4 pt-3 pb-2 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-900">
         <h2 className="text-sm font-semibold flex-1">הערות והיסטוריה</h2>
-        <div className="flex rounded-md border border-neutral-200 dark:border-neutral-800 overflow-hidden text-xs">
-          <button onClick={() => setOnlyNotes(true)} className={`px-2.5 py-1 ${onlyNotes ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : ""}`}>
+        <div className="flex rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden text-xs">
+          <button onClick={() => setOnlyNotes(true)} className={`px-2.5 py-1 ${onlyNotes ? "bg-tint text-white" : ""}`}>
             הערות ({notes.length})
           </button>
-          <button onClick={() => setOnlyNotes(false)} className={`px-2.5 py-1 ${!onlyNotes ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : ""}`}>
+          <button onClick={() => setOnlyNotes(false)} className={`px-2.5 py-1 ${!onlyNotes ? "bg-tint text-white" : ""}`}>
             הכל ({all.length})
           </button>
         </div>
@@ -74,7 +74,7 @@ export function LeadNotesPanel({ contact }: { contact: Contact }) {
               pick(files);
             }
           }}
-          className="w-full px-3 py-2 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 bg-transparent resize-y"
+          className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent resize-y"
         />
         {previews.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
@@ -90,11 +90,11 @@ export function LeadNotesPanel({ contact }: { contact: Contact }) {
           </div>
         )}
         {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-        <label className="mt-2 block text-center text-xs py-1.5 rounded-md border border-neutral-200 dark:border-neutral-800 cursor-pointer text-neutral-600 dark:text-neutral-300">
+        <label className="mt-2 block text-center text-xs py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 cursor-pointer text-neutral-600 dark:text-neutral-300">
           📷 הוספת תמונה
           <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => (pick(Array.from(e.target.files ?? [])), (e.target.value = ""))} />
         </label>
-        <button type="submit" disabled={(!text.trim() && images.length === 0) || busy} className="mt-2 w-full py-1.5 text-sm rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-40">
+        <button type="submit" disabled={(!text.trim() && images.length === 0) || busy} className="mt-2 w-full py-1.5 text-sm rounded-md bg-tint text-white disabled:opacity-40">
           {busy ? "שומר…" : "הוספת הערה"}
         </button>
       </form>
