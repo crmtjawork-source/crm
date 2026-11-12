@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { TopBarButtons } from "./TopBar";
 import { RecentSearchInput } from "./RecentSearchInput";
 import { NewLeadsBanner } from "./NewLeadsBanner";
+import { WhatsAppDownBanner } from "./WhatsAppDownBanner";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { canSeeHref, effectiveRole, screenOf } from "@/lib/permissions";
@@ -211,6 +212,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="p-6 text-sm text-neutral-500">אין לך הרשאה למסך הזה. אפשר לפנות למנהל המערכת.</div>
         ) : (
           <>
+            <WhatsAppDownBanner />
             <NewLeadsBanner />
             {children}
           </>

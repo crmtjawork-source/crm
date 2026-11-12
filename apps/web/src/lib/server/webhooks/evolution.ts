@@ -339,7 +339,13 @@ export async function handleEvolutionEvent(db: Db, channel: Row, p: Row): Promis
 
   if (event === "connection.update") {
     const state = data.state === "open" ? "authorized" : data.state ? "notAuthorized" : null;
-    await db.from("channels").update({ status: state, status_checked_at: new Date().toISOString() }).eq("id", channel.id);
+    // "close"/"connecting" start the outage clock (the watchdog alerts if it lasts); "open" ends it.
+    const patch: Row = { status: state, status_checked_at: new Date().toISOString() };
+    if (state === "authorized") patch.unhealthy_since = null;
+    else if (state && !channel.unhealthy_since) patch.unhealthy_since = new Date().toISOString();
+    const { error } = await db.from("channels").update(patch).eq("id", channel.id);
+    // A database without the watchdog columns yet: keep the plain status update.
+    if (error) await db.from("channels").update({ status: state, status_checked_at: patch.status_checked_at }).eq("id", channel.id);
     return null;
   }
 

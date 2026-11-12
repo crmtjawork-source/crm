@@ -135,6 +135,11 @@ export async function sendVoice(name: string, digits: string, url: string): Prom
   return r.key.id;
 }
 
+// Re-opens the connection from the saved session (no QR when the session is still valid).
+export async function restart(name: string): Promise<void> {
+  await call("PUT", `/instance/restart/${encodeURIComponent(name)}`);
+}
+
 export async function logout(name: string): Promise<void> {
   await call("DELETE", `/instance/logout/${encodeURIComponent(name)}`);
 }

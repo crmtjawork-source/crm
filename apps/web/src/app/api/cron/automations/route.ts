@@ -7,6 +7,7 @@ import { sendDueScheduledMessages } from "@/lib/server/leadMessages";
 import { sendPendingPushes } from "@/lib/server/push";
 import { processCalendarJobs } from "@/lib/server/googleCalendar";
 import { pollLeadAdPages } from "@/lib/server/webhooks/leadgen";
+import { checkGatewayHealth } from "@/lib/server/gatewayHealth";
 
 // Hit every minute by a scheduler (Supabase pg_cron + pg_net, or Vercel
 // Cron) with `Authorization: Bearer <CRON_SECRET>`. Resumes automation runs
@@ -31,7 +32,11 @@ async function run(request: Request) {
   const pushes = await sendPendingPushes(db);
   const calendar = await processCalendarJobs(db, new URL(request.url).origin);
   const leadAds = await pollLeadAdPages(db);
-  return Response.json({ resumed, retried, reminders, pushes, calendar, leadAds });
+  const gateways = await checkGatewayHealth(db).catch((err) => {
+    console.error("gateway health failed", err);
+    return {};
+  });
+  return Response.json({ resumed, retried, reminders, pushes, calendar, leadAds, gateways });
 }
 
 export const GET = run;
