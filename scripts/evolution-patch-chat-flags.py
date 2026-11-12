@@ -13,14 +13,25 @@ Added to the payloads (chats.set / chats.upsert / chats.update):
   pinned        number|null  — pin timestamp (ms) or null
   archived      boolean
   muteEndTime   number|null  — unix seconds the mute ends (-1 or far future = forever)
+  unreadMessages number     — chats.set (history snapshot) only: the phone's unread count, 0 when none
 """
 import shutil, sys, time
 
 path = sys.argv[1]
 src = open(path, encoding="utf-8").read()
 MARK = "/*chatflags*/"
-if MARK in src:
+MARK2 = "/*chatflags2*/"
+if MARK2 in src:
     print("already patched")
+    sys.exit(0)
+if MARK in src:
+    # v1 -> v2: the history snapshot (chats.set) also carries every chat's unread count (absent = 0).
+    a = 'this.sendDataWebhook("chats.set",t.map(g=>({remoteJid:g.id,name:g.name,'
+    if src.count(a) != 1:
+        sys.exit("v1 anchor not found exactly once")
+    shutil.copy(path, f"{path}.bak-{int(time.time())}")
+    open(path, "w", encoding="utf-8").write(src.replace(a, MARK2 + a + "unreadMessages:Number(g.unreadCount)||0,"))
+    print("upgraded to v2")
     sys.exit(0)
 
 FLAGS = lambda v: f'pinned:{v}.pinned===void 0?void 0:(Number({v}.pinned)||null),archived:{v}.archived===void 0?void 0:!!{v}.archived,muteEndTime:{v}.muteEndTime===void 0?void 0:(Number({v}.muteEndTime)||null)'
