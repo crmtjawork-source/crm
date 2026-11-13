@@ -103,7 +103,7 @@ async function gcal(token: string, method: string, path: string, body?: unknown)
   return json;
 }
 
-function eventBody(a: Row, contact: Row | null, origin: string, agent?: string | null) {
+function eventBody(a: Row, contact: Row | null, origin: string, agent?: string | null, inviteEmail?: string | null) {
   const link = contact ? `${origin}/contacts/${contact.id}` : origin;
   const description = [
     agent ? `נציג: ${agent}` : null,
@@ -122,6 +122,8 @@ function eventBody(a: Row, contact: Row | null, origin: string, agent?: string |
     start: { dateTime: a.start_at, timeZone: TZ },
     end: { dateTime: a.end_at, timeZone: TZ },
     extendedProperties: { private: { crmAppointmentId: a.id } },
+    // The lead gets a Google Calendar invitation (sent via sendUpdates=all).
+    ...(inviteEmail ? { attendees: [{ email: inviteEmail, displayName: contact?.name || undefined }] } : {}),
   };
 }
 
@@ -154,7 +156,7 @@ export async function processCalendarJobs(db: Db, origin: string): Promise<numbe
       const token = await accessToken(db, conn.id);
       const cal = encodeURIComponent(conn.calendar_id);
       if (job.op === "delete") {
-        if (job.google_event_id) await gcal(token, "DELETE", `calendars/${cal}/events/${encodeURIComponent(job.google_event_id)}`).catch((e) => (e.status === 404 ? null : Promise.reject(e)));
+        if (job.google_event_id) await gcal(token, "DELETE", `calendars/${cal}/events/${encodeURIComponent(job.google_event_id)}?sendUpdates=all`).catch((e) => (e.status === 404 ? null : Promise.reject(e)));
         await finish(null);
         done++;
         continue;
@@ -164,25 +166,33 @@ export async function processCalendarJobs(db: Db, origin: string): Promise<numbe
         await finish(null);
         continue;
       }
-      const { data: contact } = a.contact_id ? await db.from("contacts").select("id, name, phone").eq("id", a.contact_id).maybeSingle() : { data: null };
+      const { data: contact } = a.contact_id ? await db.from("contacts").select("id, name, phone, email").eq("id", a.contact_id).maybeSingle() : { data: null };
       let agent: string | null = null;
       if (company && a.owner_user_id) {
         const { data: u } = await db.from("users").select("full_name, email").eq("id", a.owner_user_id).maybeSingle();
         agent = u?.full_name || u?.email || null;
       }
-      const body = eventBody(a, contact, origin, agent);
+      // Invite the lead — from the agent's own calendar; from the company
+      // calendar only when the agent has none (so the lead gets one invite).
+      let inviteEmail: string | null = null;
+      const email = typeof contact?.email === "string" ? contact.email.trim() : "";
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        inviteEmail = email;
+        if (company && (await connectionFor(db, a.owner_user_id))) inviteEmail = null;
+      }
+      const body = eventBody(a, contact, origin, agent, inviteEmail);
       const idColumn = company ? "company_google_event_id" : "google_event_id";
       let eventId = a[idColumn] as string | null;
       if (eventId) {
         try {
-          await gcal(token, "PATCH", `calendars/${cal}/events/${encodeURIComponent(eventId)}`, body);
+          await gcal(token, "PATCH", `calendars/${cal}/events/${encodeURIComponent(eventId)}?sendUpdates=all`, body);
         } catch (e) {
           if ((e as { status?: number }).status !== 404) throw e;
           eventId = null; // deleted in Google — create it again
         }
       }
       if (!eventId) {
-        const created = await gcal(token, "POST", `calendars/${cal}/events`, body);
+        const created = await gcal(token, "POST", `calendars/${cal}/events?sendUpdates=all`, body);
         await db.from("appointments").update({ [idColumn]: created?.id ?? null }).eq("id", a.id);
       }
       await db.from("calendar_connections").update({ last_error: null }).eq("id", conn.id);
