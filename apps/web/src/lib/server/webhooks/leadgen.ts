@@ -111,7 +111,7 @@ async function pageToken(db: Db, page: Row): Promise<string> {
   return creds.page_access_token;
 }
 
-async function ingestLead(db: Db, page: Row, leadgenId: string, lead: Lead, value: Row) {
+async function ingestLead(db: Db, page: Row, leadgenId: string, lead: Lead, value: Row, quiet = false) {
   const answers = mapLeadAnswers(lead.field_data);
   const attribution: Record<string, string> = {};
   for (const key of ["ad_id", "ad_name", "adset_id", "adset_name", "campaign_id", "form_id"] as const) {
@@ -131,13 +131,15 @@ async function ingestLead(db: Db, page: Row, leadgenId: string, lead: Lead, valu
     source: `פרסומת ${lead.platform === "ig" ? "אינסטגרם" : "פייסבוק"}`,
     // The same submission may already have arrived through another
     // integration (e.g. a CRM forwarding its own Facebook leads).
-    quietWithinMinutes: 120,
+    quietWithinMinutes: quiet ? 60 * 24 * 3650 : 120,
   });
 
   // Mark processed before running automations: a crash while sending the
   // welcome message must not re-create the lead on retry.
   await db.from("lead_ad_submissions").update({ contact_id: contactId }).eq("leadgen_id", leadgenId);
-  if (created) await triggerAutomations(db, page.org_id, "new_contact", contactId, { source: "meta_lead_ads" });
+  // A backfill of old leads must not fire welcome messages at people who
+  // left their details long ago.
+  if (created && !quiet) await triggerAutomations(db, page.org_id, "new_contact", contactId, { source: "meta_lead_ads" });
 }
 
 // Meta delivers `leadgen` webhooks only to published apps, so every
@@ -174,12 +176,12 @@ async function fetchFormLeads(formId: string, token: string, sinceUnix: number):
   }
 }
 
-async function pollPage(db: Db, page: Row): Promise<number> {
+async function pollPage(db: Db, page: Row, backfillSince?: Date): Promise<number> {
   const startedAt = new Date();
   const token = await pageToken(db, page);
   // A Page's first poll starts from when it was connected: older leads
   // already reached the CRM some other way, or are imported on purpose.
-  const since = new Date(page.polled_until ?? page.created_at);
+  const since = backfillSince ?? new Date(page.polled_until ?? page.created_at);
   const sinceUnix = Math.floor(since.getTime() / 1000) - OVERLAP_SECONDS;
 
   const forms = await allPages<{ id: string; status?: string }>(`${page.page_id}/leadgen_forms`, token, { fields: "id,status" });
@@ -194,14 +196,34 @@ async function pollPage(db: Db, page: Row): Promise<number> {
   for (const lead of leads) {
     const value = { leadgen_id: lead.id, page_id: page.page_id, form_id: lead.form_id, ad_id: lead.ad_id, via: "poll" };
     if (await alreadyIngested(db, page, lead.id, value)) continue;
-    await ingestLead(db, page, lead.id, lead, value);
+    await ingestLead(db, page, lead.id, lead, value, Boolean(backfillSince));
     added++;
   }
+  // A backfill reads the past; it must not move the live cursor.
   await db
     .from("lead_ad_pages")
-    .update({ polled_until: startedAt.toISOString(), last_poll_at: new Date().toISOString(), last_poll_error: null })
+    .update({
+      ...(backfillSince ? {} : { polled_until: startedAt.toISOString() }),
+      last_poll_at: new Date().toISOString(),
+      last_poll_error: null,
+    })
     .eq("id", page.id);
   return added;
+}
+
+// Re-reads a Page's forms from `days` ago. Leads already in the CRM (same
+// leadgen id, or the same phone) are skipped or merged silently.
+export async function backfillLeadAdPage(db: Db, pageRowId: string, days: number): Promise<number> {
+  const { data: page } = await db.from("lead_ad_pages").select("*").eq("id", pageRowId).single();
+  if (!page) throw new Error("הדף לא נמצא");
+  const since = new Date(Date.now() + OVERLAP_SECONDS * 1000 - days * 86_400_000);
+  return pollPage(db, page, since);
+}
+
+// Meta error codes meaning the Page token no longer works (expired, revoked,
+// password changed, permission removed) — the owner has to reconnect.
+function isTokenError(err: unknown): boolean {
+  return err instanceof GraphError && (err.code === 190 || err.code === 102 || err.code === 459 || err.code === 463 || err.code === 467);
 }
 
 export async function pollLeadAdPages(db: Db): Promise<{ pages: number; added: number; errors: number }> {
@@ -216,10 +238,18 @@ export async function pollLeadAdPages(db: Db): Promise<{ pages: number; added: n
       errors++;
       const message = err instanceof Error ? err.message : String(err);
       console.error("lead ads poll failed", page.page_id, message);
+      const tokenProblem = isTokenError(err);
       await db
         .from("lead_ad_pages")
-        .update({ last_poll_at: new Date().toISOString(), last_poll_error: message.slice(0, 500) })
+        .update({ last_poll_at: new Date().toISOString(), last_poll_error: `${tokenProblem ? "TOKEN: " : ""}${message}`.slice(0, 500) })
         .eq("id", page.id);
+      // Tell the team once (not every 2 minutes) that leads have stopped.
+      if (tokenProblem && !String(page.last_poll_error ?? "").startsWith("TOKEN:")) {
+        await db.from("notifications").insert({
+          org_id: page.org_id,
+          text: `⚠️ החיבור לדף הפייסבוק "${page.page_name ?? page.page_id}" פג או נותק — לידים חדשים לא נכנסים. יש לחבר את הדף מחדש בהגדרות ← אינטגרציות.`,
+        });
+      }
     }
   }
   return { pages: pages?.length ?? 0, added, errors };

@@ -6,6 +6,7 @@ import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { apiPost, ApiError } from "@/lib/api";
 import type { Channel } from "@/lib/types";
+import { LeadAdStatus } from "./LeadAdStatus";
 import { EmbeddedSignupPanel } from "./EmbeddedSignupPanel";
 
 function historySyncOpen(channel: Channel): boolean {
@@ -335,6 +336,7 @@ export function IntegrationsSettings() {
           ))}
           {leadAdPages.length === 0 && <p className="text-sm text-neutral-400">עוד לא חובר דף.</p>}
         </ul>
+        {leadAdPages.length > 0 && <LeadAdStatus canManage={canManage} />}
         {canManage ? <ConnectPageForm /> : <p className="text-xs text-neutral-400">רק מנהלים יכולים לחבר דפים.</p>}
       </Section>
 
