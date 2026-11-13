@@ -522,6 +522,7 @@ function mapTask(r: Row): Task {
     contactId: r.contact_id ?? undefined,
     recordId: r.record_id ?? undefined,
     assignee: r.assignee ?? undefined,
+    createdBy: r.created_by ?? undefined,
     dueDate: r.due_date ?? undefined,
     dueTime: r.due_time ?? undefined,
     done: r.done,
@@ -635,6 +636,11 @@ function mapAutomationRun(r: Row): AutomationRun {
   };
 }
 
+// A notification aimed at one person (target_email) is only for them.
+function isForMe(r: Row, myEmail?: string | null): boolean {
+  return !r.target_email || r.target_email.toLowerCase() === (myEmail ?? "").toLowerCase();
+}
+
 function mapNotification(r: Row): Notification {
   return { id: r.id, text: r.text, contactId: r.contact_id ?? undefined, url: r.url ?? undefined, createdAt: r.created_at, read: r.read };
 }
@@ -722,6 +728,7 @@ export function StoreProvider({
 }) {
   const [state, setState] = useState<State>(emptyState);
   const [loading, setLoading] = useState(true);
+  const myEmailRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -826,6 +833,7 @@ export function StoreProvider({
         ),
       ];
       const myMembership = (membershipsRes.data ?? []).find((m: Row) => m.user_id === userId);
+      myEmailRef.current = (myMembership?.users as { email?: string } | undefined)?.email;
 
       setState((prev) => ({
         ...prev,
@@ -843,7 +851,7 @@ export function StoreProvider({
         members,
         currentMemberId: myMembership ? `mem:${myMembership.id}` : "",
         automations: (automationsRes.data ?? []).map((a: Row) => mapAutomation(a, automationStepRows)),
-        notifications: (notificationsRes.data ?? []).map(mapNotification),
+        notifications: (notificationsRes.data ?? []).filter((n: Row) => isForMe(n, (myMembership?.users as { email?: string } | undefined)?.email)).map(mapNotification),
         channels: (channelsRes.data ?? []).map(mapChannel),
         leadAdPages: (leadAdPagesRes.data ?? []).map(mapLeadAdPage),
         campaigns: (campaignsRes.data ?? []).map(mapCampaign),
@@ -948,6 +956,7 @@ export function StoreProvider({
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter }, (payload) => {
         if (payload.eventType === "DELETE") return;
+        if (!isForMe(payload.new as Row, myEmailRef.current)) return;
         const notification = mapNotification(payload.new as Row);
         setState((s) => ({ ...s, notifications: upsertById(s.notifications, notification) }));
       })
@@ -1384,6 +1393,21 @@ export function StoreProvider({
     return { ok: true };
   };
 
+  // A task handed to someone else tells them (bell + push, via a targeted notification).
+  const notifyTaskAssigned = (title: string, assignee: string | undefined | null, contactId?: string) => {
+    if (!assignee) return;
+    const me = state.members.find((m) => m.id === state.currentMemberId);
+    const target = state.members.find((m) => m.name === assignee && m.status === "active");
+    if (!target?.email || !me || target.id === me.id) return;
+    void supabase.from("notifications").insert({
+      org_id: orgId,
+      contact_id: contactId ?? null,
+      text: `${me.name} שלח/ה לך משימה: ${title}`,
+      target_email: target.email.toLowerCase(),
+      url: "/tasks",
+    });
+  };
+
   const addTask: Store["addTask"] = async (t) => {
     const { data, error } = await supabase
       .from("tasks")
@@ -1402,6 +1426,7 @@ export function StoreProvider({
     if (error || !data) throw error;
     const task = mapTask(data);
     setState((s) => ({ ...s, tasks: [...s.tasks, task] }));
+    notifyTaskAssigned(task.title, task.assignee, task.contactId);
     return task;
   };
 
@@ -1420,8 +1445,12 @@ export function StoreProvider({
     // A time of day only makes sense with a date.
     if (patch.dueTime !== undefined || patch.dueDate === null) row.due_time = patch.dueDate === null ? null : patch.dueTime;
     if (patch.contactId !== undefined) row.contact_id = patch.contactId;
+    const before = state.tasks.find((t) => t.id === taskId);
     const { data } = await supabase.from("tasks").update(row).eq("id", taskId).select().single();
-    if (data) setState((s) => ({ ...s, tasks: s.tasks.map((t) => (t.id === taskId ? mapTask(data) : t)) }));
+    if (data) {
+      setState((s) => ({ ...s, tasks: s.tasks.map((t) => (t.id === taskId ? mapTask(data) : t)) }));
+      if (patch.assignee && patch.assignee !== before?.assignee) notifyTaskAssigned(data.title, data.assignee, data.contact_id ?? undefined);
+    }
   };
 
   const deleteTask: Store["deleteTask"] = async (taskId) => {

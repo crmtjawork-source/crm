@@ -70,6 +70,7 @@ export type Task = {
   title: string;
   contactId?: string;
   assignee?: string;
+  createdBy?: string; // user id of whoever created it
   dueDate?: string; // yyyy-mm-dd
   dueTime?: string; // HH:MM, optional
   done: boolean;

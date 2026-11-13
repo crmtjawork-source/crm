@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
+import { canAssignLeads, effectiveRole } from "@/lib/permissions";
 import { TaskRow } from "@/components/leads/TaskRow";
 import type { Task } from "@/lib/types";
 import { buildTaskFilterFields } from "@/lib/leadFilters";
@@ -12,9 +14,16 @@ type View = "overdue" | "today" | "tomorrow" | "nextweek" | "month" | "open";
 const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 export default function TasksPage() {
-  const { tasks, contacts, members, currentMemberId, addTask } = useStore();
-  const myName = members.find((m) => m.id === currentMemberId)?.name;
-  const [mine, setMine] = useState(true);
+  const { tasks, contacts, members, roles, currentMemberId, addTask } = useStore();
+  const { session } = useAuth();
+  const myId = session?.user.id;
+  const me = members.find((m) => m.id === currentMemberId);
+  const myName = me?.name;
+  // Handing a task to someone else follows the same permission as assigning leads.
+  const canAssign = canAssignLeads(me, effectiveRole(me, roles));
+  const activeMembers = members.filter((m) => m.status === "active");
+  const [scope, setScope] = useState<"mine" | "assigned" | "all">("mine");
+  const [assignee, setAssignee] = useState("");
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
@@ -25,7 +34,13 @@ export default function TasksPage() {
   const today = localDay(new Date());
   const filterFields = useMemo(() => buildTaskFilterFields(contacts, members), [contacts, members]);
   const taskFilter = useRecordFilter("tasks", filterFields, "סינון משימות");
-  const visible = tasks.filter((t) => (!mine || !myName || t.assignee === myName) && taskFilter.matches(t));
+  const inScope = (t: Task) =>
+    scope === "all" || !myName
+      ? true
+      : scope === "mine"
+        ? t.assignee === myName
+        : Boolean(myId && t.createdBy === myId && t.assignee && t.assignee !== myName);
+  const visible = tasks.filter((t) => inScope(t) && taskFilter.matches(t));
   const open = visible.filter((t) => !t.done).sort((a, b) => `${a.dueDate ?? "9999"} ${a.dueTime ?? "99:99"}`.localeCompare(`${b.dueDate ?? "9999"} ${b.dueTime ?? "99:99"}`));
 
   // Time windows (the week runs Sunday–Saturday): today, tomorrow, next week, this month, all open.
@@ -59,11 +74,12 @@ export default function TasksPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
-    addTask({ title: title.trim(), dueDate: dueDate || undefined, dueTime: dueDate && dueTime ? dueTime : undefined, contactId: contactId || undefined, assignee: myName });
+    addTask({ title: title.trim(), dueDate: dueDate || undefined, dueTime: dueDate && dueTime ? dueTime : undefined, contactId: contactId || undefined, assignee: (canAssign && assignee) || myName });
     setTitle("");
     setDueDate("");
     setDueTime("");
     setContactId("");
+    setAssignee("");
   }
 
   const field = "w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
@@ -73,16 +89,17 @@ export default function TasksPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">משימות</h1>
         <div className="flex text-xs rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
-          {[
-            [true, "שלי"],
-            [false, "של כולם"],
-          ].map(([value, label]) => (
+          {([
+            ["mine", "המשימות שלי"],
+            ["assigned", "משימות שהקצאתי"],
+            ["all", "של כולם"],
+          ] as const).map(([value, label]) => (
             <button
-              key={String(value)}
-              onClick={() => setMine(value as boolean)}
-              className={`px-3 py-1.5 ${mine === value ? "bg-tint text-white" : ""}`}
+              key={value}
+              onClick={() => setScope(value)}
+              className={`px-3 py-1.5 ${scope === value ? "bg-tint text-white" : ""}`}
             >
-              {label as string}
+              {label}
             </button>
           ))}
         </div>
@@ -101,6 +118,19 @@ export default function TasksPage() {
           <span className="block text-xs text-neutral-500 mb-1">שעה</span>
           <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} disabled={!dueDate} className={field} />
         </label>
+        {canAssign && (
+          <label className="text-sm">
+            <span className="block text-xs text-neutral-500 mb-1">שיוך ל</span>
+            <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={field}>
+              <option value="">אני</option>
+              {activeMembers.filter((m) => m.id !== currentMemberId).map((m) => (
+                <option key={m.id} value={m.name}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="text-sm">
           <span className="block text-xs text-neutral-500 mb-1">ליד (לא חובה)</span>
           <select value={contactId} onChange={(e) => setContactId(e.target.value)} className={field}>
