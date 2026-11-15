@@ -345,7 +345,7 @@ export async function sendToConversation(
     origin: "crm",
     type: c.kind === "media" ? (c.mediaType === "voice" ? "audio" : c.mediaType === "gif" ? "video" : c.mediaType) : "text",
     body,
-    payload: null,
+    payload: args.content, // the column is NOT NULL
     sent_by: args.sentBy ?? null,
   };
   let wamid: string;
