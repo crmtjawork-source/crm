@@ -918,6 +918,16 @@ export function StoreProvider({
           setState((s) => ({ ...s, opportunities: upsertById(s.opportunities, opp) }));
         }
       })
+      // Tasks handed over by a colleague (or changed by one) show up without a refresh.
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          const id = (payload.old as Row).id;
+          setState((s) => ({ ...s, tasks: s.tasks.filter((t) => t.id !== id) }));
+        } else {
+          const task = mapTask(payload.new as Row);
+          setState((s) => ({ ...s, tasks: upsertById(s.tasks, task) }));
+        }
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "campaigns", filter }, (payload) => {
         if (payload.eventType === "DELETE") return;
         const campaign = mapCampaign(payload.new as Row);
