@@ -1393,20 +1393,7 @@ export function StoreProvider({
     return { ok: true };
   };
 
-  // A task handed to someone else tells them (bell + push, via a targeted notification).
-  const notifyTaskAssigned = (title: string, assignee: string | undefined | null, contactId?: string) => {
-    if (!assignee) return;
-    const me = state.members.find((m) => m.id === state.currentMemberId);
-    const target = state.members.find((m) => m.name === assignee && m.status === "active");
-    if (!target?.email || !me || target.id === me.id) return;
-    void supabase.from("notifications").insert({
-      org_id: orgId,
-      contact_id: contactId ?? null,
-      text: `${me.name} שלח/ה לך משימה: ${title}`,
-      target_email: target.email.toLowerCase(),
-      url: "/tasks",
-    });
-  };
+  // Telling the assignee about a task handed to them is done by the database (trigger tasks_notify_assigned).
 
   const addTask: Store["addTask"] = async (t) => {
     const { data, error } = await supabase
@@ -1426,7 +1413,6 @@ export function StoreProvider({
     if (error || !data) throw error;
     const task = mapTask(data);
     setState((s) => ({ ...s, tasks: [...s.tasks, task] }));
-    notifyTaskAssigned(task.title, task.assignee, task.contactId);
     return task;
   };
 
@@ -1445,11 +1431,9 @@ export function StoreProvider({
     // A time of day only makes sense with a date.
     if (patch.dueTime !== undefined || patch.dueDate === null) row.due_time = patch.dueDate === null ? null : patch.dueTime;
     if (patch.contactId !== undefined) row.contact_id = patch.contactId;
-    const before = state.tasks.find((t) => t.id === taskId);
     const { data } = await supabase.from("tasks").update(row).eq("id", taskId).select().single();
     if (data) {
       setState((s) => ({ ...s, tasks: s.tasks.map((t) => (t.id === taskId ? mapTask(data) : t)) }));
-      if (patch.assignee && patch.assignee !== before?.assignee) notifyTaskAssigned(data.title, data.assignee, data.contact_id ?? undefined);
     }
   };
 

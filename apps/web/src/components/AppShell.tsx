@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { TopBarButtons } from "./TopBar";
 import { RecentSearchInput } from "./RecentSearchInput";
 import { NewLeadsBanner } from "./NewLeadsBanner";
+import { NewVersionBanner } from "./NewVersionBanner";
 import { WhatsAppDownBanner } from "./WhatsAppDownBanner";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -239,6 +240,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ) : (
           <>
             <WhatsAppDownBanner />
+            <NewVersionBanner />
             <NewLeadsBanner />
             {children}
           </>
