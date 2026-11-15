@@ -13,13 +13,21 @@ export function evolutionConfigured(): boolean {
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
   const base = env.evolutionUrl()!.replace(/\/+$/, "");
-  const res = await fetch(`${base}${path}`, {
-    method,
-    headers: { apikey: env.evolutionApiKey()!, ...(body ? { "Content-Type": "application/json" } : {}) },
-    body: body ? JSON.stringify(body) : undefined,
-    cache: "no-store",
-    signal: AbortSignal.timeout(15_000),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${base}${path}`, {
+      method,
+      headers: { apikey: env.evolutionApiKey()!, ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (err) {
+    // A timeout doesn't mean nothing was sent: WhatsApp may deliver a slow message after we gave up.
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError"))
+      throw new EvolutionError("הוואטסאפ לא הגיב בזמן. ייתכן שההודעה כבר יצאה — בדוק בשיחה לפני שליחה חוזרת.");
+    throw err;
+  }
   const text = await res.text();
   if (!res.ok) throw new EvolutionError(`Evolution ${res.status}: ${text.slice(0, 200)}`);
   try {

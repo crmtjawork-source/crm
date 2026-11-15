@@ -55,11 +55,18 @@ export function WhatsAppSheet({
     setSending(true);
     setError("");
     try {
-      await apiPost(`/api/leads/${contact.id}/whatsapp`, { text, templateId: selected || undefined, channelId: sender?.id });
+      const payload = { text, templateId: selected || undefined, channelId: sender?.id };
+      try {
+        await apiPost(`/api/leads/${contact.id}/whatsapp`, payload);
+      } catch (err) {
+        // The same text just went out (a slow send that looked like a failure): send again only if asked to.
+        if (!(err instanceof ApiError && err.code === "duplicate") || !window.confirm("ההודעה הזו כבר נשלחה ללקוח לפני רגע. לשלוח אותה שוב?")) throw err;
+        await apiPost(`/api/leads/${contact.id}/whatsapp`, { ...payload, force: true });
+      }
       onOpened?.();
       onClose();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "השליחה נכשלה");
+      setError(err instanceof ApiError && err.code === "duplicate" ? "ההודעה כבר נשלחה — לא נשלחה שוב." : err instanceof ApiError ? err.message : "השליחה נכשלה");
       setSending(false);
     }
   }

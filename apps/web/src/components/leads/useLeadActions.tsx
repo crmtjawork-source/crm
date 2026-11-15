@@ -65,6 +65,10 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
       await apiPost(`/api/leads/${contact.id}/whatsapp`, { templateId, appointmentId: appointment?.id });
       setNotice({ ok: true, text: `✓ נשלח בוואטסאפ: ${template.name}` });
     } catch (err) {
+      if (err instanceof ApiError && err.code === "duplicate") {
+        setNotice({ ok: true, text: "ההודעה כבר נשלחה ללקוח לפני רגע — לא שלחתי שוב." });
+        return;
+      }
       setNotice({ ok: false, text: `השליחה האוטומטית נכשלה (${err instanceof ApiError ? err.message : "שגיאה"}) — אפשר לשלוח ידנית` });
       setComposer({ templateId, appointment });
     }
