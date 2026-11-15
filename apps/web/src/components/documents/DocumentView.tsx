@@ -128,13 +128,13 @@ export function DocumentView({
           </section>
         ))}
 
-        {(signature || companySignature) && (
+        {(signature || companySignature?.image) && (
           <section className="py-8 sm:grid sm:grid-cols-[200px_1fr] sm:gap-10 break-inside-avoid-page">
             <h2 className="text-xl sm:text-2xl font-semibold mb-3" style={{ color: accent }}>
               חתימות
             </h2>
             <div className="grid sm:grid-cols-2 gap-8 text-sm text-neutral-700">
-              {companySignature && (
+              {companySignature?.image && (
                 <div className="space-y-1">
                   <p className="text-neutral-500">חתימת החברה</p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}

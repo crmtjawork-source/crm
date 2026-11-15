@@ -224,14 +224,16 @@ function CompanySignatureEditor({
   isAdmin,
   onSave,
 }: {
-  current?: { image: string; name?: string; title?: string };
+  current?: { image: string; name?: string; title?: string; senderName?: string; senderEmail?: string };
   isAdmin: boolean;
-  onSave: (sig: { image: string; name?: string; title?: string } | null) => Promise<void>;
+  onSave: (sig: { image: string; name?: string; title?: string; senderName?: string; senderEmail?: string } | null) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [image, setImage] = useState<string | null>(null);
   const [name, setName] = useState(current?.name ?? "");
   const [title, setTitle] = useState(current?.title ?? "");
+  const [senderName, setSenderName] = useState(current?.senderName ?? "");
+  const [senderEmail, setSenderEmail] = useState(current?.senderEmail ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -248,12 +250,13 @@ function CompanySignatureEditor({
   }
 
   async function save() {
-    const final = image ?? current?.image;
-    if (!final) return setError("צריך לצייר או להעלות חתימה");
+    // A signature image is optional — the sender name and email alone are enough.
+    const final = image ?? current?.image ?? "";
+    if (!final && !senderName.trim() && !senderEmail.trim()) return setError("צריך לצייר או להעלות חתימה, או למלא את שם השולח והאימייל");
     setBusy(true);
     setError("");
     try {
-      await onSave({ image: final, name: name.trim() || undefined, title: title.trim() || undefined });
+      await onSave({ image: final, name: name.trim() || undefined, title: title.trim() || undefined, senderName: senderName.trim() || undefined, senderEmail: senderEmail.trim() || undefined });
       setEditing(false);
       setImage(null);
     } catch (err) {
@@ -270,7 +273,7 @@ function CompanySignatureEditor({
           <h3 className="text-sm font-semibold">חתימת החברה</h3>
           <p className="text-xs text-neutral-500 leading-relaxed">חתימה קבועה שמופיעה אוטומטית בכל הצעה והסכם. הלקוח מוסיף רק את החתימה שלו.</p>
         </div>
-        {current && !editing && (
+        {current?.image && !editing && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={current.image} alt="חתימת החברה" className="h-12 max-w-32 object-contain bg-white rounded border border-neutral-200" />
         )}
@@ -296,7 +299,10 @@ function CompanySignatureEditor({
           <div className="grid grid-cols-2 gap-2">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="שם החותם (למשל: ישראל ישראלי)" className={field} />
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="תפקיד / שם החברה" className={field} />
+            <input value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="שם השולח במסמכים (למשל: שם החברה)" className={field} />
+            <input value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} type="email" dir="ltr" placeholder="אימייל לפניות במסמכים" className={field} />
           </div>
+          <p className="text-[11px] text-neutral-400">שם השולח והאימייל מופיעים בשער של כל הצעה והסכם, במקום שם הנציג שיצר אותם.</p>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-2">
             <button onClick={save} disabled={busy} className="px-4 py-1.5 text-sm rounded-md bg-tint text-white disabled:opacity-50">

@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       meetingReminders?: boolean;
       mergeRepeatLeads?: boolean;
-      companySignature?: { image?: string; name?: string; title?: string } | null;
+      companySignature?: { image?: string; name?: string; title?: string; senderName?: string; senderEmail?: string } | null;
       lostReasons?: string[];
     };
     const patch: Record<string, unknown> = {};
@@ -22,8 +22,14 @@ export async function POST(request: Request) {
     if ("companySignature" in body) {
       const sig = body.companySignature;
       if (sig === null) patch.company_signature = null;
-      else if (sig && typeof sig.image === "string" && /^data:image\/(png|jpeg);base64,/.test(sig.image) && sig.image.length < 600_000)
-        patch.company_signature = { image: sig.image, name: sig.name?.trim().slice(0, 120) || undefined, title: sig.title?.trim().slice(0, 120) || undefined };
+      else if (sig && typeof sig.image === "string" && (sig.image === "" || (/^data:image\/(png|jpeg);base64,/.test(sig.image) && sig.image.length < 600_000)))
+        patch.company_signature = {
+          image: sig.image,
+          name: sig.name?.trim().slice(0, 120) || undefined,
+          title: sig.title?.trim().slice(0, 120) || undefined,
+          senderName: sig.senderName?.trim().slice(0, 120) || undefined,
+          senderEmail: sig.senderEmail?.trim().slice(0, 160) || undefined,
+        };
       else throw new HttpError(400, "החתימה לא תקינה — יש לצייר או להעלות תמונה קטנה יותר");
     }
     if (!Object.keys(patch).length) throw new HttpError(400, "אין מה לעדכן");

@@ -21,8 +21,10 @@ export function NewDocumentSheet({ contact, onClose, onCreated }: { contact: Con
   const [templateId, setTemplateId] = useState(documentTemplates[0]?.id ?? "");
   const template = documentTemplates.find((t) => t.id === templateId);
   const ctx = useMemo(() => ({ contact, agentName: me?.name, origin, bookingToken: contact.bookingToken }), [contact, me, origin]);
+  // Hand edits to the text are kept; until then the text follows the deal value ({{deal_value}}).
+  const [edited, setEdited] = useState(false);
 
-  const [sections, setSections] = useState<DocSection[]>(() => (template ? renderSections(template.sections, ctx) : []));
+  const [sections, setSections] = useState<DocSection[]>(() => (template ? renderSections(template.sections, { ...ctx, dealValue: template.defaultValue }) : []));
   const [value, setValue] = useState<string>(template?.defaultValue != null ? String(template.defaultValue) : "");
   const [preparedFor, setPreparedFor] = useState(contact.name);
   const [editing, setEditing] = useState(false);
@@ -30,12 +32,31 @@ export function NewDocumentSheet({ contact, onClose, onCreated }: { contact: Con
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const dealCtx = (v: string) => ({ ...ctx, dealValue: v ? Number(v) : undefined });
+  const fmt = (v: string) => (v ? new Intl.NumberFormat("he-IL").format(Number(v)) : "");
+
   function pick(id: string) {
     setTemplateId(id);
     const t = documentTemplates.find((x) => x.id === id);
-    setSections(t ? renderSections(t.sections, ctx) : []);
-    setValue(t?.defaultValue != null ? String(t.defaultValue) : "");
+    const v = t?.defaultValue != null ? String(t.defaultValue) : "";
+    setSections(t ? renderSections(t.sections, dealCtx(v)) : []);
+    setValue(v);
+    setEdited(false);
   }
+
+  // A new amount changes the agreement text itself, not just the stored value.
+  function changeValue(next: string) {
+    const prev = value;
+    setValue(next);
+    if (!template) return;
+    if (!edited) setSections(renderSections(template.sections, dealCtx(next)));
+    else if (prev && next && fmt(prev) !== fmt(next)) {
+      // The text was edited by hand: swap just the old amount for the new one.
+      const swap = (s: string) => s.split(fmt(prev)).join(fmt(next));
+      setSections((xs) => xs.map((x) => ({ ...x, title: swap(x.title), subtitle: x.subtitle ? swap(x.subtitle) : undefined, body: swap(x.body) })));
+    }
+  }
+  const usesValue = Boolean(template?.sections.some((s) => /\{\{\s*deal_value\s*\}\}/.test(`${s.title} ${s.subtitle ?? ""} ${s.body}`)));
 
   const cover = template
     ? {
@@ -45,8 +66,8 @@ export function NewDocumentSheet({ contact, onClose, onCreated }: { contact: Con
         logoUrl: template.logoUrl,
         coverImageUrl: template.coverImageUrl,
         accentColor: template.accentColor,
-        senderName: me?.name,
-        senderEmail: me?.email,
+        senderName: companySignature?.senderName || me?.name,
+        senderEmail: companySignature?.senderEmail || me?.email,
       }
     : null;
 
@@ -95,7 +116,7 @@ export function NewDocumentSheet({ contact, onClose, onCreated }: { contact: Con
             </label>
             <label className="block text-xs">
               <span className="block text-neutral-500 mb-1">שווי העסקה (₪)</span>
-              <input type="number" min={0} value={value} onChange={(e) => setValue(e.target.value)} className={field} />
+              <input type="number" min={0} value={value} onChange={(e) => changeValue(e.target.value)} className={field} />
             </label>
           </div>
           <div className="flex gap-3 text-xs">
@@ -106,7 +127,16 @@ export function NewDocumentSheet({ contact, onClose, onCreated }: { contact: Con
               תצוגה מקדימה
             </button>
           </div>
-          {editing && <SectionsEditor sections={sections} onChange={setSections} />}
+          {template && !usesValue && value && !edited && <p className="text-[11px] text-amber-600">התבנית לא כוללת את שווי העסקה בטקסט, לכן הסכום לא יופיע בהסכם. אפשר לערוך את הטקסט ידנית או להוסיף {'{{deal_value}}'} לתבנית.</p>}
+          {editing && (
+            <SectionsEditor
+              sections={sections}
+              onChange={(s) => {
+                setEdited(true);
+                setSections(s);
+              }}
+            />
+          )}
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button onClick={create} disabled={busy || !template} className="w-full py-2.5 rounded-lg bg-tint text-white text-sm font-medium disabled:opacity-50">
             {busy ? "יוצר…" : "יצירת קישור ושליחה"}

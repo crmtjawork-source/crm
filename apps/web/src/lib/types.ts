@@ -359,7 +359,8 @@ export type LeadStatus = { id: string; name: string; position: number; color?: s
 export type DocSection = { id: string; title: string; subtitle?: string; body: string };
 
 // The business's fixed signature, shown on every document.
-export type CompanySignature = { image: string; name?: string; title?: string };
+// senderName / senderEmail: who the business is on its documents (cover and contact line) instead of the agent who made them.
+export type CompanySignature = { image: string; name?: string; title?: string; senderName?: string; senderEmail?: string };
 
 export type DocCover = {
   title: string;

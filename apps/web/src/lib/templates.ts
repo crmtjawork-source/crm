@@ -29,6 +29,7 @@ export const PLACEHOLDERS: { key: string; label: string }[] = [
   { key: "meeting_link", label: "קישור לפגישה" },
   { key: "booking_link", label: "קישור לקביעת שיחה" },
   { key: "document_link", label: "קישור להצעה / הסכם לחתימה" },
+  { key: "deal_value", label: "שווי העסקה במסמך (₪)" },
   { key: "today", label: "התאריך של היום" },
 ];
 
@@ -41,6 +42,7 @@ export type TemplateContext = {
   origin?: string; // for {{booking_link}}
   bookingToken?: string;
   documentUrl?: string; // for {{document_link}}
+  dealValue?: number; // for {{deal_value}}
 };
 
 export function renderTemplate(body: string, ctx: TemplateContext): string {
@@ -60,6 +62,7 @@ export function renderTemplate(body: string, ctx: TemplateContext): string {
     meeting_link: notes.match(/https?:\/\/\S+/)?.[0] ?? "",
     booking_link: ctx.origin && ctx.bookingToken ? `${ctx.origin}/book/${ctx.bookingToken}` : "",
     document_link: ctx.documentUrl ?? "",
+    deal_value: ctx.dealValue != null ? new Intl.NumberFormat("he-IL").format(ctx.dealValue) : "",
     today: new Intl.DateTimeFormat("en-GB", { timeZone: TZ, day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date()),
   };
   return body
