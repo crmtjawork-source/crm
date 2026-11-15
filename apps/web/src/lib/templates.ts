@@ -29,11 +29,17 @@ export const PLACEHOLDERS: { key: string; label: string }[] = [
   { key: "meeting_link", label: "קישור לפגישה" },
   { key: "booking_link", label: "קישור לקביעת שיחה" },
   { key: "document_link", label: "קישור להצעה / הסכם לחתימה" },
-  { key: "deal_value", label: "שווי העסקה במסמך (₪)" },
+  { key: "deal_value", label: "שווי העסקה לפני מע״מ (₪)" },
+  { key: "deal_gross", label: "שווי העסקה כולל מע״מ (₪)" },
+  { key: "deal_balance:5900+3600", label: "יתרת התשלום כולל מע״מ אחרי התשלומים הקבועים (בדוגמה: 5,900 + 3,600)" },
   { key: "today", label: "התאריך של היום" },
 ];
 
 const TZ = "Asia/Jerusalem";
+
+// VAT added to a deal value to get what the client actually pays.
+export const VAT_RATE = 0.18;
+const money = (n: number) => new Intl.NumberFormat("he-IL").format(Math.round(n));
 
 export type TemplateContext = {
   contact: Contact;
@@ -62,10 +68,18 @@ export function renderTemplate(body: string, ctx: TemplateContext): string {
     meeting_link: notes.match(/https?:\/\/\S+/)?.[0] ?? "",
     booking_link: ctx.origin && ctx.bookingToken ? `${ctx.origin}/book/${ctx.bookingToken}` : "",
     document_link: ctx.documentUrl ?? "",
-    deal_value: ctx.dealValue != null ? new Intl.NumberFormat("he-IL").format(ctx.dealValue) : "",
+    deal_value: ctx.dealValue != null ? money(ctx.dealValue) : "",
+    deal_gross: ctx.dealValue != null ? money(ctx.dealValue * (1 + VAT_RATE)) : "",
     today: new Intl.DateTimeFormat("en-GB", { timeZone: TZ, day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date()),
   };
   return body
+    // {{deal_balance:5900+3600}}: what is left of the deal (with VAT) after the fixed payments — so a payment
+    // schedule always adds up to the deal value, whatever it is set to.
+    .replace(/\{\{\s*deal_balance:([\d\s,+]+?)\s*\}\}/g, (all, list: string) => {
+      if (ctx.dealValue == null) return all;
+      const fixed = list.split("+").reduce((sum, p) => sum + (Number(p.replace(/[\s,]/g, "")) || 0), 0);
+      return money(Math.max(0, ctx.dealValue * (1 + VAT_RATE) - fixed));
+    })
     .replace(/\{\{\s*field:([^}]+?)\s*\}\}/g, (_, key: string) => ctx.contact.fields[key.trim()] ?? "")
     .replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (all, key: string) => (key in values ? values[key] : all))
     .replace(/\n{3,}/g, "\n\n")
