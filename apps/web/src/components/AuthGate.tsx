@@ -7,7 +7,7 @@ import { StoreProvider } from "@/lib/store";
 import { AppShell } from "./AppShell";
 
 function Gate({ children }: { children: React.ReactNode }) {
-  const { loading, session, membership } = useAuth();
+  const { loading, session, membership, refreshMembership, signOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === "/login";
@@ -34,6 +34,25 @@ function Gate({ children }: { children: React.ReactNode }) {
             המשתמש שלך מחובר אבל עדיין לא משויך לאף ארגון במערכת. מנהל המערכת צריך להוסיף אותך לארגון כדי
             שתוכל להמשיך.
           </p>
+          <p className="text-xs text-neutral-400 mt-3">
+            אם כבר הוזמנת — נסה שוב, ואם זה לא עוזר התנתק והתחבר מחדש עם אותו אימייל וסיסמה.
+          </p>
+          <div className="mt-4 flex justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => void refreshMembership()}
+              className="px-3 py-1.5 text-sm rounded-md bg-tint text-white"
+            >
+              נסה שוב
+            </button>
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 dark:border-neutral-800"
+            >
+              התנתקות
+            </button>
+          </div>
         </div>
       </div>
     );
