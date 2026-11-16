@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabaseClient";
 import type { MemberRole } from "./types";
@@ -21,15 +21,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [membership, setMembership] = useState<Membership>(null);
+  const hasMembership = useRef(false);
 
+  // A just-signed-in session can briefly read as "no membership" (the token isn't attached to the
+  // first query yet), so an empty answer is retried before the user is shown the "no organisation" screen.
   async function loadMembership(userId: string) {
-    const { data } = await supabase
-      .from("memberships")
-      .select("org_id, role")
-      .eq("user_id", userId)
-      .limit(1)
-      .maybeSingle();
-    setMembership(data ? { orgId: data.org_id, role: data.role as MemberRole } : null);
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const { data } = await supabase
+        .from("memberships")
+        .select("org_id, role")
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        hasMembership.current = true;
+        setMembership({ orgId: data.org_id, role: data.role as MemberRole });
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 600));
+    }
+    // Keep an already-known membership through a transient failure; only an unknown one becomes "none".
+    if (!hasMembership.current) setMembership(null);
   }
 
   useEffect(() => {
@@ -45,11 +57,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       if (newSession) {
-        loadMembership(newSession.user.id);
+        // Not awaited inside the callback (supabase-js can deadlock on that); the loader stays up
+        // for a fresh sign-in until the membership answer is in.
+        if (event === "SIGNED_IN" && !hasMembership.current) setLoading(true);
+        setTimeout(() => {
+          loadMembership(newSession.user.id).finally(() => !cancelled && setLoading(false));
+        }, 0);
       } else {
+        hasMembership.current = false;
         setMembership(null);
       }
     });
