@@ -69,9 +69,9 @@ export default function TasksPage() {
     if (last && last[0] === label) last[1].push(t);
     else groups.push([label, [t]]);
   }
-  // Finished tasks stay visible under the same time window, newest first.
+  // Finished tasks always stay visible (any date), newest first.
   const done = visible
-    .filter((t) => t.done && current.match(t))
+    .filter((t) => t.done)
     .sort((a, b) => `${b.dueDate ?? ""} ${b.dueTime ?? ""}`.localeCompare(`${a.dueDate ?? ""} ${a.dueTime ?? ""}`));
 
   function handleSubmit(e: React.FormEvent) {
