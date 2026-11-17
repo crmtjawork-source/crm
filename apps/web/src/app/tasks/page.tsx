@@ -28,7 +28,7 @@ export default function TasksPage() {
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
   const [contactId, setContactId] = useState("");
-  const [showDone, setShowDone] = useState(false);
+  const [showDone, setShowDone] = useState(true);
   const [view, setView] = useState<View>("today");
 
   const today = localDay(new Date());
@@ -69,7 +69,10 @@ export default function TasksPage() {
     if (last && last[0] === label) last[1].push(t);
     else groups.push([label, [t]]);
   }
-  const done = visible.filter((t) => t.done);
+  // Finished tasks stay visible under the same time window, newest first.
+  const done = visible
+    .filter((t) => t.done && current.match(t))
+    .sort((a, b) => `${b.dueDate ?? ""} ${b.dueTime ?? ""}`.localeCompare(`${a.dueDate ?? ""} ${a.dueTime ?? ""}`));
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
