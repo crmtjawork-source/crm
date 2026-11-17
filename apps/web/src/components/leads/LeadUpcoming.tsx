@@ -82,6 +82,9 @@ export function LeadUpcoming({ contact }: { contact: Contact }) {
   const nowIso = new Date().toISOString();
   const today = nowIso.slice(0, 10);
   const leadTasks = tasks.filter((t) => t.contactId === contact.id && !t.done);
+  const doneTasks = tasks
+    .filter((t) => t.contactId === contact.id && t.done)
+    .sort((a, b) => `${b.dueDate ?? ""} ${b.dueTime ?? ""}`.localeCompare(`${a.dueDate ?? ""} ${a.dueTime ?? ""}`));
   const queued = scheduledMessages.filter((m) => m.contactId === contact.id && (m.status === "pending" || m.status === "failed")).sort((a, b) => a.sendAt.localeCompare(b.sendAt));
   const upcoming = appointments.filter((a) => a.contactId === contact.id && a.startAt >= nowIso).sort((a, b) => a.startAt.localeCompare(b.startAt));
   const addButton = (
@@ -90,7 +93,7 @@ export function LeadUpcoming({ contact }: { contact: Contact }) {
     </button>
   );
   const addSheet = adding ? <AddTaskSheet contact={contact} onClose={() => setAdding(false)} /> : null;
-  if (!leadTasks.length && !upcoming.length && !queued.length)
+  if (!leadTasks.length && !doneTasks.length && !upcoming.length && !queued.length)
     return (
       <>
         {addButton}
@@ -103,6 +106,7 @@ export function LeadUpcoming({ contact }: { contact: Contact }) {
   const parts: React.ReactNode[] = [];
   if (upcoming[0]) parts.push(<span key="m">📅 {upcoming[0].title} · {when(upcoming[0].startAt)}{upcoming.length > 1 ? ` (+${upcoming.length - 1})` : ""}</span>);
   if (leadTasks.length) parts.push(<span key="t" className={overdue ? "text-red-500" : ""}>✔ {leadTasks.length} משימות{overdue ? ` (${overdue} באיחור)` : ""}</span>);
+  if (doneTasks.length) parts.push(<span key="d" className="text-neutral-500">✓ {doneTasks.length} בוצעו</span>);
   if (queued.length) parts.push(<span key="q" className={failed ? "text-red-500" : ""}>⏰ {queued.length} הודעות מתוזמנות{failed ? ` (${failed} נכשלו)` : ""}</span>);
 
   return (
@@ -163,6 +167,16 @@ export function LeadUpcoming({ contact }: { contact: Contact }) {
               <h3 className="text-xs font-medium text-neutral-500 mb-1">משימות פתוחות</h3>
               <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
                 {leadTasks.map((t) => (
+                  <TaskRow key={t.id} task={t} showContact={false} />
+                ))}
+              </ul>
+            </section>
+          )}
+          {doneTasks.length > 0 && (
+            <section className="mt-4">
+              <h3 className="text-xs font-medium text-neutral-500 mb-1">משימות שבוצעו ({doneTasks.length})</h3>
+              <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                {doneTasks.map((t) => (
                   <TaskRow key={t.id} task={t} showContact={false} />
                 ))}
               </ul>
