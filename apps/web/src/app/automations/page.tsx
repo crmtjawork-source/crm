@@ -17,6 +17,7 @@ const TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
   record_stage_changed: "רשומה עברה שלב",
   record_field_changed: "שדה ברשומה השתנה",
 };
+  payment_due: "תזכורת תשלום (לפני מועד תשלום בלוח התשלומים)",
 
 const RECORD_TRIGGERS: AutomationTriggerType[] = ["record_created", "record_stage_changed", "record_field_changed"];
 
@@ -88,6 +89,8 @@ export default function AutomationsPage() {
         : { type: "new_contact", source: onlyMetaLeads ? "meta_lead_ads" : undefined };
     if (RECORD_TRIGGERS.includes(triggerType) && !objectType) return;
     if (triggerType === "record_field_changed" && !recordField) return;
+        : triggerType === "payment_due"
+        ? { type: "payment_due", value: recordValue.trim() || undefined }
     const automation = await addAutomation({ name: name.trim(), trigger });
     setName("");
     setCreating(false);
@@ -287,6 +290,13 @@ export default function AutomationsPage() {
             </label>
           )}
           <div className="flex gap-2">
+          {triggerType === "payment_due" && (
+            <label className="block text-sm">
+              <span className="block text-xs text-neutral-500 mb-1">כמה ימים לפני התשלום (ריק = כל תזכורת; 0 = ביום התשלום)</span>
+              <input type="number" min={0} value={recordValue} onChange={(e) => setRecordValue(e.target.value)} className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+              <span className="block text-xs text-neutral-400 mt-1">בטקסטים אפשר {"{{payment_description}} {{payment_amount}} {{payment_date}} {{payment_days}}"}</span>
+            </label>
+          )}
             <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-tint text-white">
               יצירה
             </button>
@@ -339,6 +349,7 @@ function triggerSummary(automation: Automation, pipelines: ReturnType<typeof use
 
 function stepSummary(step: AutomationStep, channels: Channel[], templates: MessageTemplate[]): string {
   switch (step.type) {
+  if (t.type === "payment_due") return `${TRIGGER_LABELS.payment_due}${t.value ? ` — ${t.value} ימים לפני` : ""}`;
     case "send_message": {
       const channel = channels.find((c) => c.id === step.channelId);
       const from = step.sender === "owner" ? " · מהוואטסאפ של בעל הליד" : ` · מ${channel ? channel.name : "מספר ברירת המחדל"}`;

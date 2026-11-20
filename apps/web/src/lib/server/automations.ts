@@ -13,10 +13,11 @@ export type TriggerType =
   | "document_signed"
   | "record_created"
   | "record_stage_changed"
-  | "record_field_changed";
+  | "record_field_changed"
+  | "payment_due";
 // source: where the lead came from, matched against automations.trigger_source
 // (e.g. "meta_lead_ads"). Leads created by hand or by import pass none.
-export type TriggerCtx = { pipelineId?: string; stageId?: string; tag?: string; source?: string; status?: string };
+export type TriggerCtx = { pipelineId?: string; stageId?: string; tag?: string; source?: string; status?: string; value?: string; vars?: Record<string, string> };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
@@ -103,12 +104,13 @@ export async function triggerAutomations(
     if (a.trigger_status && a.trigger_status !== ctx.status) return false;
     return true;
   });
+    if (type === "payment_due" && a.trigger_value && a.trigger_value !== ctx.value) return false;
 
   const runIds: string[] = [];
   for (const automation of matched) {
     const { data: run } = await db
       .from("automation_runs")
-      .insert({ org_id: orgId, automation_id: automation.id, contact_id: contactId, status: "running", steps_log: [] })
+      .insert({ org_id: orgId, automation_id: automation.id, contact_id: contactId, status: "running", steps_log: [], ...(ctx.vars ? { vars: ctx.vars } : {}) })
       .select("id")
       .single();
     if (!run) continue;
@@ -123,9 +125,12 @@ async function executeStep(
   automation: Row,
   step: Row,
   contact: Row | null,
-  rec: RecordCtx | null
+  rec: RecordCtx | null,
+  where: { runId: string; position: number; vars?: Record<string, string> | null }
 ): Promise<{ entry: string; contact: Row | null }> {
-  const fill = (t: string) => renderRecordPlaceholders(contact ? renderPlaceholders(t, contact) : t, rec);
+  // {{payment_description}} {{payment_amount}} {{payment_date}} {{payment_days}} in payment_due automations.
+  const withVars = (t: string) => (where.vars ? t.replace(/\{\{\s*(payment_\w+)\s*\}\}/g, (_m, k: string) => where.vars?.[k] ?? "") : t);
+  const fill = (t: string) => renderRecordPlaceholders(contact ? renderPlaceholders(withVars(t), contact) : withVars(t), rec);
   switch (step.type) {
     case "update_field": {
       if (!rec) return { entry: "עדכון שדה: אין רשומה", contact };
@@ -353,7 +358,7 @@ export async function executeRun(db: Db, runId: string): Promise<void> {
       await logBatch();
       return;
     }
-    const result = await executeStep(db, automation, step, contact, rec);
+    const result = await executeStep(db, automation, step, contact, rec, { runId, position, vars: run.vars as Record<string, string> | null });
     contact = result.contact;
     log.push(result.entry);
     executedNow.push(result.entry);

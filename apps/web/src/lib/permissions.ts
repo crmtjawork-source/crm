@@ -6,6 +6,7 @@ export const FEATURES: { id: string; href: string; label: string }[] = [
   { id: "inbox", href: "/inbox", label: "וואטסאפ חברה" },
   { id: "pipeline", href: "/pipeline", label: "פייפליין" },
   { id: "documents", href: "/documents", label: "הצעות והסכמים" },
+  { id: "payments", href: "/payments", label: "לוח תשלומים" },
   { id: "campaigns", href: "/campaigns", label: "קמפיינים" },
   { id: "calendar", href: "/calendar", label: "יומן" },
   { id: "automations", href: "/automations", label: "אוטומציות" },

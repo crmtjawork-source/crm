@@ -7,6 +7,7 @@ import { sendDueScheduledMessages } from "@/lib/server/leadMessages";
 import { sendPendingPushes } from "@/lib/server/push";
 import { processCalendarJobs } from "@/lib/server/googleCalendar";
 import { pollLeadAdPages } from "@/lib/server/webhooks/leadgen";
+import { processPaymentReminders } from "@/lib/server/payments";
 import { resumeStuckRecordings } from "@/lib/server/recordings";
 import { checkGatewayHealth } from "@/lib/server/gatewayHealth";
 import { syncStaleGroups } from "@/lib/server/waGroups";
@@ -43,11 +44,15 @@ async function run(request: Request) {
     console.error("drive jobs failed", err);
     return {};
   });
+  const payments = await processPaymentReminders(db).catch((err) => {
+    console.error("payment reminders failed", err);
+    return 0;
+  });
   const recordings = await resumeStuckRecordings().catch((err) => {
     console.error("recordings resume failed", err);
     return 0;
   });
-  return Response.json({ recordings, resumed, retried, reminders, pushes, calendar, leadAds, gateways });
+  return Response.json({ recordings, resumed, held, retried, reminders, pushes, calendar, leadAds, payments, gateways });
 }
 
 export const GET = run;

@@ -144,7 +144,8 @@ export type AutomationTriggerType =
   | "document_signed"
   | "record_created"
   | "record_stage_changed"
-  | "record_field_changed";
+  | "record_field_changed"
+  | "payment_due";
 
 export type AutomationTrigger = {
   type: AutomationTriggerType;

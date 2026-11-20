@@ -16,6 +16,7 @@ import { DocumentTemplatesSettings } from "./DocumentTemplatesSettings";
 import { RolesSettings } from "./RolesSettings";
 import { IntegrationsSettings } from "./IntegrationsSettings";
 import { AiSettings } from "./AiSettings";
+import { PaymentSettings } from "./PaymentSettings";
 
 // The settings area: each entry is one page in the settings sidebar.
 // `business` sections are only for roles that include "settings".

@@ -14,13 +14,14 @@ import { CallProvider } from "./calls/CallProvider";
 import { useAuth } from "@/lib/auth";
 import { GateDialog } from "@/components/leads/GateDialog";
 import { canSeeHref, effectiveRole, screenOf } from "@/lib/permissions";
-import { CalendarDays, CheckSquare, ClipboardList, FileText, Home, Kanban, Megaphone, MessageCircle, SlidersHorizontal, Table2, Menu, Users, Zap, type LucideIcon } from "lucide-react";
+import { CalendarDays, CheckSquare, ClipboardList, FileText, Home, Kanban, Megaphone, MessageCircle, SlidersHorizontal, Table2, Menu, Users, Wallet, Zap, type LucideIcon } from "lucide-react";
 
 // Each section gets a rounded colour tile; the colours are the design's fixed palette.
 const NAV_ICONS: Record<string, { icon: LucideIcon; color: string }> = {
   "/dashboard": { icon: Home, color: "#0a84ff" },
   "/pipeline": { icon: Kanban, color: "#ff9f0a" },
   "/documents": { icon: FileText, color: "#bf5af2" },
+  "/payments": { icon: Wallet, color: "#30b0c7" },
   "/inbox": { icon: MessageCircle, color: "#30d158" },
   "/my-whatsapp": { icon: MessageCircle, color: "#30d158" },
   "/campaigns": { icon: Megaphone, color: "#ff375f" },
@@ -51,6 +52,7 @@ const NAV = [
   { href: "/my-whatsapp", label: "וואטסאפ אישי" },
   { href: "/pipeline", label: "פייפליין" },
   { href: "/documents", label: "הצעות והסכמים" },
+  { href: "/payments", label: "לוח תשלומים" },
   { href: "/campaigns", label: "קמפיינים" },
   { href: "/calendar", label: "יומן" },
   { href: "/automations", label: "אוטומציות" },

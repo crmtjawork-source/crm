@@ -25,6 +25,7 @@ import { LeadRecords } from "@/components/leads/LeadRecords";
 import { StageRequirements } from "@/components/leads/StageRequirements";
 import { FilesSection } from "@/components/FilesSection";
 
+import { LeadPayments } from "@/components/payments/LeadPayments";
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -300,6 +301,7 @@ export default function ContactDetailPage() {
       <LeadRecordings contact={contact} />
       <FilesSection contactId={contact.id} />
 
+      <LeadPayments contactId={contact.id} />
       </div>
       <div className="hidden lg:block">
         <LeadNotesPanel contact={contact} />
