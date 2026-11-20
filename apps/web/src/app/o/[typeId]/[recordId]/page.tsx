@@ -11,6 +11,7 @@ import { formatValue, stageField, type FieldValue as Value } from "@/lib/objects
 import { deleteRecord, mapRecord, recordTitles, updateRecord } from "@/lib/useRecords";
 import { FieldValue } from "@/components/objects/FieldValue";
 import { FieldInput } from "@/components/objects/FieldInput";
+import { MatchPanel } from "@/components/objects/MatchPanel";
 import { NewRecordSheet } from "@/components/objects/NewRecordSheet";
 import { LeadCalls } from "@/components/leads/LeadCalls";
 import { FilesSection } from "@/components/FilesSection";
@@ -166,6 +167,7 @@ export default function RecordPage() {
               </dl>
             </section>
           ))}
+          <MatchPanel type={type} record={r} onChanged={setRecord} />
           <RelatedRecords type={type} record={r} />
           <FilesSection recordId={r.id} />
           {r.contactId ? <LeadCalls contactId={r.contactId} /> : <LeadCalls recordId={r.id} />}

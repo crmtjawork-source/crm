@@ -12,16 +12,33 @@ import type { CrmRecord } from "@/lib/types";
 import { buildRecordFilterFields } from "@/lib/leadFilters";
 import { useRecordFilter } from "@/components/FilterBar";
 
+function readView(key: string): "list" | "board" {
+  try {
+    return localStorage.getItem(key) === "board" ? "board" : "list";
+  } catch {
+    return "list";
+  }
+}
+
 const field = "px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 
 export default function ObjectListPage() {
   const { typeId } = useParams<{ typeId: string }>();
   const router = useRouter();
-  const { objectTypes, members, contacts, loading } = useStore();
+  const { objectTypes, members, contacts, loading, currentMemberId } = useStore();
   const type = objectTypes.find((t) => t.id === typeId);
   const { records } = useRecords(type);
   const stage = type ? stageField(type) : undefined;
-  const [view, setView] = useState<"list" | "board">("list");
+  // The chosen view sticks per user and object: switching to the board keeps it as the default.
+  const viewKey = `crm:objview:${currentMemberId ?? "me"}:${typeId}`;
+  const [picked, setPicked] = useState<{ key: string; value: "list" | "board" } | null>(null);
+  const view: "list" | "board" = picked?.key === viewKey ? picked.value : readView(viewKey);
+  const setView = (v: "list" | "board") => {
+    setPicked({ key: viewKey, value: v });
+    try {
+      localStorage.setItem(viewKey, v);
+    } catch {}
+  };
   const [q, setQ] = useState("");
   const [stageFilter, setStageFilter] = useState("");
   const [ownerFilter, setOwnerFilter] = useState("");

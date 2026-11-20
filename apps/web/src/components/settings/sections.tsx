@@ -6,6 +6,7 @@ import { AppearanceSettings } from "./AppearanceSettings";
 import { GoogleCalendarSettings } from "./GoogleCalendarSettings";
 import { PersonalWhatsAppSettings } from "./PersonalWhatsAppSettings";
 import { ObjectsSettings } from "./ObjectsSettings";
+import { MatchingSettings } from "./MatchingSettings";
 import { LeadFieldsSettings } from "./LeadFieldsSettings";
 import { LeadStatusesSettings } from "./LeadStatusesSettings";
 import { PipelineStagesSettings } from "./PipelineStagesSettings";
@@ -40,6 +41,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   },
   { slug: "my-whatsapp", label: "הוואטסאפ שלי", group: "אישי", business: false, render: (a) => <PersonalWhatsAppSettings isAdmin={a} /> },
   { slug: "objects", label: "טבלאות ואובייקטים", group: "נתונים וכרטיסים", business: true, render: (a) => <ObjectsSettings isAdmin={a} /> },
+  { slug: "matching", label: "התאמת לקוחות לנכסים", group: "נתונים וכרטיסים", business: true, render: (a) => <MatchingSettings isAdmin={a} /> },
   { slug: "lead-fields", label: "שדות בכרטיס הליד", group: "נתונים וכרטיסים", business: true, render: (a) => <LeadFieldsSettings isAdmin={a} /> },
   { slug: "stages", label: "שלבי עסקה", group: "נתונים וכרטיסים", business: true, render: (a) => <PipelineStagesSettings isAdmin={a} /> },
   { slug: "lead-statuses", label: "סטטוסי ליד", group: "נתונים וכרטיסים", business: true, render: (a) => <LeadStatusesSettings isAdmin={a} /> },

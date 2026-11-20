@@ -12,6 +12,7 @@ export async function POST(request: Request) {
       mergeRepeatLeads?: boolean;
       companySignature?: { image?: string; name?: string; title?: string; senderName?: string; senderEmail?: string } | null;
       lostReasons?: string[];
+      matchingConfig?: unknown;
     };
     const patch: Record<string, unknown> = {};
     if (typeof body.meetingReminders === "boolean") patch.meeting_reminders = body.meetingReminders;
@@ -31,6 +32,11 @@ export async function POST(request: Request) {
           senderEmail: sig.senderEmail?.trim().slice(0, 160) || undefined,
         };
       else throw new HttpError(400, "החתימה לא תקינה — יש לצייר או להעלות תמונה קטנה יותר");
+    }
+    if (body.matchingConfig && typeof body.matchingConfig === "object") {
+      const json = JSON.stringify(body.matchingConfig);
+      if (json.length > 20_000) throw new HttpError(400, "ההגדרות גדולות מדי");
+      patch.matching_config = JSON.parse(json);
     }
     if (!Object.keys(patch).length) throw new HttpError(400, "אין מה לעדכן");
     const { error } = await supabaseAdmin().from("organizations").update(patch).eq("id", orgId);
