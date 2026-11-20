@@ -15,6 +15,7 @@ import { MatchPanel } from "@/components/objects/MatchPanel";
 import { NewRecordSheet } from "@/components/objects/NewRecordSheet";
 import { LeadCalls } from "@/components/leads/LeadCalls";
 import { FilesSection } from "@/components/FilesSection";
+import { ShareButton } from "@/components/share/ShareButton";
 import type { CrmRecord, ObjectField, ObjectType } from "@/lib/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,6 +106,7 @@ export default function RecordPage() {
             הליד: {contactNames[r.contactId] ?? "פתיחה"}
           </Link>
         )}
+        {!editing && <ShareButton record={r} type={type} />}
         {!editing ? (
           <button onClick={() => setEditing({ ...r.data })} className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800">
             עריכה

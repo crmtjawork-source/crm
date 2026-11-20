@@ -7,6 +7,7 @@ import { useStore } from "@/lib/store";
 import { mapRecord } from "@/lib/useRecords";
 import { stageField, optionLabel, optionColor } from "@/lib/objects";
 import type { Contact, CrmRecord, ObjectType } from "@/lib/types";
+import { ShareButton } from "@/components/share/ShareButton";
 import { NewRecordSheet } from "@/components/objects/NewRecordSheet";
 
 const fetchLinked = async (contactId: string) =>
@@ -59,8 +60,8 @@ export function LeadRecords({ contact }: { contact: Contact }) {
             const stage = type && stageField(type);
             const v = stage ? r.data[stage.key] : null;
             return (
-              <li key={r.id}>
-                <Link href={`/o/${r.objectTypeId}/${r.id}`} className="flex items-center gap-2 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm px-3 py-2 text-sm">
+              <li key={r.id} className="flex items-center gap-2">
+                <Link href={`/o/${r.objectTypeId}/${r.id}`} className="flex-1 flex items-center gap-2 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm px-3 py-2 text-sm">
                   <span>{type?.icon}</span>
                   <span className="text-neutral-500">{type?.singular}:</span>
                   <span className="font-medium truncate">{r.title}</span>
@@ -70,6 +71,7 @@ export function LeadRecords({ contact }: { contact: Contact }) {
                     </span>
                   )}
                 </Link>
+                {type && <ShareButton record={r} type={type} contact={contact} className="shrink-0 px-2 py-1.5 text-xs rounded-lg border border-neutral-200 dark:border-neutral-800" />}
               </li>
             );
           })}

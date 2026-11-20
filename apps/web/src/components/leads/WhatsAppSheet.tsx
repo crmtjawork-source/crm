@@ -18,6 +18,7 @@ export function WhatsAppSheet({
   appointment,
   templateId,
   documentUrl,
+  initialText,
   onClose,
   onOpened,
 }: {
@@ -25,6 +26,7 @@ export function WhatsAppSheet({
   appointment?: Appointment;
   templateId?: string;
   documentUrl?: string; // fills {{document_link}}
+  initialText?: string; // prefilled message (never sent until the agent confirms)
 
   onClose: () => void;
   onOpened?: () => void;
@@ -39,7 +41,7 @@ export function WhatsAppSheet({
 
   const [selected, setSelected] = useState(templateId ?? "");
   const template = messageTemplates.find((t) => t.id === selected);
-  const [text, setText] = useState(() => (template ? renderTemplate(template.body, ctx) : documentUrl ? `היי ${contact.name.split(" ")[0]}, מצרף כאן את המסמך לעיון ולחתימה:\n${documentUrl}` : ""));
+  const [text, setText] = useState(() => (initialText ? initialText : template ? renderTemplate(template.body, ctx) : documentUrl ? `היי ${contact.name.split(" ")[0]}, מצרף כאן את המסמך לעיון ולחתימה:\n${documentUrl}` : ""));
   // Send from my own WhatsApp or the business number.
   const { mine, all: senders } = useSendChannels();
   const canSendDirect = senders.length > 0;
