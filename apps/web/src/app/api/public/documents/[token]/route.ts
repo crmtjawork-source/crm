@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/server/supabaseAdmin";
 import { declineDocument, DocumentError, getPublicDocument, openDocument, pingDocument, signDocument } from "@/lib/server/documents";
 import { sendPendingPushes } from "@/lib/server/push";
+import { processDriveJobs } from "@/lib/server/drive";
 
 // Public (no login): the unguessable token in the link is the only
 // credential. It can read the document, report reading time, sign or decline.
@@ -19,6 +20,8 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/public/docu
   if (!doc) return Response.json({ error: "not_found" }, { status: 404 });
   return Response.json(doc, { headers: { "Cache-Control": "no-store" } });
 }
+
+export const maxDuration = 60;
 
 export async function POST(request: Request, ctx: RouteContext<"/api/public/documents/[token]">) {
   const { token } = await ctx.params;
@@ -53,6 +56,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/public/docu
         return Response.json({ error: "פעולה לא מוכרת" }, { status: 400 });
     }
     after(() => sendPendingPushes(db));
+    if (body.action === "sign") after(() => processDriveJobs(db).catch((err) => console.error("drive after-sign failed", err)));
     return Response.json({ ok: true });
   } catch (err) {
     if (err instanceof DocumentError) return Response.json({ error: err.message }, { status: 409 });

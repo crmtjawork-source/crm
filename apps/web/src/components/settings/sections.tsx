@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from "react";
 import { PushSettings } from "./PushSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { GoogleCalendarSettings } from "./GoogleCalendarSettings";
+import { DriveSettings } from "./DriveSettings";
 import { PersonalWhatsAppSettings } from "./PersonalWhatsAppSettings";
 import { ObjectsSettings } from "./ObjectsSettings";
 import { MatchingSettings } from "./MatchingSettings";
@@ -51,4 +52,16 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { slug: "integrations", label: "חיבורים וערוצים", group: "תקשורת ומסמכים", business: true, render: () => <IntegrationsSettings /> },
   { slug: "ai", label: "תמלול וסיכום AI", group: "תקשורת ומסמכים", business: true, render: (a) => <AiSettings isAdmin={a} /> },
   { slug: "roles", label: "תפקידים והרשאות", group: "ניהול", business: true, render: (a) => <RolesSettings isAdmin={a} /> },
+  {
+    slug: "drive",
+    label: "גוגל דרייב",
+    group: "תקשורת ומסמכים",
+    business: true,
+    render: (a) => (
+      <Suspense>
+        <DriveSettings isAdmin={a} />
+      </Suspense>
+    ),
+  },
+  { slug: "payments", label: "לוח תשלומים", group: "תקשורת ומסמכים", business: true, render: (a) => <PaymentSettings isAdmin={a} /> },
 ];

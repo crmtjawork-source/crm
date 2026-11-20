@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import type { Db } from "./supabaseAdmin";
 import { triggerAutomations } from "./automations";
+import { queueSignedDocument } from "./drive";
 import { SIGNER_FIELDS } from "@/lib/documents";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -143,6 +144,8 @@ export async function signDocument(
     await db.from("activities").insert({ org_id: doc.org_id, contact_id: doc.contact_id, type: "note", text: `✍️ חתם/ה על "${doc.title}" (בשם: ${signature.name})` });
     await triggerAutomations(db, doc.org_id, "document_signed", doc.contact_id);
   }
+  // Drive: queue the signed PDF for the client's folder (never throws, never blocks signing).
+  await queueSignedDocument(db, { ...doc, status: "signed" });
 }
 
 export async function declineDocument(db: Db, token: string, reason: string) {

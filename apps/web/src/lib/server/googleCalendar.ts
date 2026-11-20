@@ -21,12 +21,12 @@ function sign(payload: string): string {
   return createHmac("sha256", env.oauthStateSecret()!).update(payload).digest("base64url");
 }
 
-export function makeState(userId: string, orgId: string, kind: "personal" | "company" = "personal"): string {
+export function makeState(userId: string, orgId: string, kind: "personal" | "company" | "drive" = "personal"): string {
   const payload = Buffer.from(JSON.stringify({ u: userId, o: orgId, k: kind, e: Date.now() + 10 * 60_000 })).toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
 
-export function readState(state: string): { userId: string; orgId: string; kind: "personal" | "company" } | null {
+export function readState(state: string): { userId: string; orgId: string; kind: "personal" | "company" | "drive" } | null {
   const [payload, sig] = state.split(".");
   if (!payload || !sig) return null;
   const expected = Buffer.from(sign(payload));
@@ -34,15 +34,15 @@ export function readState(state: string): { userId: string; orgId: string; kind:
   if (expected.length !== got.length || !timingSafeEqual(expected, got)) return null;
   const data = JSON.parse(Buffer.from(payload, "base64url").toString());
   if (Date.now() > data.e) return null;
-  return { userId: data.u, orgId: data.o, kind: data.k === "company" ? "company" : "personal" };
+  return { userId: data.u, orgId: data.o, kind: data.k === "company" || data.k === "drive" ? data.k : "personal" };
 }
 
-export function authUrl(redirectUri: string, state: string): string {
+export function authUrl(redirectUri: string, state: string, scopes: string[] = SCOPES): string {
   const q = new URLSearchParams({
     client_id: env.googleClientId()!,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: SCOPES.join(" "),
+    scope: scopes.join(" "),
     access_type: "offline",
     prompt: "consent",
     include_granted_scopes: "true",
@@ -51,7 +51,7 @@ export function authUrl(redirectUri: string, state: string): string {
   return `https://accounts.google.com/o/oauth2/v2/auth?${q}`;
 }
 
-async function tokenRequest(params: Record<string, string>) {
+export async function tokenRequest(params: Record<string, string>) {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -59,7 +59,7 @@ async function tokenRequest(params: Record<string, string>) {
   });
   const json = await res.json();
   if (!res.ok) throw new Error(`Google: ${json.error_description || json.error || res.status}`);
-  return json as { access_token: string; expires_in: number; refresh_token?: string; id_token?: string };
+  return json as { access_token: string; expires_in: number; refresh_token?: string; id_token?: string; scope?: string };
 }
 
 export async function exchangeCode(code: string, redirectUri: string) {

@@ -4,6 +4,7 @@ import { confirmAction } from "@/lib/confirm";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useStore } from "@/lib/store";
+import { apiPost, ApiError } from "@/lib/api";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
@@ -43,12 +44,34 @@ export function FilesSection({ contactId, recordId }: { contactId?: string; reco
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const [folderUrl, setFolderUrl] = useState<string | null>(null);
+  const [driveBusy, setDriveBusy] = useState<string | null>(null);
   const column = contactId ? "contact_id" : "record_id";
   const id = (contactId ?? recordId)!;
 
   useEffect(() => {
     fetchFiles(column, id).then(setFiles);
   }, [column, id]);
+
+  useEffect(() => {
+    if (!contactId) return;
+    supabase.from("contacts").select("drive_folder_url").eq("id", contactId).maybeSingle().then(({ data }) => setFolderUrl(data?.drive_folder_url ?? null));
+  }, [contactId, files.length]);
+
+  async function toDrive(f: Row) {
+    setDriveBusy(f.id);
+    setError("");
+    try {
+      const r = await apiPost<{ status: string; url?: string; folderUrl?: string; error?: string }>("/api/integrations/drive/save", { fileId: f.id });
+      if (r.status === "done") {
+        setFolderUrl(r.folderUrl ?? null);
+        setFiles(await fetchFiles(column, id));
+      } else setError(r.error ?? "השמירה בדרייב נכשלה — תנסה שוב אוטומטית. אפשר לראות סטטוס בהגדרות › גוגל דרייב");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "השמירה בדרייב נכשלה");
+    }
+    setDriveBusy(null);
+  }
 
   // Thumbnails for the gallery (records only).
   useEffect(() => {
@@ -111,6 +134,11 @@ export function FilesSection({ contactId, recordId }: { contactId?: string; reco
     <section className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-sm font-semibold text-neutral-500">קבצים {files.length > 0 && <span className="font-normal text-neutral-400">({files.length})</span>}</h2>
+        {folderUrl && (
+          <a href={folderUrl} target="_blank" rel="noopener" className="text-xs text-tint hover:underline ms-auto me-2">
+            📁 תיקיית הלקוח בדרייב ↗
+          </a>
+        )}
         <label className="text-xs px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800 cursor-pointer">
           {busy ? "מעלה…" : "+ העלאת קבצים"}
           <input type="file" multiple className="hidden" disabled={busy} onChange={(e) => (upload(e.target.files), (e.target.value = ""))} />
@@ -133,7 +161,17 @@ export function FilesSection({ contactId, recordId }: { contactId?: string; reco
                   <button disabled={i === arr.length - 1} onClick={() => move(f, 1)} className="w-6 h-6 rounded bg-black/60 text-white text-xs disabled:opacity-30" aria-label="הזזה אחורה">‹</button>
                   <button disabled={i === 0} onClick={() => move(f, -1)} className="w-6 h-6 rounded bg-black/60 text-white text-xs disabled:opacity-30" aria-label="הזזה קדימה">›</button>
                 </span>
-                <button onClick={() => remove(f)} className="w-6 h-6 rounded bg-black/60 text-white text-xs" aria-label="מחיקה">×</button>
+                {contactId &&
+                (f.drive_url ? (
+                  <a href={f.drive_url} target="_blank" rel="noopener" className="text-xs text-emerald-600 shrink-0 hover:underline" title="נשמר בדרייב">
+                    ✓ בדרייב
+                  </a>
+                ) : (
+                  <button onClick={() => toDrive(f)} disabled={driveBusy === f.id} className="text-xs text-neutral-400 hover:text-tint shrink-0 disabled:opacity-50">
+                    {driveBusy === f.id ? "מעלה…" : "העלאה לתיקיית הלקוח בדרייב"}
+                  </button>
+                ))}
+              <button onClick={() => remove(f)} className="w-6 h-6 rounded bg-black/60 text-white text-xs" aria-label="מחיקה">×</button>
               </div>
             </div>
           ))}

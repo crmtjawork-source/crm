@@ -1,18 +1,22 @@
 import { supabaseAdmin } from "@/lib/server/supabaseAdmin";
 import { exchangeCode, readState } from "@/lib/server/googleCalendar";
+import { handleDriveConnected as driveConnected } from "@/lib/server/driveConnect";
 
 // Google redirects here after consent. The signed state says who started it.
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const back = (result: string) => Response.redirect(`${url.origin}/settings/calendar?google=${result}`, 302);
+  let page = "calendar";
+  const back = (result: string) => Response.redirect(`${url.origin}/settings/${page}?google=${result}`, 302);
   const state = readState(url.searchParams.get("state") ?? "");
   const code = url.searchParams.get("code");
+  if (state?.kind === "drive") page = "drive";
   if (!state || !code) return back(url.searchParams.get("error") === "access_denied" ? "denied" : "error");
 
   try {
     const db = supabaseAdmin();
     const t = await exchangeCode(code, `${url.origin}/api/integrations/google/callback`);
     if (!t.refresh_token) return back("no_refresh");
+    if (state.kind === "drive") return driveConnected(db, state, t, url.origin);
     const { data: conn, error } = await db
       .from("calendar_connections")
       .upsert({ org_id: state.orgId, user_id: state.userId, provider: "google", kind: state.kind, account_email: t.email, last_error: null }, { onConflict: "org_id,user_id,provider,kind" })
