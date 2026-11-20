@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { CALLS_CHANGED, CALL_STATUS_LABEL, outcomeLabel } from "@/lib/calls";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
 
-const STATUS: Record<string, string> = { answered: "נענתה", no_answer: "לא נענתה", busy: "תפוס", cancelled: "בוטלה", failed: "לא מחובר" };
+const STATUS = CALL_STATUS_LABEL;
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 const fetchCalls = async (column: "contact_id" | "record_id", id: string) =>
@@ -18,8 +19,13 @@ export function LeadCalls({ contactId, recordId }: { contactId?: string; recordI
   const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
-    if (contactId) fetchCalls("contact_id", contactId).then(setCalls);
-    else if (recordId) fetchCalls("record_id", recordId).then(setCalls);
+    const load = () => {
+      if (contactId) fetchCalls("contact_id", contactId).then(setCalls);
+      else if (recordId) fetchCalls("record_id", recordId).then(setCalls);
+    };
+    load();
+    window.addEventListener(CALLS_CHANGED, load);
+    return () => window.removeEventListener(CALLS_CHANGED, load);
   }, [contactId, recordId]);
 
   if (!calls.length) return null;
@@ -32,25 +38,26 @@ export function LeadCalls({ contactId, recordId }: { contactId?: string; recordI
       <ul className="space-y-1.5">
         {calls.map((c) => {
           const expanded = open === c.id;
-          const detail = c.summary || c.transcript?.length;
+          const detail = c.summary || c.notes || c.transcript?.length || c.recording_url;
           return (
             <li key={c.id} className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm text-sm">
               <button onClick={() => detail && setOpen(expanded ? null : c.id)} className="w-full flex flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2 text-start">
                 <span>{c.direction === "inbound" ? "📥" : "📤"}</span>
                 <span className={c.status === "answered" ? "" : "text-neutral-400"}>
-                  {c.direction === "inbound" ? "נכנסת" : "יוצאת"} · {STATUS[c.status] ?? c.status}
+                  {c.direction === "inbound" ? "נכנסת" : "יוצאת"} · {outcomeLabel(c.outcome) ?? STATUS[c.status] ?? c.status}
                 </span>
-                {c.status === "answered" && c.duration_seconds > 0 && <span className="text-neutral-500">{mmss(c.duration_seconds)}</span>}
+                {c.duration_seconds > 0 && <span className="text-neutral-500">{mmss(c.duration_seconds)}</span>}
                 {c.agent_name && <span className="text-neutral-500">· {c.agent_name}</span>}
                 <span className="text-xs text-neutral-400 ms-auto">{new Date(c.started_at).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" })}</span>
-                {c.summary && <span className="basis-full text-xs text-neutral-600 dark:text-neutral-400 line-clamp-1">{c.summary}</span>}
+                {(c.notes || c.summary) && <span className="basis-full text-xs text-neutral-600 dark:text-neutral-400 line-clamp-1">{c.notes || c.summary}</span>}
               </button>
               {expanded && (
                 <div className="px-3 pb-3 space-y-2 text-xs">
+                  {c.notes && <p className="leading-relaxed bg-neutral-50 dark:bg-neutral-900 rounded p-2 whitespace-pre-wrap">{c.notes}</p>}
                   {c.summary && <p className="leading-relaxed bg-neutral-50 dark:bg-neutral-900 rounded p-2">🧠 {c.summary}</p>}
                   {c.recording_url && (
                     <a href={c.recording_url} target="_blank" rel="noreferrer" className="text-sky-600 dark:text-sky-400 hover:underline">
-                      🎧 הקלטה (נפתחת במערכת המרכזייה)
+                      🎧 הקלטה
                     </a>
                   )}
                   {c.transcript?.length > 0 && (

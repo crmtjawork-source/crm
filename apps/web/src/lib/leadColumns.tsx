@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { CallLink } from "@/components/calls/CallLink";
 import { StatusSelect } from "@/components/leads/StatusSelect";
 import { OwnerSelect } from "@/components/leads/OwnerSelect";
 import { useAuth } from "@/lib/auth";
@@ -67,9 +68,9 @@ export function buildLeadCols({
       mobile: true,
       cell: (c) =>
         c.phone ? (
-          <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`} dir="ltr" className="hover:underline text-base font-bold tracking-wide text-neutral-900 dark:text-neutral-50">
+          <CallLink contact={c} dir="ltr" className="hover:underline text-base font-bold tracking-wide text-neutral-900 dark:text-neutral-50">
             {c.phone}
-          </a>
+          </CallLink>
         ) : (
           dash
         ),

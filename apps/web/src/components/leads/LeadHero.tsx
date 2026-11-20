@@ -2,6 +2,7 @@
 
 import { CalendarClock, Clock, PhoneOff, Pencil, Trash2 } from "lucide-react";
 import { CopyButton } from "@/components/CopyButton";
+import { CallLink } from "@/components/calls/CallLink";
 import { useStore } from "@/lib/store";
 import type { Contact } from "@/lib/types";
 
@@ -35,9 +36,9 @@ export function LeadHero({ contact, canDelete, onEdit, onDelete }: { contact: Co
           <p className="flex items-center gap-2 text-xl font-semibold tabular-nums mt-0.5">
             {contact.phone ? (
               <>
-                <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`} dir="ltr" className="hover:underline">
+                <CallLink contact={contact} dir="ltr" className="hover:underline">
                   {contact.phone}
-                </a>
+                </CallLink>
                 <CopyButton text={contact.phone} label="העתקת מספר טלפון" className="!text-base" />
               </>
             ) : (

@@ -10,6 +10,7 @@ import { NewLeadsBanner } from "./NewLeadsBanner";
 import { NewVersionBanner } from "./NewVersionBanner";
 import { WhatsAppDownBanner } from "./WhatsAppDownBanner";
 import { useStore } from "@/lib/store";
+import { CallProvider } from "./calls/CallProvider";
 import { useAuth } from "@/lib/auth";
 import { GateDialog } from "@/components/leads/GateDialog";
 import { canSeeHref, effectiveRole, screenOf } from "@/lib/permissions";
@@ -201,6 +202,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
+    <CallProvider>
     <div className="md:flex min-h-full">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-60 shrink-0 border-e border-black/[.08] dark:border-white/10 bg-neutral-100/70 dark:bg-neutral-900/60 backdrop-blur-xl flex-col sticky top-0 h-dvh">
@@ -261,5 +263,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         })}
       </nav>
     </div>
+    </CallProvider>
   );
 }

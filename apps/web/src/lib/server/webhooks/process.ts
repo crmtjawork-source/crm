@@ -10,6 +10,7 @@ import {
 import { handleLeadgenChange } from "./leadgen";
 import { handleGreenApiEvent } from "./greenApi";
 import { handleEvolutionEvent } from "./evolution";
+import { handleCallsPayload } from "../telephony/process";
 import { sendPendingPushes } from "../push";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,6 +73,8 @@ async function dispatch(db: Db, payload: Row): Promise<string[]> {
       const note = await handleGreenApiEvent(db, channel, payload.event ?? {});
       if (note) notes.push(note);
     }
+  } else if (payload.object === "calls") {
+    notes.push(...(await handleCallsPayload(db, payload)));
   } else {
     notes.push(`סוג אובייקט לא נתמך: ${payload.object}`);
   }

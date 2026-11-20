@@ -5,6 +5,7 @@ import { CalendarPlus, Handshake, MessageCircle, Phone, PhoneOff, type LucideIco
 import { useLeadChatHref } from "@/lib/useMyGateway";
 import type { Contact } from "@/lib/types";
 import { useLeadActions } from "./useLeadActions";
+import { CallLink } from "@/components/calls/CallLink";
 
 // Round action buttons (like a contact card): the main ones are filled.
 function Round({ icon: Icon, label, filled, disabled }: { icon: LucideIcon; label: string; filled?: string; disabled?: boolean }) {
@@ -29,9 +30,9 @@ export function QuickActions({ contact }: { contact: Contact }) {
   return (
     <>
       <div className="grid grid-cols-5 gap-2 mb-5">
-        <a href={hasPhone ? `tel:${contact.phone!.replace(/[^\d+]/g, "")}` : undefined} aria-disabled={!hasPhone} aria-label="התקשרות">
+        <CallLink contact={contact} aria-disabled={!hasPhone} aria-label="התקשרות">
           <Round icon={Phone} label="התקשרות" filled="var(--tint)" disabled={!hasPhone} />
-        </a>
+        </CallLink>
         <Link href={chatHref} aria-disabled={!hasPhone} aria-label="וואטסאפ">
           <Round icon={MessageCircle} label="וואטסאפ" filled="var(--whatsapp)" disabled={!hasPhone} />
         </Link>

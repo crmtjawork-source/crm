@@ -8,6 +8,7 @@ import { useLeadChatHref } from "@/lib/useMyGateway";
 import { nextStepFor } from "@/lib/nextStep";
 import type { Contact } from "@/lib/types";
 import { useLeadActions } from "./useLeadActions";
+import { CallLink } from "@/components/calls/CallLink";
 
 const TONE = {
   info: "border-tint/30 bg-tint/10",
@@ -29,7 +30,6 @@ export function NextStepCard({ contact }: { contact: Contact }) {
   if (!step || dismissed === step.title) return null;
 
   const btn = "inline-flex items-center gap-1.5 min-h-9 rounded-lg px-3.5 text-sm font-semibold";
-  const phoneHref = contact.phone ? `tel:${contact.phone.replace(/[^\d+]/g, "")}` : undefined;
   return (
     <div className={`mb-4 rounded-2xl border p-4 ${TONE[step.tone]}`} role="region" aria-label="הצעד הבא">
       <div className="flex items-start gap-3">
@@ -48,10 +48,10 @@ export function NextStepCard({ contact }: { contact: Contact }) {
               </Link>
             )}
             {step.action === "call" && (
-              <a href={phoneHref} className={`${btn} bg-tint text-white`}>
+              <CallLink contact={contact} className={`${btn} bg-tint text-white`}>
                 <Phone size={16} aria-hidden />
                 {step.actionLabel}
-              </a>
+              </CallLink>
             )}
             {step.action === "meeting" && (
               <button onClick={() => startMeeting()} className={`${btn} bg-tint text-white`}>

@@ -7,11 +7,12 @@ import { ArrowRightLeft, ImagePlus, PhoneIncoming, PhoneOutgoing, type LucideIco
 import { supabase } from "@/lib/supabaseClient";
 import { Segmented } from "@/components/ui/Segmented";
 import { NoteItem } from "./NoteItem";
+import { CALLS_CHANGED, outcomeLabel } from "@/lib/calls";
 import { joinNote, NOTE_IMAGE_MAX, uploadNoteImage } from "@/lib/noteImages";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type CallRow = Record<string, any>;
-const CALL_STATUS: Record<string, string> = { answered: "נענתה", no_answer: "לא נענתה", busy: "תפוס", cancelled: "בוטלה", failed: "לא מחובר" };
+const CALL_STATUS: Record<string, string> = { initiated: "ממתינה לתיעוד", answered: "נענתה", no_answer: "לא נענתה", busy: "תפוס", cancelled: "בוטלה", failed: "לא מחובר" };
 const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
 type Filter = "all" | "notes" | "calls";
 
@@ -46,15 +47,20 @@ export function LeadNotesPanel({ contact }: { contact: Contact }) {
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
   useEffect(() => {
     let alive = true;
-    supabase
-      .from("calls")
-      .select("*")
-      .eq("contact_id", contact.id)
-      .order("started_at", { ascending: false })
-      .limit(100)
-      .then(({ data }) => alive && setCalls(data ?? []));
+    const load = () =>
+      supabase
+        .from("calls")
+        .select("*")
+        .eq("contact_id", contact.id)
+        .order("started_at", { ascending: false })
+        .limit(100)
+        .then(({ data }) => alive && setCalls(data ?? []));
+    load();
+    // A call was just logged or finished from the app: show it right away.
+    window.addEventListener(CALLS_CHANGED, load);
     return () => {
       alive = false;
+      window.removeEventListener(CALLS_CHANGED, load);
     };
   }, [contact.id]);
   const all = activitiesFor(contact.id);
@@ -79,8 +85,8 @@ export function LeadNotesPanel({ contact }: { contact: Contact }) {
             key={`call-${c.id}`}
             icon={inbound ? PhoneIncoming : PhoneOutgoing}
             color={answered ? "#30d158" : "#ff9f0a"}
-            title={`שיחה ${inbound ? "נכנסת" : "יוצאת"} · ${CALL_STATUS[c.status] ?? c.status}${answered && c.duration_seconds > 0 ? ` · ${mmss(c.duration_seconds)}` : ""}`}
-            detail={c.summary}
+            title={`שיחה ${inbound ? "נכנסת" : "יוצאת"} · ${outcomeLabel(c.outcome) ?? CALL_STATUS[c.status] ?? c.status}${c.duration_seconds > 0 ? ` · ${mmss(c.duration_seconds)}` : ""}${c.agent_name ? ` · ${c.agent_name}` : ""}${c.recording_url ? " · 🎧 הקלטה" : ""}`}
+            detail={c.notes || c.summary}
             at={c.started_at}
           />
         ),
