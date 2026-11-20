@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "./supabaseClient";
 import { apiPost } from "./api";
+import { missingGates, openGateDialog, parseGateError } from "./gates";
 import type {
   LeadStatus,
   ScheduledMessage,
@@ -151,7 +152,8 @@ type Store = State & {
   updateOpportunity: (opportunityId: string, patch: OpportunityPatch) => Promise<void>;
   deleteOpportunity: (opportunityId: string) => Promise<void>;
   setOpportunityStatus: (opportunityId: string, status: OpportunityStatus, lostReason?: string) => Promise<void>;
-  moveOpportunity: (opportunityId: string, stageId: string) => Promise<void>;
+  // Returns false when the move did not happen (e.g. a stage gate still has missing requirements).
+  moveOpportunity: (opportunityId: string, stageId: string, opts?: { quiet?: boolean }) => Promise<boolean>;
 
   addNote: (contactId: string, text: string) => Promise<void>;
   updateNote: (activityId: string, text: string) => Promise<void>;
@@ -1190,7 +1192,7 @@ export function StoreProvider({
     // A lead keeps one open deal per pipeline: if it has one, move that deal instead of opening a second.
     const existing = state.opportunities.find((x) => x.contactId === o.contactId && x.pipelineId === o.pipelineId && x.status === "open");
     if (existing) {
-      if (existing.stageId !== o.stageId) await moveOpportunity(existing.id, o.stageId);
+      if (existing.stageId !== o.stageId) await moveOpportunity(existing.id, o.stageId, { quiet: true });
       return existing;
     }
     const { data, error } = await supabase
@@ -1204,7 +1206,7 @@ export function StoreProvider({
       if (found) {
         const opp = mapOpportunity(found);
         setState((s) => ({ ...s, opportunities: upsertById(s.opportunities, opp) }));
-        if (opp.stageId !== o.stageId) await moveOpportunity(opp.id, o.stageId);
+        if (opp.stageId !== o.stageId) await moveOpportunity(opp.id, o.stageId, { quiet: true });
         return opp;
       }
     }
@@ -1243,13 +1245,24 @@ export function StoreProvider({
     setState((s) => ({ ...s, opportunities: s.opportunities.filter((o) => o.id !== opportunityId) }));
   };
 
-  const moveOpportunity: Store["moveOpportunity"] = async (opportunityId, stageId) => {
+  const moveOpportunity: Store["moveOpportunity"] = async (opportunityId, stageId, opts) => {
     const opp = state.opportunities.find((o) => o.id === opportunityId);
-    if (!opp || opp.stageId === stageId) return;
+    if (!opp || opp.stageId === stageId) return false;
+    // Stage gates: explain what is missing and let the agent fix it, instead of moving.
+    const missing = await missingGates(opportunityId, stageId);
+    if (missing.length) {
+      if (!opts?.quiet) openGateDialog({ oppId: opportunityId, toStageId: stageId, missing });
+      return false;
+    }
     const pipeline = state.pipelines.find((p) => p.id === opp.pipelineId);
     const stageName = pipeline?.stages.find((st) => st.id === stageId)?.name ?? stageId;
 
-    const { data } = await supabase.from("opportunities").update({ stage_id: stageId }).eq("id", opportunityId).select().single();
+    const { data, error: moveError } = await supabase.from("opportunities").update({ stage_id: stageId }).eq("id", opportunityId).select().single();
+    if (moveError) {
+      const blocked = parseGateError(moveError.message);
+      if (blocked?.length && !opts?.quiet) openGateDialog({ oppId: opportunityId, toStageId: stageId, missing: blocked });
+      return false;
+    }
 
     const { data: activityRow } = await supabase
       .from("activities")
@@ -1263,6 +1276,7 @@ export function StoreProvider({
       activities: activityRow ? upsertById(s.activities, mapActivity(activityRow)) : s.activities,
     }));
     await runAutomations("stage_change", opp.contactId, { pipelineId: opp.pipelineId, stageId });
+    return true;
   };
 
   const addNote: Store["addNote"] = async (contactId, text) => {

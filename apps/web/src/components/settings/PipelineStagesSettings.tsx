@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { colorAt } from "@/components/ui/ColorChip";
 import type { Pipeline, Stage } from "@/lib/types";
+import { useStageGates, type GateDirection, type GateKind } from "@/lib/gates";
 
 const input = "px-2 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent";
 const small = "text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 disabled:opacity-25 px-1.5 py-0.5";
@@ -185,8 +186,89 @@ function StageRow({ pipeline, stage, index, count, isAdmin }: { pipeline: Pipeli
         )}
       </div>
       {linked && <p className="text-[11px] text-neutral-400 mt-1">ליד שנכנס לשלב הזה מקבל {linked.singular} ב{linked.name} (פעם אחת לכל ליד), ונשאר בפייפליין. עסקאות שכבר בשלב לא נוספות רטרואקטיבית.</p>}
+      <GatesEditor pipeline={pipeline} stage={stage} isAdmin={isAdmin} />
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </li>
+  );
+}
+
+// Requirements for moving a deal into / out of a stage: items to tick and
+// documents to upload. A move that doesn't meet them is refused (everywhere:
+// board, table, lead card, automations) and the agent sees what is missing.
+function GatesEditor({ pipeline, stage, isAdmin }: { pipeline: Pipeline; stage: Stage; isAdmin: boolean }) {
+  const { orgId } = useStore();
+  const { gates, add, remove } = useStageGates();
+  const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState("");
+  const [kind, setKind] = useState<GateKind>("check");
+  const [direction, setDirection] = useState<GateDirection>("leave");
+  const [target, setTarget] = useState("");
+  const [error, setError] = useState("");
+  const mine = gates.filter((g) => g.stageId === stage.id);
+  const nameOf = (id?: string) => pipeline.stages.find((x) => x.id === id)?.name;
+  if (!isAdmin && !mine.length) return null;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!label.trim()) return;
+    setError(await add(orgId, { stageId: stage.id, direction, targetStageId: direction === "leave" && target ? target : undefined, kind, label: label.trim() }));
+    setLabel("");
+  }
+
+  return (
+    <div className="mt-1.5 text-xs">
+      <button type="button" onClick={() => setOpen(!open)} className="text-neutral-500 hover:underline">
+        {open ? "▾" : "▸"} דרישות מעבר {mine.length > 0 && `(${mine.length})`}
+      </button>
+      {open && (
+        <div className="mt-1.5 ps-3 space-y-1.5">
+          {mine.length === 0 && <p className="text-neutral-400">אין דרישות. אפשר להוסיף פריט לסימון או מסמך שחייבים להעלות לפני מעבר.</p>}
+          {mine.map((g) => (
+            <div key={g.id} className="flex items-center gap-2">
+              <span>{g.kind === "file" ? "📎" : "☑"}</span>
+              <span className="font-medium">{g.label}</span>
+              <span className="text-neutral-400">
+                {g.direction === "enter" ? "· חובה לפני כניסה לשלב" : g.targetStageId ? `· חובה לפני מעבר ל"${nameOf(g.targetStageId) ?? "?"}"` : "· חובה לפני מעבר קדימה"}
+              </span>
+              {isAdmin && (
+                <button type="button" onClick={() => void remove(g.id)} className="ms-auto text-neutral-300 hover:text-red-500" aria-label="הסרת דרישה">
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+          {isAdmin && (
+            <form onSubmit={submit} className="flex flex-wrap items-center gap-1.5 pt-1">
+              <select value={kind} onChange={(e) => setKind(e.target.value as GateKind)} className={`${input} py-1`}>
+                <option value="check">פריט לסימון</option>
+                <option value="file">מסמך להעלאה</option>
+              </select>
+              <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={kind === "file" ? "סוג מסמך (למשל: תעודות זהות)" : "שם הפריט (למשל: שמאות)"} className={`${input} py-1 flex-1 min-w-40`} />
+              <select value={direction} onChange={(e) => setDirection(e.target.value as GateDirection)} className={`${input} py-1`}>
+                <option value="leave">לפני יציאה מהשלב</option>
+                <option value="enter">לפני כניסה לשלב</option>
+              </select>
+              {direction === "leave" && (
+                <select value={target} onChange={(e) => setTarget(e.target.value)} className={`${input} py-1`}>
+                  <option value="">לכל מעבר קדימה</option>
+                  {pipeline.stages
+                    .filter((x) => x.id !== stage.id)
+                    .map((x) => (
+                      <option key={x.id} value={x.id}>
+                        רק למעבר ל: {x.name}
+                      </option>
+                    ))}
+                </select>
+              )}
+              <button type="submit" className="px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-neutral-800">
+                + הוספה
+              </button>
+            </form>
+          )}
+          {error && <p className="text-red-500">{error}</p>}
+        </div>
+      )}
+    </div>
   );
 }
 

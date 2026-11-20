@@ -196,7 +196,15 @@ async function executeStep(
       if (!opp) {
         await db.from("opportunities").insert({ org_id: automation.org_id, contact_id: contact.id, pipeline_id: stage.pipeline_id, stage_id: stage.id, title: contact.name, value: 0 });
       } else if (opp.stage_id !== stage.id) {
-        await db.from("opportunities").update({ stage_id: stage.id }).eq("id", opp.id);
+        const { error } = await db.from("opportunities").update({ stage_id: stage.id }).eq("id", opp.id);
+        // A stage gate (required checklist items / documents) can refuse the move.
+        if (error?.message.startsWith("stage_gate:")) {
+          let missing = "";
+          try {
+            missing = (JSON.parse(error.message.slice(11)) as { label: string }[]).map((m) => m.label).join(", ");
+          } catch {}
+          return { entry: `⚠️ העברה לשלב "${stage.name}" נחסמה — חסר: ${missing}`, contact };
+        }
       }
       return { entry: `הועבר לשלב "${stage.name}"`, contact };
     }

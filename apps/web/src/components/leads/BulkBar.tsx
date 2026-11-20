@@ -82,7 +82,7 @@ export function BulkBar({ contacts, onClear }: { contacts: Contact[]; onClear: (
         const deal = deals.find((o) => o.status === "open") ?? deals[0];
         if (deal) {
           if (deal.status !== "open") await setOpportunityStatus(deal.id, "open");
-          await moveOpportunity(deal.id, stageId);
+          if (!(await moveOpportunity(deal.id, stageId, { quiet: true }))) throw new Error("חסרות דרישות לשלב");
         } else await addOpportunity({ contactId: c.id, pipelineId, stageId, title: c.name, value: 0 });
       });
     }

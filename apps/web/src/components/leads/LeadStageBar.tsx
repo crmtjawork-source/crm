@@ -21,8 +21,7 @@ export function LeadStageBar({ contact, afterMove }: { contact: Contact; afterMo
   async function go(stageId: string, index: number) {
     if (open && index === current) return;
     if (!open) await setOpportunityStatus(deal.id, "open");
-    afterMove?.(deal.id, stageId);
-    await moveOpportunity(deal.id, stageId);
+    if (await moveOpportunity(deal.id, stageId)) afterMove?.(deal.id, stageId);
   }
 
   return (

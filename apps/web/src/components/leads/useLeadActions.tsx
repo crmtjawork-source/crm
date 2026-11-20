@@ -48,8 +48,7 @@ export function useLeadActions(contact: Contact, { openMeeting = false } = {}) {
     const target = pipeline?.stages.find((s) => s.name.includes(stageName));
     if (!opp || !pipeline || !target || opp.stageId === target.id) return false;
     if (onlyFromFirst && pipeline.stages[0]?.id !== opp.stageId) return false;
-    await moveOpportunity(opp.id, target.id);
-    return true;
+    return moveOpportunity(opp.id, target.id);
   }
 
   // With a linked WhatsApp the message goes out on its own; otherwise (or if

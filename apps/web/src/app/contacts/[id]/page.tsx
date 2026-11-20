@@ -21,6 +21,7 @@ import { LeadDocuments } from "@/components/documents/LeadDocuments";
 import { LeadCalls } from "@/components/leads/LeadCalls";
 import { LeadFieldsCard } from "@/components/leads/LeadFieldsCard";
 import { LeadRecords } from "@/components/leads/LeadRecords";
+import { StageRequirements } from "@/components/leads/StageRequirements";
 import { FilesSection } from "@/components/FilesSection";
 
 export default function ContactDetailPage() {
@@ -155,6 +156,7 @@ export default function ContactDetailPage() {
 
       {!editingInfo && <QuickActions contact={contact} />}
       {!editingInfo && <LeadStageBar contact={contact} afterMove={stagePrompt.afterMove} />}
+      {!editingInfo && <StageRequirements contact={contact} />}
       {!editingInfo && <NextStepCard contact={contact} />}
 
       <LeadUpcoming contact={contact} />

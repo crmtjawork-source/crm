@@ -295,8 +295,8 @@ export function PipelineBoard({ pipeline, search = "", filter }: { pipeline: Pip
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over) return;
-    stagePrompt.afterMove(String(active.id), String(over.id));
-    moveOpportunity(String(active.id), String(over.id));
+    const id = String(active.id), to = String(over.id);
+    void moveOpportunity(id, to).then((ok) => ok && stagePrompt.afterMove(id, to));
   }
 
   return (

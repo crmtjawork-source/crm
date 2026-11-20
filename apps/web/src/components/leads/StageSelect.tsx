@@ -33,8 +33,7 @@ export function StageSelect({ contact, deal, afterMove, large }: { contact: Cont
     const [pipelineId, stageId] = value.split("|");
     if (deal) {
       if (!open) await setOpportunityStatus(deal.id, "open");
-      afterMove?.(deal.id, stageId);
-      await moveOpportunity(deal.id, stageId);
+      if (await moveOpportunity(deal.id, stageId)) afterMove?.(deal.id, stageId);
     } else {
       const created = await addOpportunity({ contactId: contact.id, pipelineId, stageId, title: contact.name, value: 0 });
       afterMove?.(created.id, stageId, true);

@@ -11,6 +11,7 @@ import { NewVersionBanner } from "./NewVersionBanner";
 import { WhatsAppDownBanner } from "./WhatsAppDownBanner";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { GateDialog } from "@/components/leads/GateDialog";
 import { canSeeHref, effectiveRole, screenOf } from "@/lib/permissions";
 import { CalendarDays, CheckSquare, ClipboardList, FileText, Home, Kanban, Megaphone, MessageCircle, SlidersHorizontal, Table2, Menu, Users, Zap, type LucideIcon } from "lucide-react";
 
@@ -242,6 +243,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <WhatsAppDownBanner />
             <NewVersionBanner />
             <NewLeadsBanner />
+            <GateDialog />
             {children}
           </>
         )}

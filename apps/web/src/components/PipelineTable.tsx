@@ -54,8 +54,8 @@ export function PipelineTable({ pipeline, search = "", filter }: { pipeline: Pip
                 value={o.stageId}
                 aria-label="שלב"
                 onChange={(e) => {
-                  stagePrompt.afterMove(o.id, e.target.value);
-                  moveOpportunity(o.id, e.target.value);
+                  const to = e.target.value;
+                  void moveOpportunity(o.id, to).then((ok) => ok && stagePrompt.afterMove(o.id, to));
                 }}
                 className="appearance-none bg-transparent outline-none cursor-pointer pe-1 py-0.5 text-xs"
               >
