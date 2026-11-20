@@ -14,9 +14,11 @@ import { PipelineStagesSettings } from "./PipelineStagesSettings";
 import { MessageTemplatesSettings } from "./MessageTemplatesSettings";
 import { DocumentTemplatesSettings } from "./DocumentTemplatesSettings";
 import { RolesSettings } from "./RolesSettings";
+import { WaGroupsSettings } from "./WaGroupsSettings";
 import { IntegrationsSettings } from "./IntegrationsSettings";
-import { AiSettings } from "./AiSettings";
 import { PaymentSettings } from "./PaymentSettings";
+import { AiSettings } from "./AiSettings";
+import { TelephonySettings } from "./TelephonySettings";
 
 // The settings area: each entry is one page in the settings sidebar.
 // `business` sections are only for roles that include "settings".
@@ -50,9 +52,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { slug: "lead-statuses", label: "סטטוסי ליד", group: "נתונים וכרטיסים", business: true, render: (a) => <LeadStatusesSettings isAdmin={a} /> },
   { slug: "messages", label: "הודעות מוכנות", group: "תקשורת ומסמכים", business: true, render: (a) => <MessageTemplatesSettings isAdmin={a} /> },
   { slug: "documents", label: "הצעות והסכמים", group: "תקשורת ומסמכים", business: true, render: (a) => <DocumentTemplatesSettings isAdmin={a} /> },
-  { slug: "integrations", label: "חיבורים וערוצים", group: "תקשורת ומסמכים", business: true, render: () => <IntegrationsSettings /> },
-  { slug: "ai", label: "תמלול וסיכום AI", group: "תקשורת ומסמכים", business: true, render: (a) => <AiSettings isAdmin={a} /> },
-  { slug: "roles", label: "תפקידים והרשאות", group: "ניהול", business: true, render: (a) => <RolesSettings isAdmin={a} /> },
   {
     slug: "drive",
     label: "גוגל דרייב",
@@ -65,4 +64,9 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     ),
   },
   { slug: "payments", label: "לוח תשלומים", group: "תקשורת ומסמכים", business: true, render: (a) => <PaymentSettings isAdmin={a} /> },
+  { slug: "integrations", label: "חיבורים וערוצים", group: "תקשורת ומסמכים", business: true, render: () => <IntegrationsSettings /> },
+  { slug: "telephony", label: "טלפוניה והקלטות", group: "תקשורת ומסמכים", business: true, render: (a) => <TelephonySettings isAdmin={a} /> },
+  { slug: "wa-groups", label: "קבוצות וואטסאפ", group: "תקשורת ומסמכים", business: true, render: (a) => <WaGroupsSettings isAdmin={a} /> },
+  { slug: "ai", label: "תמלול וסיכום AI", group: "תקשורת ומסמכים", business: true, render: (a) => <AiSettings isAdmin={a} /> },
+  { slug: "roles", label: "תפקידים והרשאות", group: "ניהול", business: true, render: (a) => <RolesSettings isAdmin={a} /> },
 ];

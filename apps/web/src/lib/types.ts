@@ -175,6 +175,8 @@ export type AutomationStep = {
   type: AutomationStepType;
   message?: string; // send_message (free text, only inside the 24h window)
   channelId?: string; // send_message: which number sends it; empty = org default
+  channelMode?: "whatsapp" | "auto"; // send_message: auto = WhatsApp if connected, else the fallback; empty = org default
+  fallback?: "hold" | "task" | "notify" | "email" | "skip"; // send_message in auto mode: what to do when WhatsApp is down
   sender?: "channel" | "owner"; // owner = the lead owner's linked WhatsApp
   messageTemplateId?: string; // send_message: a ready-made message (message_templates)
   templateName?: string; // send_message: approved WhatsApp template
@@ -220,6 +222,7 @@ export type Channel = {
   // WhatsApp linked through the unofficial Green-API gateway (QR scan).
   provider: "whatsapp_cloud" | "green_api" | "evolution";
   externalId: string; // phone_number_id, or Green-API idInstance
+  unhealthySince?: string; // set while a linked number is disconnected
   status?: string; // green_api: authorized / notAuthorized / blocked …
   wabaId?: string;
   displayPhone?: string;

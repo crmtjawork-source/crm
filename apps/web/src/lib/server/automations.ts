@@ -1,6 +1,8 @@
 import "server-only";
 import type { Db } from "./supabaseAdmin";
-import { sendToContact, type OutgoingContent } from "./whatsapp";
+import { resolveChannel, sendToContact, type OutgoingContent } from "./whatsapp";
+import { channelDownReason, channelIsUp, isGatewayError, loadAutomationDefaults, stepPolicy, DEFAULT_HOLD_EXPIRE_HOURS, type FallbackKind } from "./waHealth";
+import { sendEmail } from "./email";
 import { composeForLead, pickChannel, sendLeadMessage } from "./leadMessages";
 
 export type TriggerType =
@@ -102,9 +104,9 @@ export async function triggerAutomations(
     if (a.trigger_tag && a.trigger_tag !== ctx.tag) return false;
     if (a.trigger_source && a.trigger_source !== ctx.source) return false;
     if (a.trigger_status && a.trigger_status !== ctx.status) return false;
+    if (type === "payment_due" && a.trigger_value && a.trigger_value !== ctx.value) return false;
     return true;
   });
-    if (type === "payment_due" && a.trigger_value && a.trigger_value !== ctx.value) return false;
 
   const runIds: string[] = [];
   for (const automation of matched) {
@@ -118,6 +120,182 @@ export async function triggerAutomations(
     await executeRun(db, run.id);
   }
   return runIds;
+}
+
+// WhatsApp can't carry the message right now (disconnected / not set up).
+export class WaUnavailableError extends Error {}
+
+// The actual WhatsApp send of a send_message step. Throws WaUnavailableError
+// when no connected channel is available (nothing is sent in that case).
+async function performSend(db: Db, automation: Row, step: Row, contact: Row, rec: RecordCtx | null): Promise<string> {
+  const fill = (t: string) => renderRecordPlaceholders(renderPlaceholders(t, contact), rec);
+  const ensureUp = async (channelId: string | null) => {
+    if (!channelId) throw new WaUnavailableError("לא הוגדר ערוץ וואטסאפ לשליחה");
+    const { data: ch } = await db.from("channels").select("*").eq("id", channelId).maybeSingle();
+    if (!channelIsUp(ch)) throw new WaUnavailableError(channelDownReason(ch));
+  };
+  // Every automation but the welcome (a brand-new lead) goes out from the personal WhatsApp of whoever handles the lead.
+  const welcome = automation.trigger_type === "new_contact";
+  if (!welcome || step.sender === "owner" || step.message_template_id) {
+    let ownerUserId: string | null = null;
+    if (contact.owner_email) {
+      const { data: u } = await db.from("users").select("id").ilike("email", contact.owner_email).maybeSingle();
+      ownerUserId = u?.id ?? null;
+    }
+    // Owner's WhatsApp when linked; otherwise the business's default number.
+    let channelId: string | null;
+    try {
+      channelId = welcome && step.channel_id ? step.channel_id : await pickChannel(db, automation.org_id, contact, !welcome || step.sender === "owner");
+    } catch (e) {
+      throw new WaUnavailableError(e instanceof Error ? e.message : String(e));
+    }
+    await ensureUp(channelId);
+    const { text, templateName, attachment } = await composeForLead(db, {
+      orgId: automation.org_id,
+      contactId: contact.id,
+      userId: ownerUserId,
+      templateId: step.message_template_id,
+      text: step.message_template_id ? null : fill(step.message ?? ""),
+    });
+    await sendLeadMessage(db, { orgId: automation.org_id, channelId: channelId!, contactId: contact.id, text: renderRecordPlaceholders(text, rec), attachment, label: `אוטומציה "${automation.name}"`, userId: ownerUserId, origin: "automation" });
+    return `נשלחה הודעה${templateName ? ` "${templateName}"` : ""}`;
+  }
+  let target: Row | null = null;
+  try {
+    target = await resolveChannel(db, automation.org_id, step.channel_id);
+  } catch (e) {
+    throw new WaUnavailableError(e instanceof Error ? e.message : String(e));
+  }
+  if (!channelIsUp(target)) throw new WaUnavailableError(channelDownReason(target));
+  const content: OutgoingContent = step.template_name
+    ? {
+        kind: "template",
+        name: step.template_name,
+        language: step.template_language || "he",
+        bodyParams: (step.template_params ?? []).map((p: string) => renderPlaceholders(p, contact)),
+        ...(step.template_button_param ? { buttonUrlParam: renderPlaceholders(step.template_button_param, contact) } : {}),
+      }
+    : { kind: "text", body: fill(step.message ?? "") };
+  await sendToContact(db, { orgId: automation.org_id, contactId: contact.id, channelId: step.channel_id, content, origin: "automation" });
+  return step.template_name ? `נשלחה תבנית וואטסאפ "${step.template_name}"` : "נשלחה הודעת וואטסאפ";
+}
+
+// What the message's text would have been (for fallbacks that carry it elsewhere).
+async function previewText(db: Db, automation: Row, step: Row, contact: Row, rec: RecordCtx | null): Promise<string> {
+  try {
+    const { text } = await composeForLead(db, { orgId: automation.org_id, contactId: contact.id, templateId: step.message_template_id, text: step.message_template_id ? null : renderRecordPlaceholders(renderPlaceholders(step.message ?? "", contact), rec) });
+    return renderRecordPlaceholders(text, rec) || `[תבנית ${step.template_name ?? ""}]`;
+  } catch {
+    return step.message ?? `[תבנית ${step.template_name ?? ""}]`;
+  }
+}
+
+async function applyFallback(db: Db, automation: Row, step: Row, contact: Row, rec: RecordCtx | null, fallback: FallbackKind, reason: string, where: { runId: string; position: number }): Promise<string> {
+  const hold = async (why: string) => {
+    await db.from("automation_held_sends").upsert(
+      { org_id: automation.org_id, run_id: where.runId, automation_id: automation.id, step_id: step.id ?? null, step_position: where.position, contact_id: contact.id, reason: why, status: "pending" },
+      { onConflict: "run_id,step_position", ignoreDuplicates: true }
+    );
+    return `⏸ ממתין לחיבור וואטסאפ (${why}) — תישלח אוטומטית כשיחובר`;
+  };
+  if (fallback === "skip") return `⏭ וואטסאפ לא זמין (${reason}) — ההודעה דולגה`;
+  const text = await previewText(db, automation, step, contact, rec);
+  if (fallback === "task") {
+    const ownerEmail = rec?.record.owner_email ?? contact.owner_email ?? null;
+    const { data: owner } = ownerEmail ? await db.from("users").select("full_name").ilike("email", ownerEmail).maybeSingle() : { data: null };
+    await db.from("tasks").insert({ org_id: automation.org_id, title: `לשלוח ל${contact.name} בעצמך (וואטסאפ לא זמין): ${text.slice(0, 80)}`, contact_id: contact.id, record_id: rec?.record.id ?? null, due_date: new Date().toISOString().slice(0, 10), assignee: owner?.full_name ?? null });
+    await db.from("activities").insert({ org_id: automation.org_id, contact_id: contact.id, type: "note", text: `📝 הודעה שלא נשלחה (וואטסאפ לא זמין) — אוטומציה "${automation.name}":\n${text}` });
+    return `📝 וואטסאפ לא זמין (${reason}) — נפתחה משימה לשלוח ידנית`;
+  }
+  if (fallback === "notify") {
+    await db.from("notifications").insert({ org_id: automation.org_id, contact_id: contact.id, target_email: contact.owner_email ?? null, text: `⚠ אוטומציה "${automation.name}": הודעה ל${contact.name} לא נשלחה — וואטסאפ לא זמין. ${text.slice(0, 120)}` });
+    return `🔔 וואטסאפ לא זמין (${reason}) — נשלחה התראה לצוות`;
+  }
+  if (fallback === "email") {
+    if (!contact.email) return await hold(`${reason}; לליד אין אימייל`);
+    try {
+      await sendEmail({ to: contact.email, subject: automation.name, text });
+      await db.from("activities").insert({ org_id: automation.org_id, contact_id: contact.id, type: "note", text: `✉️ נשלח באימייל במקום וואטסאפ — אוטומציה "${automation.name}":\n${text}` });
+      return `✉️ וואטסאפ לא זמין (${reason}) — נשלח אימייל`;
+    } catch (e) {
+      return await hold(`${reason}; אימייל נכשל: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return await hold(reason);
+}
+
+export type ReleaseResult = { sent: number; stillHeld: number; failed: number; expired: number };
+
+// Sends held automation messages whose channel is connected again. Each row is
+// claimed (pending → sending) before the send, so overlapping cron runs and the
+// "send all" button can never send the same message twice. A row that dies mid-send
+// is marked failed, never resent (WhatsApp may already have delivered it).
+export async function releaseHeldSends(db: Db, opts: { orgId?: string; ids?: string[] } = {}): Promise<ReleaseResult> {
+  const out: ReleaseResult = { sent: 0, stillHeld: 0, failed: 0, expired: 0 };
+  await db.from("automation_held_sends").update({ status: "failed", error: "השליחה נקטעה — לא ידוע אם ההודעה יצאה", resolved_at: new Date().toISOString() }).eq("status", "sending").lt("held_at", new Date(Date.now() - 10 * 60_000).toISOString());
+  let q = db.from("automation_held_sends").select("*").eq("status", "pending").order("held_at").limit(100);
+  if (opts.orgId) q = q.eq("org_id", opts.orgId);
+  if (opts.ids?.length) q = q.in("id", opts.ids);
+  const { data: held, error } = await q;
+  if (error) return out; // table missing (migration not applied yet)
+  const defaultsCache = new Map<string, Awaited<ReturnType<typeof loadAutomationDefaults>>>();
+  const finish = (id: string, status: string, error?: string | null) => db.from("automation_held_sends").update({ status, error: error ?? null, resolved_at: new Date().toISOString() }).eq("id", id);
+  for (const h of held ?? []) {
+    const [{ data: automation }, { data: run }] = await Promise.all([
+      db.from("automations").select("*").eq("id", h.automation_id).maybeSingle(),
+      db.from("automation_runs").select("*").eq("id", h.run_id).maybeSingle(),
+    ]);
+    const { data: step } = h.step_id ? await db.from("automation_steps").select("*").eq("id", h.step_id).maybeSingle() : { data: null };
+    const { data: contact } = h.contact_id ? await db.from("contacts").select("*").eq("id", h.contact_id).maybeSingle() : { data: null };
+    const bump = (msg: string) => run && db.from("automation_runs").update({ steps_log: [...(run.steps_log ?? []), msg] }).eq("id", run.id);
+    if (!automation || !run || !step || !contact || !automation.active) {
+      await finish(h.id, "cancelled", "האוטומציה, הצעד או הליד לא קיימים / האוטומציה כבויה");
+      continue;
+    }
+    // Too old to still be useful → hand it to a human instead.
+    if (!defaultsCache.has(h.org_id)) defaultsCache.set(h.org_id, await loadAutomationDefaults(db, h.org_id));
+    const expireH = defaultsCache.get(h.org_id)!.hold_expire_hours ?? DEFAULT_HOLD_EXPIRE_HOURS;
+    if (Date.now() - new Date(h.held_at).getTime() > expireH * 3600_000) {
+      const entry = await applyFallback(db, automation, step, contact, null, "task", `ממתין יותר מ-${expireH} שעות`, { runId: h.run_id, position: h.step_position });
+      await finish(h.id, "expired", "פג תוקף ההמתנה");
+      await bump(entry);
+      out.expired++;
+      continue;
+    }
+    const { data: claimed } = await db.from("automation_held_sends").update({ status: "sending" }).eq("id", h.id).eq("status", "pending").select("id");
+    if (!claimed?.length) continue;
+    try {
+      let rec: RecordCtx | null = null;
+      if (run.record_id) {
+        const { data: record } = await db.from("records").select("*").eq("id", run.record_id).maybeSingle();
+        if (record) {
+          const [{ data: type }, { data: fields }] = await Promise.all([db.from("object_types").select("*").eq("id", record.object_type_id).single(), db.from("object_fields").select("*").eq("object_type_id", record.object_type_id).order("position")]);
+          rec = { record, type, fields: fields ?? [] };
+        }
+      }
+      const entry = await performSend(db, automation, step, contact, rec);
+      await finish(h.id, "sent");
+      await bump(`✓ ${entry} (אחרי שהוואטסאפ חובר מחדש)`);
+      await db.from("activities").insert({ org_id: h.org_id, contact_id: contact.id, type: "note", text: `🤖 אוטומציה "${automation.name}": ${entry} (הייתה ממתינה לחיבור וואטסאפ)` });
+      out.sent++;
+    } catch (err) {
+      if (err instanceof WaUnavailableError) {
+        await db.from("automation_held_sends").update({ status: "pending", reason: err.message }).eq("id", h.id); // still down: keep waiting
+        out.stillHeld++;
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (isGatewayError(err) && !/ייתכן שההודעה כבר יצאה/.test(msg)) {
+          await db.from("automation_held_sends").update({ status: "pending", reason: msg }).eq("id", h.id);
+          out.stillHeld++;
+        } else {
+          await finish(h.id, "failed", msg);
+          await bump(`❌ שליחה מושהית נכשלה: ${msg}`);
+          out.failed++;
+        }
+      }
+    }
+  }
+  return out;
 }
 
 async function executeStep(
@@ -214,53 +392,14 @@ async function executeStep(
       return { entry: `הועבר לשלב "${stage.name}"`, contact };
     }
     case "send_message": {
-      // From the lead owner's own WhatsApp and/or with a ready-made message.
-      // Every automation but the welcome (a brand-new lead) goes out from the personal WhatsApp of whoever handles the lead.
-      const welcome = automation.trigger_type === "new_contact";
-      if (!welcome || step.sender === "owner" || step.message_template_id) {
-        try {
-          let ownerUserId: string | null = null;
-          if (contact.owner_email) {
-            const { data: u } = await db.from("users").select("id").ilike("email", contact.owner_email).maybeSingle();
-            ownerUserId = u?.id ?? null;
-          }
-          // Owner's WhatsApp when linked; otherwise the business's default number.
-          const channelId: string | null = welcome && step.channel_id ? step.channel_id : await pickChannel(db, automation.org_id, contact, !welcome || step.sender === "owner");
-          if (!channelId) throw new Error("לא הוגדר ערוץ וואטסאפ לשליחה");
-          const { text, templateName, attachment } = await composeForLead(db, {
-            orgId: automation.org_id,
-            contactId: contact.id,
-            userId: ownerUserId,
-            templateId: step.message_template_id,
-            text: step.message_template_id ? null : fill(step.message ?? ""),
-          });
-          // Ready-made messages may use the record's fields too.
-          await sendLeadMessage(db, { orgId: automation.org_id, channelId, contactId: contact.id, text: renderRecordPlaceholders(text, rec), attachment, label: `אוטומציה "${automation.name}"`, userId: ownerUserId, origin: "automation" });
-          return { entry: `נשלחה הודעה${templateName ? ` "${templateName}"` : ""}`, contact };
-        } catch (err) {
-          return { entry: `❌ שליחת הודעה נכשלה: ${err instanceof Error ? err.message : String(err)}`, contact };
-        }
-      }
-      const content: OutgoingContent = step.template_name
-        ? {
-            kind: "template",
-            name: step.template_name,
-            language: step.template_language || "he",
-            bodyParams: (step.template_params ?? []).map((p: string) => renderPlaceholders(p, contact)),
-            ...(step.template_button_param ? { buttonUrlParam: renderPlaceholders(step.template_button_param, contact) } : {}),
-          }
-        : { kind: "text", body: fill(step.message ?? "") };
+      const defaults = await loadAutomationDefaults(db, automation.org_id);
+      const policy = stepPolicy(step, defaults);
       try {
-        await sendToContact(db, {
-          orgId: automation.org_id,
-          contactId: contact.id,
-          channelId: step.channel_id,
-          content,
-          origin: "automation",
-        });
-        return { entry: step.template_name ? `נשלחה תבנית וואטסאפ "${step.template_name}"` : "נשלחה הודעת וואטסאפ", contact };
+        return { entry: await performSend(db, automation, step, contact, rec), contact };
       } catch (err) {
-        return { entry: `❌ שליחת הודעה נכשלה: ${err instanceof Error ? err.message : String(err)}`, contact };
+        if (!(err instanceof WaUnavailableError) && !isGatewayError(err)) return { entry: `❌ שליחת הודעה נכשלה: ${err instanceof Error ? err.message : String(err)}`, contact };
+        const reason = err instanceof Error ? err.message : String(err);
+        return { entry: await applyFallback(db, automation, step, contact, rec, policy.fallback, reason, where), contact };
       }
     }
     case "add_tag": {

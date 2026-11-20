@@ -585,6 +585,8 @@ function mapAutomationStep(r: Row): AutomationStep {
     message: r.message ?? undefined,
     channelId: r.channel_id ?? undefined,
     sender: r.sender ?? "channel",
+    channelMode: r.channel_mode ?? undefined,
+    fallback: r.fallback ?? undefined,
     messageTemplateId: r.message_template_id ?? undefined,
     templateName: r.template_name ?? undefined,
     templateLanguage: r.template_language ?? undefined,
@@ -662,6 +664,7 @@ function mapChannel(r: Row): Channel {
     onboardedAt: r.onboarded_at ?? undefined,
     historySyncRequestedAt: r.history_sync_requested_at ?? undefined,
     status: r.status ?? undefined,
+    unhealthySince: r.unhealthy_since ?? undefined,
     createdAt: r.created_at,
   };
 }
@@ -1772,6 +1775,8 @@ export function StoreProvider({
         template_params: step.templateParams ?? [],
         template_button_param: step.templateButtonParam || null,
         sender: step.sender ?? "channel",
+        ...(step.channelMode ? { channel_mode: step.channelMode } : {}),
+        ...(step.fallback ? { fallback: step.fallback } : {}),
         message_template_id: step.messageTemplateId || null,
         wait_minutes: step.waitMinutes,
         tag: step.tag,

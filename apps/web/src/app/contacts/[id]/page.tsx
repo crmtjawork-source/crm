@@ -15,6 +15,7 @@ import { StageSelect } from "@/components/leads/StageSelect";
 import { StatusSelect } from "@/components/leads/StatusSelect";
 import { useStageMovePrompt } from "@/components/leads/StageMovePrompt";
 import { LeadUpcoming } from "@/components/leads/LeadUpcoming";
+import { LeadWaGroups } from "@/components/leads/LeadWaGroups";
 import { LeadStepper } from "@/components/leads/LeadStepper";
 import { LeadNotesPanel } from "@/components/leads/LeadNotesPanel";
 import { LeadDocuments } from "@/components/documents/LeadDocuments";
@@ -24,8 +25,8 @@ import { LeadFieldsCard } from "@/components/leads/LeadFieldsCard";
 import { LeadRecords } from "@/components/leads/LeadRecords";
 import { StageRequirements } from "@/components/leads/StageRequirements";
 import { FilesSection } from "@/components/FilesSection";
-
 import { LeadPayments } from "@/components/payments/LeadPayments";
+
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -162,6 +163,7 @@ export default function ContactDetailPage() {
       {!editingInfo && <NextStepCard contact={contact} />}
 
       <LeadUpcoming contact={contact} />
+      <LeadWaGroups contact={contact} />
 
       <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm divide-y divide-black/[.06] dark:divide-white/10 mb-4 overflow-hidden">
       {(() => {
@@ -299,9 +301,9 @@ export default function ContactDetailPage() {
       <LeadDocuments contact={contact} />
       <LeadCalls contactId={contact.id} />
       <LeadRecordings contact={contact} />
+      <LeadPayments contactId={contact.id} />
       <FilesSection contactId={contact.id} />
 
-      <LeadPayments contactId={contact.id} />
       </div>
       <div className="hidden lg:block">
         <LeadNotesPanel contact={contact} />

@@ -28,6 +28,9 @@ export const env = {
   // Evolution API server (self-hosted WhatsApp gateway) shared by all orgs.
   evolutionUrl: () => process.env.EVOLUTION_URL || null,
   evolutionApiKey: () => process.env.EVOLUTION_API_KEY || null,
+  // Outgoing email (automation fallback when WhatsApp is down). Resend: https://resend.com
+  resendApiKey: () => process.env.RESEND_API_KEY || null,
+  emailFrom: () => process.env.EMAIL_FROM || null,
   // AI (transcription + summary). Each org can override these in settings (org_ai_settings).
   sttProvider: () => process.env.STT_PROVIDER || null,
   sttApiKey: () => process.env.STT_API_KEY || null,

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Switch } from "@/components/ui/Switch";
+import WhatsAppHealthPanel from "@/components/automations/WhatsAppHealthPanel";
 import { useStore } from "@/lib/store";
 import type { Automation, AutomationStep, AutomationStepType, AutomationTriggerType, Channel, MessageTemplate, ObjectType } from "@/lib/types";
 
@@ -16,8 +17,8 @@ const TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
   record_created: "רשומה חדשה נוצרה (לקוח, נכס…)",
   record_stage_changed: "רשומה עברה שלב",
   record_field_changed: "שדה ברשומה השתנה",
-};
   payment_due: "תזכורת תשלום (לפני מועד תשלום בלוח התשלומים)",
+};
 
 const RECORD_TRIGGERS: AutomationTriggerType[] = ["record_created", "record_stage_changed", "record_field_changed"];
 
@@ -31,6 +32,14 @@ const STEP_LABELS: Record<AutomationStepType, string> = {
   notify: "התראה לצוות",
   add_tag: "הוספת תגית",
   update_field: "עדכון שדה ברשומה",
+};
+
+const FALLBACK_LABELS: Record<string, string> = {
+  hold: "להמתין לחיבור ולשלוח אוטומטית",
+  task: "משימה לבעל הליד לשלוח ידנית",
+  notify: "התראה לבעל הליד",
+  email: "אימייל לליד",
+  skip: "לדלג",
 };
 
 const STEP_ICONS: Record<AutomationStepType, string> = {
@@ -80,6 +89,8 @@ export default function AutomationsPage() {
         ? { type: "appointment_booked" }
         : triggerType === "status_changed"
         ? { type: "status_changed", status: status || undefined }
+        : triggerType === "payment_due"
+        ? { type: "payment_due", value: recordValue.trim() || undefined }
         : triggerType === "record_created"
         ? { type: "record_created", objectTypeId: objectType?.id }
         : triggerType === "record_stage_changed"
@@ -89,8 +100,6 @@ export default function AutomationsPage() {
         : { type: "new_contact", source: onlyMetaLeads ? "meta_lead_ads" : undefined };
     if (RECORD_TRIGGERS.includes(triggerType) && !objectType) return;
     if (triggerType === "record_field_changed" && !recordField) return;
-        : triggerType === "payment_due"
-        ? { type: "payment_due", value: recordValue.trim() || undefined }
     const automation = await addAutomation({ name: name.trim(), trigger });
     setName("");
     setCreating(false);
@@ -119,6 +128,8 @@ export default function AutomationsPage() {
           {objectTypes.length > 0 && <>, ובאוטומציות על טבלאות גם {"{{record_title}}"} ו-{"{{record:שם שדה}}"}</>}.
         </p>
       </div>
+
+      <WhatsAppHealthPanel />
 
       {creating && (
         <form onSubmit={handleCreate} className="mb-6 space-y-3 rounded-2xl bg-white dark:bg-neutral-900 border border-black/[.06] dark:border-white/10 shadow-sm p-4">
@@ -279,6 +290,13 @@ export default function AutomationsPage() {
               </select>
             </label>
           )}
+          {triggerType === "payment_due" && (
+            <label className="block text-sm">
+              <span className="block text-xs text-neutral-500 mb-1">כמה ימים לפני התשלום (ריק = כל תזכורת; 0 = ביום התשלום)</span>
+              <input type="number" min={0} value={recordValue} onChange={(e) => setRecordValue(e.target.value)} className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
+              <span className="block text-xs text-neutral-400 mt-1">בטקסטים אפשר {"{{payment_description}} {{payment_amount}} {{payment_date}} {{payment_days}}"}</span>
+            </label>
+          )}
           {triggerType === "tag_added" && (
             <label className="block text-sm">
               <span className="block text-xs text-neutral-500 mb-1">תגית (ריק = כל תגית)</span>
@@ -290,13 +308,6 @@ export default function AutomationsPage() {
             </label>
           )}
           <div className="flex gap-2">
-          {triggerType === "payment_due" && (
-            <label className="block text-sm">
-              <span className="block text-xs text-neutral-500 mb-1">כמה ימים לפני התשלום (ריק = כל תזכורת; 0 = ביום התשלום)</span>
-              <input type="number" min={0} value={recordValue} onChange={(e) => setRecordValue(e.target.value)} className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-transparent" />
-              <span className="block text-xs text-neutral-400 mt-1">בטקסטים אפשר {"{{payment_description}} {{payment_amount}} {{payment_date}} {{payment_days}}"}</span>
-            </label>
-          )}
             <button type="submit" className="px-3 py-1.5 text-sm rounded-md bg-tint text-white">
               יצירה
             </button>
@@ -338,6 +349,7 @@ function triggerSummary(automation: Automation, pipelines: ReturnType<typeof use
   }
   if (t.type === "new_contact") return t.source === "meta_lead_ads" ? `${TRIGGER_LABELS.new_contact} — מטפסי מטא בלבד` : TRIGGER_LABELS.new_contact;
   if (t.type === "appointment_booked") return TRIGGER_LABELS.appointment_booked;
+  if (t.type === "payment_due") return `${TRIGGER_LABELS.payment_due}${t.value ? ` — ${t.value} ימים לפני` : ""}`;
   if (t.type === "status_changed") return `${TRIGGER_LABELS.status_changed}${t.status ? ` ל"${t.status}"` : ""}`;
   if (t.type === "stage_change") {
     const pipeline = pipelines.find((p) => p.id === t.pipelineId);
@@ -349,10 +361,11 @@ function triggerSummary(automation: Automation, pipelines: ReturnType<typeof use
 
 function stepSummary(step: AutomationStep, channels: Channel[], templates: MessageTemplate[]): string {
   switch (step.type) {
-  if (t.type === "payment_due") return `${TRIGGER_LABELS.payment_due}${t.value ? ` — ${t.value} ימים לפני` : ""}`;
     case "send_message": {
       const channel = channels.find((c) => c.id === step.channelId);
-      const from = step.sender === "owner" ? " · מהוואטסאפ של בעל הליד" : ` · מ${channel ? channel.name : "מספר ברירת המחדל"}`;
+      const from0 = step.sender === "owner" ? " · מהוואטסאפ של בעל הליד" : ` · מ${channel ? channel.name : "מספר ברירת המחדל"}`;
+      const via = step.channelMode === "auto" ? ` · ערוץ אוטומטי (אם וואטסאפ מנותק: ${FALLBACK_LABELS[step.fallback ?? ""] ?? "ברירת מחדל של העסק"})` : step.channelMode === "whatsapp" ? " · וואטסאפ בלבד (ממתין לחיבור)" : "";
+      const from = from0 + via;
       if (step.messageTemplateId) return `: "${templates.find((t) => t.id === step.messageTemplateId)?.name ?? "הודעה מוכנה"}"${from}`;
       if (step.templateName) {
         const params = step.templateParams?.length ? ` (${step.templateParams.join(", ")})` : "";
@@ -407,6 +420,8 @@ function AutomationRow({
   const [stepValue, setStepValue] = useState("");
   const [waitMinutes, setWaitMinutes] = useState("60");
   const [channelId, setChannelId] = useState("");
+  const [channelMode, setChannelMode] = useState<"" | "whatsapp" | "auto">("");
+  const [fallback, setFallback] = useState<"" | "hold" | "task" | "notify" | "email" | "skip">("");
   const [messageMode, setMessageMode] = useState<"saved" | "template" | "text">("saved");
   const [savedTemplateId, setSavedTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("");
@@ -423,7 +438,11 @@ function AutomationRow({
       addAutomationStep(automation.id, { type: "wait", waitMinutes: Number(waitMinutes) || 0 });
     } else if (stepType === "send_message") {
       const owner = channelId === "__owner__";
-      const sendFrom = owner ? { sender: "owner" as const } : { channelId: channelId || undefined };
+      const sendFrom = {
+        ...(owner ? { sender: "owner" as const } : { channelId: channelId || undefined }),
+        ...(channelMode ? { channelMode } : {}),
+        ...(fallback ? { fallback } : {}),
+      };
       if (messageMode === "saved") {
         if (!savedTemplateId) return;
         addAutomationStep(automation.id, { type: "send_message", ...sendFrom, messageTemplateId: savedTemplateId });
@@ -650,6 +669,21 @@ function AutomationRow({
                     <option value="template">תבנית מאושרת של מטא</option>
                     <option value="text">טקסט חופשי (רק בתוך 24 שעות)</option>
                   </select>
+                  <select value={channelMode} onChange={(e) => setChannelMode(e.target.value as "" | "whatsapp" | "auto")} className={inputClass} title="מה קורה כשהוואטסאפ מנותק או לא מוגדר">
+                    <option value="">ערוץ: ברירת מחדל של העסק</option>
+                    <option value="whatsapp">וואטסאפ בלבד — ממתין לחיבור</option>
+                    <option value="auto">אוטומטי — וואטסאפ, ואם לא מחובר: חלופה</option>
+                  </select>
+                  {channelMode === "auto" && (
+                    <select value={fallback} onChange={(e) => setFallback(e.target.value as typeof fallback)} className={inputClass} title="החלופה כשהוואטסאפ לא מחובר">
+                      <option value="">חלופה: ברירת המחדל של העסק</option>
+                      {Object.entries(FALLBACK_LABELS).map(([v, l]) => (
+                        <option key={v} value={v}>
+                          {l}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </>
               )}
             </div>
