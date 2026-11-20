@@ -14,6 +14,7 @@ import { MessageTemplatesSettings } from "./MessageTemplatesSettings";
 import { DocumentTemplatesSettings } from "./DocumentTemplatesSettings";
 import { RolesSettings } from "./RolesSettings";
 import { IntegrationsSettings } from "./IntegrationsSettings";
+import { AiSettings } from "./AiSettings";
 
 // The settings area: each entry is one page in the settings sidebar.
 // `business` sections are only for roles that include "settings".
@@ -48,5 +49,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { slug: "messages", label: "הודעות מוכנות", group: "תקשורת ומסמכים", business: true, render: (a) => <MessageTemplatesSettings isAdmin={a} /> },
   { slug: "documents", label: "הצעות והסכמים", group: "תקשורת ומסמכים", business: true, render: (a) => <DocumentTemplatesSettings isAdmin={a} /> },
   { slug: "integrations", label: "חיבורים וערוצים", group: "תקשורת ומסמכים", business: true, render: () => <IntegrationsSettings /> },
+  { slug: "ai", label: "תמלול וסיכום AI", group: "תקשורת ומסמכים", business: true, render: (a) => <AiSettings isAdmin={a} /> },
   { slug: "roles", label: "תפקידים והרשאות", group: "ניהול", business: true, render: (a) => <RolesSettings isAdmin={a} /> },
 ];

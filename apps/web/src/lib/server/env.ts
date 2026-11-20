@@ -28,6 +28,16 @@ export const env = {
   // Evolution API server (self-hosted WhatsApp gateway) shared by all orgs.
   evolutionUrl: () => process.env.EVOLUTION_URL || null,
   evolutionApiKey: () => process.env.EVOLUTION_API_KEY || null,
+  // AI (transcription + summary). Each org can override these in settings (org_ai_settings).
+  sttProvider: () => process.env.STT_PROVIDER || null,
+  sttApiKey: () => process.env.STT_API_KEY || null,
+  zoomAccountId: () => process.env.ZOOM_ACCOUNT_ID || null,
+  zoomClientId: () => process.env.ZOOM_CLIENT_ID || null,
+  zoomClientSecret: () => process.env.ZOOM_CLIENT_SECRET || null,
+  // Claude API (AI reading of contracts). Without a key the contract step falls back to manual entry.
+  anthropicApiKey: () => process.env.ANTHROPIC_API_KEY || null,
+  anthropicBaseUrl: () => (process.env.ANTHROPIC_API_BASE_URL || "https://api.anthropic.com").replace(/\/+$/, ""),
+  anthropicModel: () => process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5",
   // Signs the OAuth "state" so a callback can't be forged.
   oauthStateSecret: () => process.env.OAUTH_STATE_SECRET || null,
 };

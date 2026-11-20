@@ -7,6 +7,7 @@ import { sendDueScheduledMessages } from "@/lib/server/leadMessages";
 import { sendPendingPushes } from "@/lib/server/push";
 import { processCalendarJobs } from "@/lib/server/googleCalendar";
 import { pollLeadAdPages } from "@/lib/server/webhooks/leadgen";
+import { resumeStuckRecordings } from "@/lib/server/recordings";
 import { checkGatewayHealth } from "@/lib/server/gatewayHealth";
 
 // Hit every minute by a scheduler (Supabase pg_cron + pg_net, or Vercel
@@ -36,7 +37,11 @@ async function run(request: Request) {
     console.error("gateway health failed", err);
     return {};
   });
-  return Response.json({ resumed, retried, reminders, pushes, calendar, leadAds, gateways });
+  const recordings = await resumeStuckRecordings().catch((err) => {
+    console.error("recordings resume failed", err);
+    return 0;
+  });
+  return Response.json({ recordings, resumed, retried, reminders, pushes, calendar, leadAds, gateways });
 }
 
 export const GET = run;

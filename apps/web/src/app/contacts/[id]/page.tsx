@@ -19,6 +19,7 @@ import { LeadStepper } from "@/components/leads/LeadStepper";
 import { LeadNotesPanel } from "@/components/leads/LeadNotesPanel";
 import { LeadDocuments } from "@/components/documents/LeadDocuments";
 import { LeadCalls } from "@/components/leads/LeadCalls";
+import { LeadRecordings } from "@/components/leads/LeadRecordings";
 import { LeadFieldsCard } from "@/components/leads/LeadFieldsCard";
 import { LeadRecords } from "@/components/leads/LeadRecords";
 import { StageRequirements } from "@/components/leads/StageRequirements";
@@ -296,6 +297,7 @@ export default function ContactDetailPage() {
 
       <LeadDocuments contact={contact} />
       <LeadCalls contactId={contact.id} />
+      <LeadRecordings contact={contact} />
       <FilesSection contactId={contact.id} />
 
       </div>
