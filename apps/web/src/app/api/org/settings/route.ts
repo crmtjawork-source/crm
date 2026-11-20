@@ -12,6 +12,7 @@ export async function POST(request: Request) {
       mergeRepeatLeads?: boolean;
       companySignature?: { image?: string; name?: string; title?: string; senderName?: string; senderEmail?: string } | null;
       lostReasons?: string[];
+      waGroupKinds?: string[];
       matchingConfig?: unknown;
     };
     const patch: Record<string, unknown> = {};
@@ -19,6 +20,9 @@ export async function POST(request: Request) {
     if (typeof body.mergeRepeatLeads === "boolean") patch.merge_repeat_leads = body.mergeRepeatLeads;
     if (Array.isArray(body.lostReasons)) {
       patch.lost_reasons = [...new Set(body.lostReasons.filter((r): r is string => typeof r === "string").map((r) => r.trim().slice(0, 120)).filter(Boolean))].slice(0, 30);
+    }
+    if (Array.isArray(body.waGroupKinds)) {
+      patch.wa_group_kinds = [...new Set(body.waGroupKinds.filter((r): r is string => typeof r === "string").map((r) => r.trim().slice(0, 60)).filter(Boolean))].slice(0, 12);
     }
     if ("companySignature" in body) {
       const sig = body.companySignature;

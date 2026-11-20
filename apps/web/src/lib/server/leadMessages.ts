@@ -4,6 +4,7 @@ import { isOnlineMeeting, renderTemplate } from "@/lib/templates";
 import type { Appointment, Contact } from "@/lib/types";
 import { sendToContact, userGatewayChannel, type MediaType } from "./whatsapp";
 import { env } from "./env";
+import { channelDownReason, channelIsUp } from "./waHealth";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
@@ -146,6 +147,25 @@ export async function sendDueScheduledMessages(db: Db): Promise<number> {
   const { data: due } = await db.from("scheduled_messages").select("*").eq("status", "pending").lte("send_at", new Date().toISOString()).order("send_at").limit(25);
   let sent = 0;
   for (const row of due ?? []) {
+    // WhatsApp down / not set up: don't burn the reminder as failed. It stays pending
+    // with the reason (visible in the UI) and goes out by itself once connected —
+    // unless the meeting passed (cancelled below) or it waited too long.
+    const unavailable = await whatsAppUnavailableFor(db, row);
+    if (unavailable) {
+      if (row.appointment_id) {
+        const { data: appt } = await db.from("appointments").select("start_at").eq("id", row.appointment_id).maybeSingle();
+        if (!appt || new Date(appt.start_at).getTime() < Date.now()) {
+          await db.from("scheduled_messages").update({ status: "cancelled", error: "הפגישה כבר עברה בזמן שהוואטסאפ היה מנותק", hold_reason: null }).eq("id", row.id).eq("status", "pending");
+          continue;
+        }
+      }
+      if (row.held_at && Date.now() - new Date(row.held_at).getTime() > 72 * 3600_000) {
+        await db.from("scheduled_messages").update({ status: "failed", error: `לא נשלחה — הוואטסאפ היה לא זמין יותר מ-72 שעות (${unavailable})`, hold_reason: null }).eq("id", row.id).eq("status", "pending");
+        continue;
+      }
+      await db.from("scheduled_messages").update({ hold_reason: unavailable, held_at: row.held_at ?? new Date().toISOString() }).eq("id", row.id).eq("status", "pending");
+      continue;
+    }
     const { data: claimed } = await db.from("scheduled_messages").update({ status: "sending" }).eq("id", row.id).eq("status", "pending").select("id");
     if (!claimed?.length) continue;
     try {
@@ -161,11 +181,25 @@ export async function sendDueScheduledMessages(db: Db): Promise<number> {
       const channelId = row.channel_id ?? (await pickChannel(db, row.org_id, contact, true, row.created_by));
       if (!channelId) throw new Error("אין חיבור וואטסאפ לשליחה");
       await sendLeadMessage(db, { orgId: row.org_id, channelId, contactId: row.contact_id, text, attachment, label: `נשלח אוטומטית: ${row.label}`, userId: row.created_by, origin: "automation" });
-      await db.from("scheduled_messages").update({ status: "sent", sent_at: new Date().toISOString(), error: null }).eq("id", row.id);
+      await db.from("scheduled_messages").update({ status: "sent", sent_at: new Date().toISOString(), error: null, hold_reason: null }).eq("id", row.id);
       sent++;
     } catch (err) {
       await db.from("scheduled_messages").update({ status: "failed", error: err instanceof Error ? err.message : String(err) }).eq("id", row.id);
     }
   }
   return sent;
+}
+
+// Why this scheduled message can't go out right now, or null when WhatsApp can carry it.
+async function whatsAppUnavailableFor(db: Db, row: Row): Promise<string | null> {
+  try {
+    const { data: contact } = await db.from("contacts").select("*").eq("id", row.contact_id).maybeSingle();
+    if (!contact) return null; // the normal path reports a missing lead
+    const channelId = row.channel_id ?? (await pickChannel(db, row.org_id, contact, true, row.created_by));
+    if (!channelId) return "לא מוגדר חיבור וואטסאפ";
+    const { data: ch } = await db.from("channels").select("*").eq("id", channelId).maybeSingle();
+    return channelIsUp(ch) ? null : channelDownReason(ch);
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
 }

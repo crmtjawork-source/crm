@@ -192,3 +192,12 @@ export async function markRead(name: string, keys: Array<{ remoteJid: string; fr
   if (!keys.length) return;
   await call("POST", `/chat/markMessageAsRead/${encodeURIComponent(name)}`, { readMessages: keys });
 }
+
+export type GroupParticipant = { id?: string; jid?: string; phoneNumber?: string; admin?: string | null };
+
+// Members of one group (read-only). Newer WhatsApp accounts may be listed by an
+// opaque @lid id; `phoneNumber` is filled in by Evolution when it knows the number.
+export async function groupParticipants(name: string, groupJid: string): Promise<GroupParticipant[]> {
+  const r = await call<{ participants?: GroupParticipant[] } | GroupParticipant[]>("GET", `/group/participants/${encodeURIComponent(name)}?groupJid=${encodeURIComponent(groupJid)}`);
+  return Array.isArray(r) ? r : r.participants ?? [];
+}
